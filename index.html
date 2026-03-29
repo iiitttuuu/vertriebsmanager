@@ -105,6 +105,72 @@
             <p id="dashboard-map-empty" class="empty hidden"></p>
             <div id="dashboard-map-legend" class="dashboard-map-legend"></div>
           </div>
+
+          <div id="coverage-cockpit" class="coverage-cockpit admin-only-view">
+            <div class="coverage-head">
+              <h3>Coverage Cockpit</h3>
+              <p>Abdeckung, Lücken und konkrete Maßnahmen für dein Angebotsnetz.</p>
+            </div>
+
+            <div class="coverage-controls">
+              <label>
+                Regions-Ebene
+                <select id="coverage-region-level-select">
+                  <option value="city">Ort</option>
+                  <option value="state">Bundesland</option>
+                  <option value="country">Land</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="coverage-kpis">
+              <article class="coverage-kpi">
+                <h4 id="coverage-kpi-regions">0</h4>
+                <p>Regionen gesamt</p>
+              </article>
+              <article class="coverage-kpi">
+                <h4 id="coverage-kpi-covered">0</h4>
+                <p>Regionen mit Treffer</p>
+              </article>
+              <article class="coverage-kpi">
+                <h4 id="coverage-kpi-gaps">0</h4>
+                <p>Regionen mit Lücke</p>
+              </article>
+            </div>
+
+            <div class="coverage-grid">
+              <article class="coverage-card">
+                <div class="coverage-card-head">
+                  <h4>Abdeckungsmatrix</h4>
+                  <p>Region x Auswahl (Top 8)</p>
+                </div>
+                <div class="table-wrap coverage-matrix-wrap">
+                  <table class="coverage-matrix-table">
+                    <thead id="coverage-matrix-head"></thead>
+                    <tbody id="coverage-matrix-body"></tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="coverage-card">
+                <div class="coverage-card-head">
+                  <h4>Lückenranking</h4>
+                  <p>Schwächste Bereiche zuerst</p>
+                </div>
+                <ol id="coverage-gap-list" class="coverage-list"></ol>
+              </article>
+
+              <article class="coverage-card">
+                <div class="coverage-card-head">
+                  <h4>Aktionsliste</h4>
+                  <p>Automatische Empfehlungen</p>
+                </div>
+                <ol id="coverage-action-list" class="coverage-list"></ol>
+              </article>
+            </div>
+
+            <p id="coverage-empty" class="empty hidden"></p>
+          </div>
         </section>
 
         <section id="users-section" class="panel card">

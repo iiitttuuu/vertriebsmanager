@@ -520,6 +520,166 @@ body::after {
   display: inline-block;
 }
 
+.coverage-cockpit {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(145deg, #ffffff 0%, #f7fbff 100%);
+  padding: 14px;
+}
+
+.coverage-head h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  color: #153b76;
+}
+
+.coverage-head p {
+  margin: 4px 0 10px;
+  color: #62748f;
+  font-size: 0.82rem;
+}
+
+.coverage-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 260px);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.coverage-controls label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #49607f;
+  font-weight: 700;
+  min-width: 0;
+}
+
+.coverage-controls select {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  border: 1px solid #cfd9e8;
+  border-radius: 9px;
+  padding: 0 10px;
+  background: #ffffff;
+  font-size: 0.86rem;
+  color: #1d3253;
+}
+
+.coverage-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.coverage-kpi {
+  border: 1px solid #d9e4f2;
+  border-radius: 11px;
+  background: #ffffff;
+  padding: 10px 12px;
+}
+
+.coverage-kpi h4 {
+  margin: 0;
+  color: #113f7f;
+  font-size: 1.4rem;
+}
+
+.coverage-kpi p {
+  margin: 4px 0 0;
+  color: #617390;
+  font-size: 0.76rem;
+}
+
+.coverage-grid {
+  display: grid;
+  grid-template-columns: 1.45fr 1fr 1fr;
+  gap: 10px;
+}
+
+.coverage-card {
+  border: 1px solid #d8e2ef;
+  border-radius: 11px;
+  background: #ffffff;
+  padding: 10px;
+  min-width: 0;
+}
+
+.coverage-card-head h4 {
+  margin: 0;
+  color: #143766;
+  font-size: 0.9rem;
+}
+
+.coverage-card-head p {
+  margin: 3px 0 8px;
+  color: #657991;
+  font-size: 0.72rem;
+}
+
+.coverage-matrix-wrap {
+  margin-top: 0;
+  max-height: 370px;
+}
+
+.coverage-matrix-table {
+  min-width: 680px;
+}
+
+.coverage-matrix-table th:first-child,
+.coverage-matrix-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #f4f8ff;
+}
+
+.coverage-matrix-table td:first-child {
+  color: #1f3d6a;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.coverage-cell {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.76rem;
+}
+
+.coverage-cell.zero {
+  color: #9a3a3a;
+  background: #fff2f2;
+}
+
+.coverage-cell.low {
+  color: #8c5608;
+  background: #fff9ed;
+}
+
+.coverage-cell.good {
+  color: #0f6a41;
+  background: #edfdf4;
+}
+
+.coverage-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  max-height: 330px;
+  overflow: auto;
+}
+
+.coverage-list li {
+  color: #2f4767;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .stat-box p {
   margin: 3px 0 0;
   color: var(--muted);
@@ -1166,6 +1326,14 @@ td.audit-cell {
     height: 340px;
   }
 
+  .coverage-kpis {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .coverage-grid {
+    grid-template-columns: 1fr;
+  }
+
   .topic-grid {
     grid-template-columns: 1fr;
   }
@@ -1226,5 +1394,13 @@ td.audit-cell {
 
   .dashboard-map-canvas {
     height: 300px;
+  }
+
+  .coverage-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .coverage-kpis {
+    grid-template-columns: 1fr;
   }
 }
