@@ -915,7 +915,12 @@ function renderDashboardMapControls() {
   ).sort((a, b) => a.localeCompare(b, "de"));
 
   const countryOptions = ['<option value="all">Alle Länder</option>']
-    .concat(countries.map((country) => `<option value="${escapeHtml(country)}">${escapeHtml(country)}</option>`))
+    .concat(
+      countries.map(
+        (country) =>
+          `<option value="${escapeHtml(country)}">${escapeHtml(truncateSelectLabel(country))}</option>`
+      )
+    )
     .join("");
   els.mapCountrySelect.innerHTML = countryOptions;
   if (!countries.includes(mapCountryFilter)) {
@@ -943,11 +948,23 @@ function renderDashboardMapControls() {
   els.mapItemSelect.innerHTML = ['<option value="all">Alle</option>']
     .concat(
       entities.map(
-        (entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.name)}</option>`
+        (entry) =>
+          `<option value="${escapeHtml(entry.id)}">${escapeHtml(truncateSelectLabel(entry.name))}</option>`
       )
     )
     .join("");
   els.mapItemSelect.value = mapItemFilter;
+}
+
+function truncateSelectLabel(value, maxLength = 42) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "";
+  }
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, Math.max(1, maxLength - 1)).trim()}…`;
 }
 
 function getMapEntitiesForLevel(level) {

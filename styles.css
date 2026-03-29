@@ -452,6 +452,7 @@ body::after {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
 }
 
 .dashboard-map-controls label {
@@ -460,9 +461,12 @@ body::after {
   font-size: 0.75rem;
   color: #49607f;
   font-weight: 700;
+  min-width: 0;
 }
 
 .dashboard-map-controls select {
+  width: 100%;
+  min-width: 0;
   height: 36px;
   border: 1px solid #cfd9e8;
   border-radius: 9px;
@@ -470,6 +474,9 @@ body::after {
   background: #ffffff;
   font-size: 0.86rem;
   color: #1d3253;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .map-radius-info {
