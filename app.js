@@ -73,7 +73,6 @@ let providerGeocodeInFlight = new Set();
 let mapCountryFilter = "all";
 let mapLevelFilter = "category";
 let mapItemFilter = "all";
-let coverageRegionLevel = "city";
 let supabaseClient = null;
 let storageMode = "local";
 let remoteSaveTimeoutId = null;
@@ -144,15 +143,6 @@ const els = {
   dashboardMapCanvas: document.getElementById("dashboard-map-canvas"),
   dashboardMapEmpty: document.getElementById("dashboard-map-empty"),
   dashboardMapLegend: document.getElementById("dashboard-map-legend"),
-  coverageRegionLevelSelect: document.getElementById("coverage-region-level-select"),
-  coverageKpiRegions: document.getElementById("coverage-kpi-regions"),
-  coverageKpiCovered: document.getElementById("coverage-kpi-covered"),
-  coverageKpiGaps: document.getElementById("coverage-kpi-gaps"),
-  coverageMatrixHead: document.getElementById("coverage-matrix-head"),
-  coverageMatrixBody: document.getElementById("coverage-matrix-body"),
-  coverageGapList: document.getElementById("coverage-gap-list"),
-  coverageActionList: document.getElementById("coverage-action-list"),
-  coverageEmpty: document.getElementById("coverage-empty"),
   mapParamsForm: document.getElementById("map-params-form"),
   paramRadiusCategory: document.getElementById("param-radius-category"),
   paramRadiusSubcategory: document.getElementById("param-radius-subcategory"),
@@ -444,25 +434,17 @@ function bindEvents() {
   els.mapCountrySelect?.addEventListener("change", () => {
     mapCountryFilter = els.mapCountrySelect.value || "all";
     renderDashboardMap();
-    renderCoverageCockpit();
   });
 
   els.mapLevelSelect?.addEventListener("change", () => {
     mapLevelFilter = els.mapLevelSelect.value || "category";
     mapItemFilter = "all";
     renderDashboardMap();
-    renderCoverageCockpit();
   });
 
   els.mapItemSelect?.addEventListener("change", () => {
     mapItemFilter = els.mapItemSelect.value || "all";
     renderDashboardMap();
-    renderCoverageCockpit();
-  });
-
-  els.coverageRegionLevelSelect?.addEventListener("change", () => {
-    coverageRegionLevel = els.coverageRegionLevelSelect.value || "city";
-    renderCoverageCockpit();
   });
 
   els.mapParamsForm?.addEventListener("submit", (event) => {
@@ -672,7 +654,6 @@ function renderAll() {
   renderDashboardStats();
   renderMapParameterForm();
   renderDashboardMap();
-  renderCoverageCockpit();
   renderUsersTable();
   renderManagementSummary();
   renderCategoryList();
@@ -1179,338 +1160,6 @@ function renderDashboardMapLegend(entries) {
       `
     )
     .join("");
-}
-
-function renderCoverageCockpit() {
-  if (
-    !els.coverageRegionLevelSelect ||
-    !els.coverageKpiRegions ||
-    !els.coverageKpiCovered ||
-    !els.coverageKpiGaps ||
-    !els.coverageMatrixHead ||
-    !els.coverageMatrixBody ||
-    !els.coverageGapList ||
-    !els.coverageActionList ||
-    !els.coverageEmpty
-  ) {
-    return;
-  }
-
-  if (!isAdmin()) {
-    els.coverageEmpty.classList.add("hidden");
-    return;
-  }
-
-  if (!["city", "state", "country"].includes(coverageRegionLevel)) {
-    coverageRegionLevel = "city";
-  }
-  els.coverageRegionLevelSelect.value = coverageRegionLevel;
-
-  const providers = state.providers.filter((provider) => providerMatchesCountry(provider, mapCountryFilter));
-  const regions = Array.from(
-    new Set(providers.map((provider) => getProviderRegionLabel(provider, coverageRegionLevel)).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b, "de"));
-
-  if (!providers.length || !regions.length) {
-    resetCoverageCockpit();
-    showCoverageEmpty("Noch keine regional auswertbaren Anbieter für den aktuellen Länderfilter.");
-    return;
-  }
-
-  hideCoverageEmpty();
-
-  const topicLookup = new Map(getAllTopics().map((topic) => [topic.id, topic]));
-  const providerGroupsById = new Map();
-  providers.forEach((provider) => {
-    providerGroupsById.set(provider.id, getProviderGroupsForLevel(provider, mapLevelFilter, topicLookup));
-  });
-
-  const selectedEntity = mapItemFilter === "all" ? null : findEntityById(mapLevelFilter, mapItemFilter);
-  const entityStatsMap = buildCoverageEntityStats(
-    providers,
-    providerGroupsById,
-    regions,
-    mapLevelFilter,
-    selectedEntity
-  );
-  const matrixEntities = chooseMatrixEntities(entityStatsMap, selectedEntity);
-
-  if (!matrixEntities.length) {
-    resetCoverageCockpit();
-    showCoverageEmpty("Keine zugeordneten Einträge gefunden. Bitte Anbieter-Themenzuordnung prüfen.");
-    return;
-  }
-
-  const matrix = buildCoverageMatrix(providers, providerGroupsById, regions, matrixEntities);
-  renderCoverageMatrix(regions, matrixEntities, matrix);
-  renderCoverageKpis(regions, matrix);
-  renderCoverageGapList(regions, entityStatsMap, matrixEntities, matrix, selectedEntity);
-  renderCoverageActionList(regions, matrixEntities, matrix, selectedEntity);
-}
-
-function resetCoverageCockpit() {
-  els.coverageKpiRegions.textContent = "0";
-  els.coverageKpiCovered.textContent = "0";
-  els.coverageKpiGaps.textContent = "0";
-  els.coverageMatrixHead.innerHTML = "";
-  els.coverageMatrixBody.innerHTML = "";
-  els.coverageGapList.innerHTML = "";
-  els.coverageActionList.innerHTML = "";
-}
-
-function showCoverageEmpty(message) {
-  els.coverageEmpty.textContent = message;
-  els.coverageEmpty.classList.remove("hidden");
-}
-
-function hideCoverageEmpty() {
-  els.coverageEmpty.textContent = "";
-  els.coverageEmpty.classList.add("hidden");
-}
-
-function buildCoverageEntityStats(providers, providerGroupsById, regions, level, selectedEntity) {
-  const map = new Map();
-  const ensureEntry = (id, label) => {
-    if (!map.has(id)) {
-      map.set(id, {
-        id,
-        label,
-        providersCount: 0,
-        regions: new Set(),
-      });
-    }
-    return map.get(id);
-  };
-
-  if (selectedEntity) {
-    ensureEntry(selectedEntity.id, selectedEntity.name);
-  }
-
-  providers.forEach((provider) => {
-    const region = getProviderRegionLabel(provider, coverageRegionLevel);
-    if (!region) {
-      return;
-    }
-    const groups = providerGroupsById.get(provider.id) || [];
-    const effectiveGroups = groups.length
-      ? groups
-      : [{ id: `unassigned_${level}`, label: "Ohne Zuordnung" }];
-
-    const relevantGroups = selectedEntity
-      ? effectiveGroups.filter((group) => group.id === selectedEntity.id)
-      : effectiveGroups;
-
-    relevantGroups.forEach((group) => {
-      const entry = ensureEntry(group.id, group.label);
-      entry.providersCount += 1;
-      entry.regions.add(region);
-    });
-  });
-
-  return map;
-}
-
-function chooseMatrixEntities(entityStatsMap, selectedEntity) {
-  if (selectedEntity) {
-    const selected = entityStatsMap.get(selectedEntity.id);
-    return selected ? [selected] : [];
-  }
-
-  return Array.from(entityStatsMap.values())
-    .sort((a, b) => {
-      if (b.regions.size !== a.regions.size) {
-        return b.regions.size - a.regions.size;
-      }
-      if (b.providersCount !== a.providersCount) {
-        return b.providersCount - a.providersCount;
-      }
-      return a.label.localeCompare(b.label, "de");
-    })
-    .slice(0, 8);
-}
-
-function buildCoverageMatrix(providers, providerGroupsById, regions, entities) {
-  const entityIdSet = new Set(entities.map((entry) => entry.id));
-  const matrix = new Map();
-  regions.forEach((region) => {
-    matrix.set(region, new Map());
-    entities.forEach((entity) => {
-      matrix.get(region).set(entity.id, 0);
-    });
-  });
-
-  providers.forEach((provider) => {
-    const region = getProviderRegionLabel(provider, coverageRegionLevel);
-    if (!region || !matrix.has(region)) {
-      return;
-    }
-
-    const groups = providerGroupsById.get(provider.id) || [];
-    const effectiveGroups = groups.length
-      ? groups
-      : [{ id: `unassigned_${mapLevelFilter}`, label: "Ohne Zuordnung" }];
-    effectiveGroups.forEach((group) => {
-      if (!entityIdSet.has(group.id)) {
-        return;
-      }
-      const nextValue = (matrix.get(region).get(group.id) || 0) + 1;
-      matrix.get(region).set(group.id, nextValue);
-    });
-  });
-
-  return matrix;
-}
-
-function renderCoverageMatrix(regions, entities, matrix) {
-  els.coverageMatrixHead.innerHTML = `
-    <tr>
-      <th>${escapeHtml(getCoverageRegionLevelLabel(coverageRegionLevel))}</th>
-      ${entities.map((entity) => `<th>${escapeHtml(truncateSelectLabel(entity.label, 26))}</th>`).join("")}
-    </tr>
-  `;
-
-  els.coverageMatrixBody.innerHTML = regions
-    .map((region) => {
-      const cells = entities
-        .map((entity) => {
-          const count = matrix.get(region)?.get(entity.id) || 0;
-          const cellClass = count === 0 ? "zero" : count === 1 ? "low" : "good";
-          return `<td class="coverage-cell ${cellClass}">${count}</td>`;
-        })
-        .join("");
-      return `<tr><td>${escapeHtml(region)}</td>${cells}</tr>`;
-    })
-    .join("");
-}
-
-function renderCoverageKpis(regions, matrix) {
-  const totalRegions = regions.length;
-  const coveredRegions = regions.filter((region) => {
-    const regionMap = matrix.get(region);
-    if (!regionMap) {
-      return false;
-    }
-    return Array.from(regionMap.values()).some((value) => value > 0);
-  }).length;
-  const gapRegions = Math.max(0, totalRegions - coveredRegions);
-
-  els.coverageKpiRegions.textContent = String(totalRegions);
-  els.coverageKpiCovered.textContent = String(coveredRegions);
-  els.coverageKpiGaps.textContent = String(gapRegions);
-}
-
-function renderCoverageGapList(regions, entityStatsMap, matrixEntities, matrix, selectedEntity) {
-  if (!regions.length) {
-    els.coverageGapList.innerHTML = "<li>Keine Daten verfügbar.</li>";
-    return;
-  }
-
-  if (selectedEntity) {
-    const missingRegions = regions.filter((region) => (matrix.get(region)?.get(selectedEntity.id) || 0) === 0);
-    if (!missingRegions.length) {
-      els.coverageGapList.innerHTML = "<li>Keine Lücken gefunden. Vollständige Abdeckung in allen Regionen.</li>";
-      return;
-    }
-    els.coverageGapList.innerHTML = missingRegions
-      .slice(0, 12)
-      .map((region) => `<li><strong>${escapeHtml(region)}</strong> ohne Treffer für ${escapeHtml(selectedEntity.name)}</li>`)
-      .join("");
-    return;
-  }
-
-  const ranking = Array.from(entityStatsMap.values())
-    .map((entry) => {
-      const covered = entry.regions.size;
-      const missing = Math.max(0, regions.length - covered);
-      const ratio = regions.length ? (covered / regions.length) * 100 : 0;
-      return {
-        ...entry,
-        covered,
-        missing,
-        ratio,
-      };
-    })
-    .sort((a, b) => {
-      if (b.missing !== a.missing) {
-        return b.missing - a.missing;
-      }
-      return a.label.localeCompare(b.label, "de");
-    })
-    .slice(0, 12);
-
-  els.coverageGapList.innerHTML = ranking.length
-    ? ranking
-        .map(
-          (entry) =>
-            `<li><strong>${escapeHtml(entry.label)}</strong>: ${entry.covered}/${regions.length} Regionen (${Math.round(
-              entry.ratio
-            )}%), Lücken: ${entry.missing}</li>`
-        )
-        .join("")
-    : "<li>Keine Lückenanalyse verfügbar.</li>";
-}
-
-function renderCoverageActionList(regions, matrixEntities, matrix, selectedEntity) {
-  const actions = [];
-  matrixEntities.forEach((entity) => {
-    const missingRegions = regions.filter((region) => (matrix.get(region)?.get(entity.id) || 0) === 0);
-    missingRegions.slice(0, 2).forEach((region) => {
-      actions.push(`Region ${region}: Anbieter für ${entity.label} im Umkreis ${getRadiusKmForLevel(mapLevelFilter)} km ergänzen.`);
-    });
-  });
-
-  if (!actions.length) {
-    els.coverageActionList.innerHTML = "<li>Keine offenen Maßnahmen. Aktuelle Auswahl ist gut abgedeckt.</li>";
-    return;
-  }
-
-  const prioritized = selectedEntity ? actions.slice(0, 10) : actions.slice(0, 12);
-  els.coverageActionList.innerHTML = prioritized.map((text) => `<li>${escapeHtml(text)}</li>`).join("");
-}
-
-function getCoverageRegionLevelLabel(level) {
-  if (level === "country") {
-    return "Land";
-  }
-  if (level === "state") {
-    return "Bundesland";
-  }
-  return "Ort";
-}
-
-function getProviderRegionLabel(provider, level) {
-  const city = String(provider.city || "").trim();
-  const stateLabel = String(provider.state || "").trim();
-  const country = String(provider.country || "").trim();
-
-  if (level === "country") {
-    return country || "Unbekanntes Land";
-  }
-  if (level === "state") {
-    return stateLabel || country || "Unbekanntes Bundesland";
-  }
-  return city || stateLabel || country || "Unbekannter Ort";
-}
-
-function findEntityById(level, entityId) {
-  if (!entityId || entityId === "all") {
-    return null;
-  }
-  if (level === "category") {
-    const category = state.categories.find((entry) => entry.id === entityId);
-    return category ? { id: category.id, name: category.name } : null;
-  }
-  if (level === "subcategory") {
-    for (const category of state.categories) {
-      const subcategory = category.subcategories.find((entry) => entry.id === entityId);
-      if (subcategory) {
-        return { id: subcategory.id, name: subcategory.name };
-      }
-    }
-    return null;
-  }
-  const topic = getAllTopics().find((entry) => entry.id === entityId);
-  return topic ? { id: topic.id, name: topic.name } : null;
 }
 
 function clearDashboardMapOverlays() {
@@ -2519,7 +2168,6 @@ function setActiveSection(targetId) {
   if (targetId === "dashboard-section") {
     window.setTimeout(() => {
       renderDashboardMap();
-      renderCoverageCockpit();
     }, 0);
   }
   if (targetId === "parameters-section") {
