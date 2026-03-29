@@ -428,6 +428,91 @@ body::after {
   color: var(--blue);
 }
 
+.dashboard-map-panel {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fbff 100%);
+  padding: 14px;
+}
+
+.dashboard-map-head h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  color: #153b76;
+}
+
+.dashboard-map-head p {
+  margin: 4px 0 10px;
+  color: #62748f;
+  font-size: 0.82rem;
+}
+
+.dashboard-map-controls {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-map-controls label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #49607f;
+  font-weight: 700;
+}
+
+.dashboard-map-controls select {
+  height: 36px;
+  border: 1px solid #cfd9e8;
+  border-radius: 9px;
+  padding: 0 10px;
+  background: #ffffff;
+  font-size: 0.86rem;
+  color: #1d3253;
+}
+
+.map-radius-info {
+  margin: 10px 0;
+  color: #4f6689;
+  font-size: 0.8rem;
+}
+
+.dashboard-map-canvas {
+  width: 100%;
+  height: 420px;
+  border: 1px solid #d3deec;
+  border-radius: 12px;
+  background: #f3f7fc;
+}
+
+.dashboard-map-legend {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.map-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border: 1px solid #d6e0ee;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #2f4669;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.map-legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
 .stat-box p {
   margin: 3px 0 0;
   color: var(--muted);
@@ -1066,6 +1151,14 @@ td.audit-cell {
     grid-template-columns: 1fr;
   }
 
+  .dashboard-map-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .dashboard-map-canvas {
+    height: 340px;
+  }
+
   .topic-grid {
     grid-template-columns: 1fr;
   }
@@ -1118,5 +1211,13 @@ td.audit-cell {
 
   .management-board {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-map-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-map-canvas {
+    height: 300px;
   }
 }

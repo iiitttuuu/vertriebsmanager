@@ -1,6 +1,23 @@
 const STORAGE_KEY = "vertriebsmanager_state_v1";
 const REMOTE_STATE_ROW_ID = "main";
 const REMOTE_SAVE_DEBOUNCE_MS = 450;
+const MAP_COLOR_PALETTE = [
+  "#1d4ed8",
+  "#0f766e",
+  "#16a34a",
+  "#b45309",
+  "#7e22ce",
+  "#be185d",
+  "#0369a1",
+  "#4d7c0f",
+  "#475569",
+  "#b91c1c",
+];
+const DEFAULT_MAP_PARAMETERS = {
+  categoryRadiusKm: 20,
+  subcategoryRadiusKm: 20,
+  topicRadiusKm: 20,
+};
 const PROVIDER_TOPIC_TEMPLATES = [
   { id: "", name: "Vorlage wählen..." },
   { id: "all", name: "Alle Themen", keywords: [] },
@@ -26,6 +43,9 @@ const defaultState = {
   users: [],
   providers: [],
   categories: [],
+  settings: {
+    mapParameters: { ...DEFAULT_MAP_PARAMETERS },
+  },
 };
 
 let state = cloneDefaultState();
@@ -44,6 +64,13 @@ let googlePlacesService = null;
 let googleSessionToken = null;
 let addressPredictionRequestId = 0;
 let googlePlacesLoadError = "";
+let dashboardMap = null;
+let dashboardMapMarkers = [];
+let dashboardMapCircles = [];
+let dashboardMapInfoWindows = [];
+let mapCountryFilter = "all";
+let mapLevelFilter = "category";
+let mapItemFilter = "all";
 let supabaseClient = null;
 let storageMode = "local";
 let remoteSaveTimeoutId = null;
@@ -79,6 +106,8 @@ const els = {
   providerForm: document.getElementById("provider-form"),
   providerAddressInput: document.getElementById("provider-address-input"),
   providerAddressSuggestions: document.getElementById("provider-address-suggestions"),
+  providerLatitudeInput: document.getElementById("provider-latitude-input"),
+  providerLongitudeInput: document.getElementById("provider-longitude-input"),
   providerTopicTemplate: document.getElementById("provider-topic-template"),
   providerTemplateApply: document.getElementById("provider-template-apply"),
   providerTopicClear: document.getElementById("provider-topic-clear"),
@@ -102,6 +131,18 @@ const els = {
   statUsers: document.getElementById("stat-users"),
   statProviders: document.getElementById("stat-providers"),
   statTopics: document.getElementById("stat-topics"),
+  dashboardMapPanel: document.getElementById("dashboard-map-panel"),
+  mapCountrySelect: document.getElementById("map-country-select"),
+  mapLevelSelect: document.getElementById("map-level-select"),
+  mapItemSelect: document.getElementById("map-item-select"),
+  mapRadiusInfo: document.getElementById("map-radius-info"),
+  dashboardMapCanvas: document.getElementById("dashboard-map-canvas"),
+  dashboardMapEmpty: document.getElementById("dashboard-map-empty"),
+  dashboardMapLegend: document.getElementById("dashboard-map-legend"),
+  mapParamsForm: document.getElementById("map-params-form"),
+  paramRadiusCategory: document.getElementById("param-radius-category"),
+  paramRadiusSubcategory: document.getElementById("param-radius-subcategory"),
+  paramRadiusTopic: document.getElementById("param-radius-topic"),
 };
 
 initialize();
@@ -241,6 +282,8 @@ function bindEvents() {
       phone: formData.get("phone").toString().trim(),
       status: formData.get("status").toString(),
       topicIds: selectedTopics,
+      latitude: parseOptionalNumber(formData.get("latitude")),
+      longitude: parseOptionalNumber(formData.get("longitude")),
     };
 
     if (
@@ -317,6 +360,7 @@ function bindEvents() {
   });
 
   els.providerAddressInput.addEventListener("input", () => {
+    clearProviderCoordinates();
     queueAddressSuggestionSearch();
   });
 
@@ -381,6 +425,44 @@ function bindEvents() {
     }
     providerTopicSelection.clear();
     renderProviderTopicPicker();
+  });
+
+  els.mapCountrySelect?.addEventListener("change", () => {
+    mapCountryFilter = els.mapCountrySelect.value || "all";
+    renderDashboardMap();
+  });
+
+  els.mapLevelSelect?.addEventListener("change", () => {
+    mapLevelFilter = els.mapLevelSelect.value || "category";
+    mapItemFilter = "all";
+    renderDashboardMap();
+  });
+
+  els.mapItemSelect?.addEventListener("change", () => {
+    mapItemFilter = els.mapItemSelect.value || "all";
+    renderDashboardMap();
+  });
+
+  els.mapParamsForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!isAdmin()) {
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    state.settings = normalizeSettings({
+      ...state.settings,
+      mapParameters: {
+        categoryRadiusKm: formData.get("radiusCategory"),
+        subcategoryRadiusKm: formData.get("radiusSubcategory"),
+        topicRadiusKm: formData.get("radiusTopic"),
+      },
+    });
+
+    saveState();
+    renderMapParameterForm();
+    renderDashboardMap();
+    window.alert("Parameter gespeichert.");
   });
 
   els.providersTableBody.addEventListener("click", (event) => {
@@ -566,6 +648,8 @@ function renderAll() {
   renderUserSwitch();
   renderRoleState();
   renderDashboardStats();
+  renderMapParameterForm();
+  renderDashboardMap();
   renderUsersTable();
   renderManagementSummary();
   renderCategoryList();
@@ -593,6 +677,9 @@ function renderRoleState() {
     els.adminOnlyNav.forEach((button) => {
       button.classList.add("hidden");
     });
+    document.querySelectorAll(".admin-only-view").forEach((element) => {
+      element.classList.add("hidden");
+    });
     return;
   }
 
@@ -601,6 +688,9 @@ function renderRoleState() {
 
   els.adminOnlyNav.forEach((button) => {
     button.classList.toggle("hidden", !admin);
+  });
+  document.querySelectorAll(".admin-only-view").forEach((element) => {
+    element.classList.toggle("hidden", !admin);
   });
 
   if (els.userCreateBtn) {
@@ -621,7 +711,11 @@ function renderRoleState() {
     setUsersView("list");
     setProvidersView("list");
     const currentPanel = document.querySelector(".panel.active");
-    if (currentPanel?.id === "users-section" || currentPanel?.id === "management-section") {
+    if (
+      currentPanel?.id === "users-section" ||
+      currentPanel?.id === "management-section" ||
+      currentPanel?.id === "parameters-section"
+    ) {
       setActiveSection("dashboard-section");
     }
   }
@@ -632,6 +726,345 @@ function renderDashboardStats() {
   els.statUsers.textContent = String(activeUsers);
   els.statProviders.textContent = String(state.providers.length);
   els.statTopics.textContent = String(getAllTopics().length);
+}
+
+function renderMapParameterForm() {
+  const params = getMapParameters();
+  if (els.paramRadiusCategory) {
+    els.paramRadiusCategory.value = String(params.categoryRadiusKm);
+  }
+  if (els.paramRadiusSubcategory) {
+    els.paramRadiusSubcategory.value = String(params.subcategoryRadiusKm);
+  }
+  if (els.paramRadiusTopic) {
+    els.paramRadiusTopic.value = String(params.topicRadiusKm);
+  }
+}
+
+function renderDashboardMap() {
+  if (!els.dashboardMapPanel || !els.dashboardMapCanvas) {
+    return;
+  }
+  if (!isAdmin()) {
+    els.dashboardMapPanel.classList.add("hidden");
+    return;
+  }
+  els.dashboardMapPanel.classList.remove("hidden");
+
+  renderDashboardMapControls();
+  const radiusKm = getRadiusKmForLevel(mapLevelFilter);
+  if (els.mapRadiusInfo) {
+    els.mapRadiusInfo.textContent = `Treffer-Umkreis: ${radiusKm} km (${getMapLevelLabel(mapLevelFilter)})`;
+  }
+
+  if (!isSectionActive("dashboard-section")) {
+    return;
+  }
+
+  if (!googleMapsReady || !window.google?.maps) {
+    showDashboardMapEmpty(
+      googlePlacesLoadError ||
+        "Google Maps wird geladen. Wenn es leer bleibt: API-Key, Referrer, Billing und APIs prüfen."
+    );
+    return;
+  }
+
+  if (!dashboardMap) {
+    dashboardMap = new window.google.maps.Map(els.dashboardMapCanvas, {
+      center: { lat: 48.2082, lng: 16.3738 },
+      zoom: 6,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: true,
+    });
+  }
+
+  clearDashboardMapOverlays();
+
+  const allTopics = getAllTopics();
+  const topicLookup = new Map(allTopics.map((topic) => [topic.id, topic]));
+  const countryProviders = state.providers.filter((provider) =>
+    providerMatchesCountry(provider, mapCountryFilter)
+  );
+  const countryProvidersWithCoords = countryProviders.filter((provider) => !!getProviderCoordinates(provider));
+
+  const hits = countryProvidersWithCoords
+    .map((provider) => {
+      const coords = getProviderCoordinates(provider);
+      if (!coords) {
+        return null;
+      }
+      const groups = getProviderGroupsForLevel(provider, mapLevelFilter, topicLookup);
+      const relevantGroups =
+        mapItemFilter === "all" ? groups : groups.filter((group) => group.id === mapItemFilter);
+      if (!relevantGroups.length) {
+        return null;
+      }
+      return {
+        provider,
+        coords,
+        groups: relevantGroups,
+        colorGroup: mapItemFilter === "all" ? relevantGroups[0] : relevantGroups[0],
+      };
+    })
+    .filter(Boolean);
+
+  if (!hits.length) {
+    if (!countryProviders.length) {
+      showDashboardMapEmpty("Für das gewählte Land gibt es noch keine Anbieter.");
+      return;
+    }
+    if (!countryProvidersWithCoords.length) {
+      showDashboardMapEmpty(
+        "Keine Koordinaten vorhanden. Bitte Anbieteradresse über Google-Vorschlag auswählen und speichern."
+      );
+      return;
+    }
+    showDashboardMapEmpty("Keine Treffer für die aktuelle Auswahl gefunden.");
+    return;
+  }
+
+  hideDashboardMapEmpty();
+  const colorByGroup = getDashboardColorMap(hits);
+  const bounds = new window.google.maps.LatLngBounds();
+  const legendMap = new Map();
+
+  hits.forEach((hit) => {
+    const group = hit.colorGroup;
+    const color = colorByGroup.get(group.id) || MAP_COLOR_PALETTE[0];
+    const marker = new window.google.maps.Marker({
+      map: dashboardMap,
+      position: hit.coords,
+      title: hit.provider.name,
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: 6,
+        fillColor: color,
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 1.5,
+      },
+    });
+    const circle = new window.google.maps.Circle({
+      map: dashboardMap,
+      center: hit.coords,
+      radius: radiusKm * 1000,
+      fillColor: color,
+      fillOpacity: 0.22,
+      strokeColor: color,
+      strokeOpacity: 0.6,
+      strokeWeight: 1.2,
+    });
+    const infoWindow = new window.google.maps.InfoWindow({
+      content: `
+        <div style="font-family: Sora, sans-serif; min-width: 220px;">
+          <strong>${escapeHtml(hit.provider.name)}</strong><br/>
+          <span>${escapeHtml(hit.provider.city || "")}, ${escapeHtml(hit.provider.country || "")}</span><br/>
+          <span>${escapeHtml(getMapLevelLabel(mapLevelFilter))}: ${escapeHtml(
+            hit.groups.map((entry) => entry.label).join(", ")
+          )}</span>
+        </div>
+      `,
+    });
+
+    marker.addListener("click", () => {
+      infoWindow.open({ anchor: marker, map: dashboardMap });
+    });
+
+    dashboardMapMarkers.push(marker);
+    dashboardMapCircles.push(circle);
+    dashboardMapInfoWindows.push(infoWindow);
+    bounds.extend(hit.coords);
+    legendMap.set(group.id, { label: group.label, color });
+  });
+
+  if (hits.length === 1) {
+    dashboardMap.setCenter(hits[0].coords);
+    dashboardMap.setZoom(10);
+  } else {
+    dashboardMap.fitBounds(bounds, 60);
+  }
+
+  renderDashboardMapLegend(Array.from(legendMap.values()));
+}
+
+function renderDashboardMapControls() {
+  if (!els.mapCountrySelect || !els.mapLevelSelect || !els.mapItemSelect) {
+    return;
+  }
+
+  const countries = Array.from(
+    new Set(
+      state.providers
+        .map((provider) => String(provider.country || "").trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, "de"));
+
+  const countryOptions = ['<option value="all">Alle Länder</option>']
+    .concat(countries.map((country) => `<option value="${escapeHtml(country)}">${escapeHtml(country)}</option>`))
+    .join("");
+  els.mapCountrySelect.innerHTML = countryOptions;
+  if (!countries.includes(mapCountryFilter)) {
+    mapCountryFilter = "all";
+  }
+  els.mapCountrySelect.value = mapCountryFilter;
+
+  if (!["category", "subcategory", "topic"].includes(mapLevelFilter)) {
+    mapLevelFilter = "category";
+  }
+  els.mapLevelSelect.value = mapLevelFilter;
+
+  const entities = getMapEntitiesForLevel(mapLevelFilter);
+  const validEntityIds = new Set(entities.map((entry) => entry.id));
+  if (mapItemFilter !== "all" && !validEntityIds.has(mapItemFilter)) {
+    mapItemFilter = "all";
+  }
+
+  els.mapItemSelect.innerHTML = ['<option value="all">Alle</option>']
+    .concat(
+      entities.map(
+        (entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.name)}</option>`
+      )
+    )
+    .join("");
+  els.mapItemSelect.value = mapItemFilter;
+}
+
+function getMapEntitiesForLevel(level) {
+  if (level === "category") {
+    return state.categories
+      .map((category) => ({ id: category.id, name: category.name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "de"));
+  }
+
+  if (level === "subcategory") {
+    return state.categories
+      .flatMap((category) =>
+        category.subcategories.map((subcategory) => ({
+          id: subcategory.id,
+          name: `${subcategory.name} (${category.name})`,
+        }))
+      )
+      .sort((a, b) => a.name.localeCompare(b.name, "de"));
+  }
+
+  return getAllTopics()
+    .map((topic) => ({
+      id: topic.id,
+      name: `${topic.name} (${topic.subcategoryName})`,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "de"));
+}
+
+function getProviderGroupsForLevel(provider, level, topicLookup) {
+  const groups = new Map();
+  (provider.topicIds || []).forEach((topicId) => {
+    const topic = topicLookup.get(topicId);
+    if (!topic) {
+      return;
+    }
+
+    if (level === "topic") {
+      groups.set(topic.id, { id: topic.id, label: topic.name });
+      return;
+    }
+    if (level === "subcategory") {
+      groups.set(topic.subcategoryId, { id: topic.subcategoryId, label: topic.subcategoryName });
+      return;
+    }
+    groups.set(topic.categoryId, { id: topic.categoryId, label: topic.categoryName });
+  });
+  return Array.from(groups.values());
+}
+
+function providerMatchesCountry(provider, country) {
+  if (!country || country === "all") {
+    return true;
+  }
+  return normalizeText(provider.country || "") === normalizeText(country);
+}
+
+function getProviderCoordinates(provider) {
+  const latitude = parseOptionalNumber(provider.latitude);
+  const longitude = parseOptionalNumber(provider.longitude);
+  if (typeof latitude !== "number" || typeof longitude !== "number") {
+    return null;
+  }
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+  return { lat: latitude, lng: longitude };
+}
+
+function getDashboardColorMap(hits) {
+  const colorMap = new Map();
+  if (mapItemFilter !== "all" && hits.length) {
+    const singleColor =
+      mapLevelFilter === "category"
+        ? "#1d4ed8"
+        : mapLevelFilter === "subcategory"
+          ? "#0f766e"
+          : "#b45309";
+    colorMap.set(hits[0].colorGroup.id, singleColor);
+    return colorMap;
+  }
+
+  const groupIds = Array.from(new Set(hits.map((entry) => entry.colorGroup.id)));
+  groupIds.forEach((groupId, index) => {
+    colorMap.set(groupId, MAP_COLOR_PALETTE[index % MAP_COLOR_PALETTE.length]);
+  });
+  return colorMap;
+}
+
+function renderDashboardMapLegend(entries) {
+  if (!els.dashboardMapLegend) {
+    return;
+  }
+  if (!entries.length) {
+    els.dashboardMapLegend.innerHTML = "";
+    return;
+  }
+
+  els.dashboardMapLegend.innerHTML = entries
+    .map(
+      (entry) => `
+        <span class="map-legend-item">
+          <span class="map-legend-color" style="background:${escapeHtml(entry.color)}"></span>
+          ${escapeHtml(entry.label)}
+        </span>
+      `
+    )
+    .join("");
+}
+
+function clearDashboardMapOverlays() {
+  dashboardMapMarkers.forEach((marker) => marker.setMap(null));
+  dashboardMapCircles.forEach((circle) => circle.setMap(null));
+  dashboardMapInfoWindows.forEach((infoWindow) => infoWindow.close());
+  dashboardMapMarkers = [];
+  dashboardMapCircles = [];
+  dashboardMapInfoWindows = [];
+}
+
+function showDashboardMapEmpty(message) {
+  clearDashboardMapOverlays();
+  renderDashboardMapLegend([]);
+  if (els.dashboardMapEmpty) {
+    els.dashboardMapEmpty.textContent = message;
+    els.dashboardMapEmpty.classList.remove("hidden");
+  }
+}
+
+function hideDashboardMapEmpty() {
+  if (els.dashboardMapEmpty) {
+    els.dashboardMapEmpty.textContent = "";
+    els.dashboardMapEmpty.classList.add("hidden");
+  }
+}
+
+function isSectionActive(sectionId) {
+  return document.getElementById(sectionId)?.classList.contains("active");
 }
 
 function renderUsersTable() {
@@ -778,6 +1211,7 @@ function setupGooglePlacesServices() {
   googleSessionToken = new window.google.maps.places.AutocompleteSessionToken();
   googleMapsReady = true;
   googlePlacesLoadError = "";
+  renderDashboardMap();
 }
 
 function getGoogleMapsApiKey() {
@@ -889,7 +1323,7 @@ function applyAddressSuggestion(index) {
   googlePlacesService.getDetails(
     {
       placeId: suggestion.placeId,
-      fields: ["address_components", "formatted_address"],
+      fields: ["address_components", "formatted_address", "geometry"],
       language: "de",
       sessionToken: googleSessionToken,
     },
@@ -912,6 +1346,14 @@ function applyAddressSuggestion(index) {
       formElements.city.value = merged.city || "";
       formElements.country.value = merged.country || "";
       formElements.state.value = merged.state || "";
+      formElements.latitude.value =
+        typeof mapped.latitude === "number" && Number.isFinite(mapped.latitude)
+          ? String(mapped.latitude)
+          : "";
+      formElements.longitude.value =
+        typeof mapped.longitude === "number" && Number.isFinite(mapped.longitude)
+          ? String(mapped.longitude)
+          : "";
 
       googleSessionToken = new window.google.maps.places.AutocompleteSessionToken();
       clearAddressSuggestions();
@@ -950,6 +1392,10 @@ function mapGooglePlaceToAddress(place) {
     state: findByTypes(["administrative_area_level_1", "administrative_area_level_2"]),
     country: findByTypes(["country"]),
     formatted: place.formatted_address || "",
+    latitude:
+      typeof place.geometry?.location?.lat === "function" ? Number(place.geometry.location.lat()) : null,
+    longitude:
+      typeof place.geometry?.location?.lng === "function" ? Number(place.geometry.location.lng()) : null,
   };
 }
 
@@ -1094,6 +1540,14 @@ function fillProviderForm(provider) {
   formElements.email.value = provider.email;
   formElements.phone.value = provider.phone;
   formElements.status.value = provider.status;
+  formElements.latitude.value =
+    typeof provider.latitude === "number" && Number.isFinite(provider.latitude)
+      ? String(provider.latitude)
+      : "";
+  formElements.longitude.value =
+    typeof provider.longitude === "number" && Number.isFinite(provider.longitude)
+      ? String(provider.longitude)
+      : "";
 
   clearAddressSuggestions();
   providerTopicSelection = new Set(provider.topicIds || []);
@@ -1121,12 +1575,22 @@ function clearUserForm() {
 function clearProviderForm() {
   editingProviderId = null;
   els.providerForm.reset();
+  clearProviderCoordinates();
   providerTopicSelection.clear();
   if (els.providerTopicSearch) {
     els.providerTopicSearch.value = "";
   }
   clearAddressSuggestions();
   els.providerSaveBtn.textContent = "Speichern";
+}
+
+function clearProviderCoordinates() {
+  if (els.providerLatitudeInput) {
+    els.providerLatitudeInput.value = "";
+  }
+  if (els.providerLongitudeInput) {
+    els.providerLongitudeInput.value = "";
+  }
 }
 
 async function handleDeleteUser(userId) {
@@ -1542,6 +2006,9 @@ function handleDeleteTopic(topicId) {
 }
 
 function setActiveSection(targetId) {
+  if (targetId === "parameters-section" && !isAdmin()) {
+    targetId = "dashboard-section";
+  }
   if (targetId === "users-section") {
     clearUserForm();
     setUsersView("list");
@@ -1558,6 +2025,15 @@ function setActiveSection(targetId) {
   els.panels.forEach((panel) => {
     panel.classList.toggle("active", panel.id === targetId);
   });
+
+  if (targetId === "dashboard-section") {
+    window.setTimeout(() => {
+      renderDashboardMap();
+    }, 0);
+  }
+  if (targetId === "parameters-section") {
+    renderMapParameterForm();
+  }
 }
 
 function setUsersView(mode) {
@@ -1607,6 +2083,68 @@ function getCurrentActorInfo() {
 
 function getRoleLabel(role) {
   return role === "admin" ? "Admin" : "Mitarbeiter";
+}
+
+function getMapLevelLabel(level) {
+  if (level === "subcategory") {
+    return "Themenbereich";
+  }
+  if (level === "topic") {
+    return "Thema";
+  }
+  return "Kategorie";
+}
+
+function getMapParameters() {
+  return normalizeMapParameters(state.settings?.mapParameters || {});
+}
+
+function getRadiusKmForLevel(level) {
+  const params = getMapParameters();
+  if (level === "subcategory") {
+    return params.subcategoryRadiusKm;
+  }
+  if (level === "topic") {
+    return params.topicRadiusKm;
+  }
+  return params.categoryRadiusKm;
+}
+
+function normalizeSettings(settings) {
+  return {
+    mapParameters: normalizeMapParameters(settings?.mapParameters || {}),
+  };
+}
+
+function normalizeMapParameters(mapParameters) {
+  return {
+    categoryRadiusKm: sanitizeRadiusValue(mapParameters?.categoryRadiusKm, DEFAULT_MAP_PARAMETERS.categoryRadiusKm),
+    subcategoryRadiusKm: sanitizeRadiusValue(
+      mapParameters?.subcategoryRadiusKm,
+      DEFAULT_MAP_PARAMETERS.subcategoryRadiusKm
+    ),
+    topicRadiusKm: sanitizeRadiusValue(mapParameters?.topicRadiusKm, DEFAULT_MAP_PARAMETERS.topicRadiusKm),
+  };
+}
+
+function sanitizeRadiusValue(value, fallback) {
+  const numeric = parseOptionalNumber(value);
+  if (typeof numeric !== "number" || !Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.max(1, Math.min(500, Math.round(numeric)));
+}
+
+function parseOptionalNumber(value) {
+  const raw = String(value ?? "").trim().replace(",", ".");
+  if (!raw) {
+    return null;
+  }
+  const numeric = Number(raw);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  return numeric;
 }
 
 function formatDateTime(value) {
@@ -2130,6 +2668,7 @@ function normalizePersistedState(parsed) {
     users: Array.isArray(parsed.users) && parsed.users.length ? parsed.users : defaultState.users,
     providers: normalizedProviders,
     categories: Array.isArray(parsed.categories) ? parsed.categories : [],
+    settings: normalizeSettings(parsed.settings || {}),
   };
 }
 
@@ -2141,6 +2680,8 @@ function normalizeProviderRecord(provider) {
   return {
     ...provider,
     topicIds: Array.isArray(provider.topicIds) ? provider.topicIds.filter(Boolean) : [],
+    latitude: parseOptionalNumber(provider.latitude),
+    longitude: parseOptionalNumber(provider.longitude),
     createdAt: provider.createdAt || "",
     createdByName: provider.createdByName || "",
     createdByRole: provider.createdByRole || "",

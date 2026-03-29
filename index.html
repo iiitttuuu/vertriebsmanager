@@ -50,6 +50,7 @@
         <button class="nav-btn admin-only" data-target="users-section">Mitarbeiter</button>
         <button class="nav-btn" data-target="providers-section">Anbieter</button>
         <button class="nav-btn admin-only" data-target="management-section">Verwaltung</button>
+        <button class="nav-btn admin-only" data-target="parameters-section">Parameter</button>
       </aside>
 
       <main class="content">
@@ -72,6 +73,37 @@
               <h3 id="stat-topics">0</h3>
               <p>Themen gesamt</p>
             </article>
+          </div>
+
+          <div id="dashboard-map-panel" class="dashboard-map-panel admin-only-view">
+            <div class="dashboard-map-head">
+              <h3>Kartenanalyse</h3>
+              <p>Land, Ebene und Treffer-Umkreis dynamisch auswerten.</p>
+            </div>
+
+            <div class="dashboard-map-controls">
+              <label>
+                Land
+                <select id="map-country-select"></select>
+              </label>
+              <label>
+                Ebene
+                <select id="map-level-select">
+                  <option value="category">Kategorie</option>
+                  <option value="subcategory">Themenbereich</option>
+                  <option value="topic">Thema</option>
+                </select>
+              </label>
+              <label>
+                Auswahl
+                <select id="map-item-select"></select>
+              </label>
+            </div>
+
+            <p id="map-radius-info" class="map-radius-info"></p>
+            <div id="dashboard-map-canvas" class="dashboard-map-canvas"></div>
+            <p id="dashboard-map-empty" class="empty hidden"></p>
+            <div id="dashboard-map-legend" class="dashboard-map-legend"></div>
           </div>
         </section>
 
@@ -181,6 +213,8 @@
                 />
                 <div id="provider-address-suggestions" class="address-suggestions hidden"></div>
               </label>
+              <input type="hidden" name="latitude" id="provider-latitude-input" />
+              <input type="hidden" name="longitude" id="provider-longitude-input" />
               <label>
                 PLZ
                 <input type="text" name="postalCode" required />
@@ -329,6 +363,31 @@
               <ul id="topics-list" class="lane-list"></ul>
             </article>
           </div>
+        </section>
+
+        <section id="parameters-section" class="panel card">
+          <div class="section-header">
+            <h2>Parameter</h2>
+            <p>Admin-Parameter für Kartenanalyse und Treffer-Umkreis.</p>
+          </div>
+
+          <form id="map-params-form" class="form-grid admin-lock">
+            <label>
+              Umkreis Kategorie (km)
+              <input type="number" id="param-radius-category" name="radiusCategory" min="1" max="500" step="1" required />
+            </label>
+            <label>
+              Umkreis Themenbereich (km)
+              <input type="number" id="param-radius-subcategory" name="radiusSubcategory" min="1" max="500" step="1" required />
+            </label>
+            <label>
+              Umkreis Thema (km)
+              <input type="number" id="param-radius-topic" name="radiusTopic" min="1" max="500" step="1" required />
+            </label>
+            <div class="form-actions split">
+              <button type="submit" id="map-params-save-btn" class="btn btn-success btn-action">Parameter speichern</button>
+            </div>
+          </form>
         </section>
       </main>
     </div>
