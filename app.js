@@ -115,6 +115,8 @@ const els = {
   providerTemplateApply: document.getElementById("provider-template-apply"),
   providerTopicClear: document.getElementById("provider-topic-clear"),
   providerTopicSearch: document.getElementById("provider-topic-search"),
+  providerCreatedMeta: document.getElementById("provider-created-meta"),
+  providerUpdatedMeta: document.getElementById("provider-updated-meta"),
   providerTopicResults: document.getElementById("provider-topic-results"),
   providerTopicChips: document.getElementById("provider-topic-chips"),
   providersTableBody: document.getElementById("providers-table-body"),
@@ -1588,7 +1590,7 @@ function renderProvidersTable() {
   const admin = isAdmin();
   if (!state.providers.length) {
     els.providersTableBody.innerHTML =
-      '<tr><td colspan="7" class="empty">Noch keine Anbieter vorhanden.</td></tr>';
+      '<tr><td colspan="6" class="empty">Noch keine Anbieter vorhanden.</td></tr>';
     return;
   }
 
@@ -1597,11 +1599,6 @@ function renderProvidersTable() {
       const topicNames = provider.topicIds
         .map((topicId) => getTopicById(topicId)?.name)
         .filter(Boolean);
-      const createdLabel = formatAuditStamp(
-        provider.createdAt,
-        provider.createdByRole,
-        provider.createdByName
-      );
       const updatedLabel = formatAuditStamp(
         provider.updatedAt,
         provider.updatedByRole,
@@ -1614,7 +1611,6 @@ function renderProvidersTable() {
           <td>${escapeHtml(provider.status)}</td>
           <td>${escapeHtml(provider.city)}</td>
           <td>${escapeHtml(String(topicNames.length))}</td>
-          <td class="audit-cell">${escapeHtml(createdLabel)}</td>
           <td class="audit-cell">${escapeHtml(updatedLabel)}</td>
           <td>
             ${
@@ -2022,6 +2018,20 @@ function fillProviderForm(provider) {
     typeof provider.longitude === "number" && Number.isFinite(provider.longitude)
       ? String(provider.longitude)
       : "";
+  if (els.providerCreatedMeta) {
+    els.providerCreatedMeta.textContent = formatAuditStamp(
+      provider.createdAt,
+      provider.createdByRole,
+      provider.createdByName
+    );
+  }
+  if (els.providerUpdatedMeta) {
+    els.providerUpdatedMeta.textContent = formatAuditStamp(
+      provider.updatedAt,
+      provider.updatedByRole,
+      provider.updatedByName
+    );
+  }
 
   clearAddressSuggestions();
   providerTopicSelection = new Set(provider.topicIds || []);
@@ -2050,6 +2060,12 @@ function clearProviderForm() {
   editingProviderId = null;
   els.providerForm.reset();
   clearProviderCoordinates();
+  if (els.providerCreatedMeta) {
+    els.providerCreatedMeta.textContent = "-";
+  }
+  if (els.providerUpdatedMeta) {
+    els.providerUpdatedMeta.textContent = "-";
+  }
   providerTopicSelection.clear();
   if (els.providerTopicSearch) {
     els.providerTopicSearch.value = "";

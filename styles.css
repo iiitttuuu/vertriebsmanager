@@ -705,6 +705,35 @@ body::after {
   position: relative;
 }
 
+.provider-audit-panel {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.provider-audit-panel p {
+  margin: 0;
+  border: 1px solid #d8e2ef;
+  border-radius: 9px;
+  background: #f7fbff;
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.provider-audit-panel span {
+  font-size: 0.72rem;
+  color: #6580a2;
+  font-weight: 700;
+}
+
+.provider-audit-panel strong {
+  font-size: 0.8rem;
+  color: #2b4367;
+  font-weight: 700;
+}
+
 input,
 select {
   height: 42px;
@@ -1335,6 +1364,10 @@ td.audit-cell {
   }
 
   .topic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .provider-audit-panel {
     grid-template-columns: 1fr;
   }
 
