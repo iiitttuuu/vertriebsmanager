@@ -1777,7 +1777,7 @@ async function handleAuthSubmit(event) {
   });
 
   if (error) {
-    showAuthGate("Anmeldung fehlgeschlagen. Bitte E-Mail/Passwort prüfen.");
+    showAuthGate(`Anmeldung fehlgeschlagen: ${error.message}`);
     return;
   }
 
@@ -1804,9 +1804,7 @@ async function handleSignUp() {
   });
 
   if (error) {
-    showAuthGate(
-      "Konto konnte nicht erstellt werden. Prüfe Einladung, Passwort oder ob der Benutzer schon existiert."
-    );
+    showAuthGate(`Konto konnte nicht erstellt werden: ${error.message}`);
     return;
   }
 
