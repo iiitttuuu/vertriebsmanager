@@ -107,6 +107,7 @@ const els = {
 initialize();
 
 async function initialize() {
+  clearLegacyAuthErrorParams();
   const authReady = await initializeAuth();
   bindEvents();
   if (!authReady) {
@@ -1695,6 +1696,24 @@ async function initializeAuth() {
   return true;
 }
 
+function clearLegacyAuthErrorParams() {
+  const url = new URL(window.location.href);
+  const hadAuthErrorParams =
+    url.searchParams.has("error") ||
+    url.searchParams.has("error_code") ||
+    url.searchParams.has("error_description");
+
+  if (!hadAuthErrorParams) {
+    return;
+  }
+
+  url.searchParams.delete("error");
+  url.searchParams.delete("error_code");
+  url.searchParams.delete("error_description");
+  url.searchParams.delete("code");
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
 async function ensureAuthProfile(user) {
   const client = getSupabaseClient();
   if (!client || !user?.id) {
@@ -2063,8 +2082,10 @@ function getSupabaseClient() {
   try {
     supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        persistSession: false,
-        autoRefreshToken: false,
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+        storageKey: "vertriebsmanager_auth",
       },
     });
     return supabaseClient;
