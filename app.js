@@ -56,6 +56,9 @@ const els = {
   authGate: document.getElementById("auth-gate"),
   authForm: document.getElementById("auth-form"),
   authEmail: document.getElementById("auth-email"),
+  authPassword: document.getElementById("auth-password"),
+  authSignInBtn: document.getElementById("auth-signin-btn"),
+  authSignUpBtn: document.getElementById("auth-signup-btn"),
   authMessage: document.getElementById("auth-message"),
   currentUserLabel: document.getElementById("current-user-label"),
   signOutBtn: document.getElementById("sign-out-btn"),
@@ -132,6 +135,7 @@ function bindEvents() {
   boundEvents = true;
 
   els.authForm.addEventListener("submit", handleAuthSubmit);
+  els.authSignUpBtn.addEventListener("click", handleSignUp);
   els.signOutBtn.addEventListener("click", handleSignOut);
 
   els.navButtons.forEach((button) => {
@@ -1753,10 +1757,6 @@ function hideAuthGate() {
   els.authMessage.textContent = "";
 }
 
-function getEmailRedirectUrl() {
-  return `${window.location.origin}${window.location.pathname}`;
-}
-
 async function handleAuthSubmit(event) {
   event.preventDefault();
   const client = getSupabaseClient();
@@ -1765,26 +1765,74 @@ async function handleAuthSubmit(event) {
     return;
   }
 
-  const email = String(els.authEmail.value || "").trim().toLowerCase();
-  if (!email) {
-    showAuthGate("Bitte eine gültige E-Mail eingeben.");
+  const credentials = getAuthCredentials();
+  if (!credentials) {
     return;
   }
+  const { email, password } = credentials;
 
-  const { error } = await client.auth.signInWithOtp({
+  const { error } = await client.auth.signInWithPassword({
     email,
-    options: {
-      emailRedirectTo: getEmailRedirectUrl(),
-      shouldCreateUser: true,
-    },
+    password,
   });
 
   if (error) {
-    showAuthGate("Login-Link konnte nicht gesendet werden. Bitte später erneut versuchen.");
+    showAuthGate("Anmeldung fehlgeschlagen. Bitte E-Mail/Passwort prüfen.");
     return;
   }
 
-  showAuthGate("Login-Link wurde gesendet. Bitte E-Mail öffnen und Link anklicken.");
+  showAuthGate("Anmeldung erfolgreich. Seite wird geladen...");
+  window.location.reload();
+}
+
+async function handleSignUp() {
+  const client = getSupabaseClient();
+  if (!client) {
+    showAuthGate("Supabase ist nicht erreichbar. Konfiguration prüfen.");
+    return;
+  }
+
+  const credentials = getAuthCredentials();
+  if (!credentials) {
+    return;
+  }
+  const { email, password } = credentials;
+
+  const { data, error } = await client.auth.signUp({
+    email,
+    password,
+  });
+
+  if (error) {
+    showAuthGate(
+      "Konto konnte nicht erstellt werden. Prüfe Einladung, Passwort oder ob der Benutzer schon existiert."
+    );
+    return;
+  }
+
+  if (data.session) {
+    showAuthGate("Konto erstellt und angemeldet. Seite wird geladen...");
+    window.location.reload();
+    return;
+  }
+
+  showAuthGate(
+    "Konto erstellt. Wenn Email-Confirm aktiv ist, bitte Email bestätigen oder in Supabase deaktivieren."
+  );
+}
+
+function getAuthCredentials() {
+  const email = String(els.authEmail.value || "").trim().toLowerCase();
+  const password = String(els.authPassword.value || "");
+  if (!email || !email.includes("@")) {
+    showAuthGate("Bitte eine gültige E-Mail eingeben.");
+    return null;
+  }
+  if (password.length < 8) {
+    showAuthGate("Bitte ein Passwort mit mindestens 8 Zeichen verwenden.");
+    return null;
+  }
+  return { email, password };
 }
 
 async function handleSignOut() {
@@ -1933,29 +1981,8 @@ async function saveEmployeeRecord(userPayload, selectedUser) {
     window.alert("Einladung konnte nicht gespeichert werden.");
     return false;
   }
-
-  const inviteSent = await sendEmployeeLoginLink(normalizedEmail);
-  if (!inviteSent) {
-    window.alert(
-      "Einladung gespeichert, aber E-Mail konnte nicht gesendet werden. Bitte später erneut senden."
-    );
-  }
+  window.alert("Einladung gespeichert. Mitarbeiter kann jetzt mit E-Mail + Passwort ein Konto erstellen.");
   return true;
-}
-
-async function sendEmployeeLoginLink(email) {
-  const client = getSupabaseClient();
-  if (!client) {
-    return false;
-  }
-  const { error } = await client.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: getEmailRedirectUrl(),
-      shouldCreateUser: true,
-    },
-  });
-  return !error;
 }
 
 function cloneDefaultState() {

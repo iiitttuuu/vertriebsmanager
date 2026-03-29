@@ -114,6 +114,16 @@ body::after {
   color: #1f3b62;
 }
 
+.auth-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.auth-actions .btn-action {
+  min-width: 180px;
+}
+
 .app-shell {
   width: min(1220px, calc(100% - 40px));
   margin: 22px auto;

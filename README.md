@@ -36,11 +36,12 @@ Dann `http://localhost:8080/index.html` oeffnen.
 
 ## Login / Mitarbeiter-Flow
 
-- Login ist jetzt per Supabase Magic-Link (E-Mail) aktiv.
+- Login ist jetzt per E-Mail + Passwort aktiv.
 - Admin legt Mitarbeiter als Einladung an.
-- Mitarbeiter bekommt Login-Link per Mail.
-- Beim ersten Login wird automatisch ein Profil erstellt und Einladung auf `accepted` gesetzt.
+- Mitarbeiter erstellt danach selbst ein Konto mit derselben E-Mail + Passwort.
+- Beim ersten erfolgreichen Signup wird automatisch ein Profil erstellt und Einladung auf `accepted` gesetzt.
 - In Supabase unter `Authentication -> Providers -> Email` muss E-Mail Login aktiviert sein.
+- In Supabase unter `Authentication -> Providers -> Email` fuer diesen Flow am besten `Confirm email` deaktivieren.
 
 Hinweis:
 - Der erste Benutzer, der sich anmeldet, wird automatisch `admin`.

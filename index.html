@@ -10,13 +10,20 @@
     <div id="auth-gate" class="auth-gate hidden">
       <div class="auth-card">
         <h2>Anmeldung</h2>
-        <p>Melde dich mit deiner Firmen-E-Mail an. Du bekommst einen sicheren Login-Link per E-Mail.</p>
+        <p>Melde dich mit Firmen-E-Mail und Passwort an oder erstelle ein Konto mit deiner Einladung.</p>
         <form id="auth-form" class="auth-form">
           <label>
             E-Mail
             <input type="email" id="auth-email" placeholder="name@firma.at" required />
           </label>
-          <button type="submit" class="btn btn-success btn-action">Login-Link senden</button>
+          <label>
+            Passwort
+            <input type="password" id="auth-password" placeholder="Mind. 8 Zeichen" required />
+          </label>
+          <div class="auth-actions">
+            <button type="submit" id="auth-signin-btn" class="btn btn-success btn-action">Anmelden</button>
+            <button type="button" id="auth-signup-btn" class="btn btn-primary">Konto erstellen</button>
+          </div>
         </form>
         <p id="auth-message" class="auth-message"></p>
       </div>

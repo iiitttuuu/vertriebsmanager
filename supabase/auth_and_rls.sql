@@ -111,6 +111,9 @@ begin
   if invite_row.id is not null then
     assigned_role := coalesce(invite_row.role, 'mitarbeiter');
   else
+    if has_admin then
+      raise exception 'Nur eingeladene Mitarbeiter duerfen sich registrieren.';
+    end if;
     assigned_role := case when has_admin then 'mitarbeiter' else 'admin' end;
   end if;
 
