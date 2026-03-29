@@ -763,6 +763,13 @@ td .table-btn {
   cursor: pointer;
 }
 
+td.audit-cell {
+  min-width: 220px;
+  font-size: 0.8rem;
+  color: #3f5578;
+  white-space: nowrap;
+}
+
 .table-icon-actions {
   display: inline-flex;
   gap: 4px;

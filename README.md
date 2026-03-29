@@ -29,10 +29,11 @@ Dann `http://localhost:8080/index.html` oeffnen.
 1. In Supabase ein neues Projekt erstellen.
 2. SQL aus `supabase/schema.sql` im SQL Editor ausfuehren.
 3. SQL aus `supabase/auth_and_rls.sql` im SQL Editor ausfuehren.
-4. In `config.js` setzen:
+4. Optional: SQL aus `supabase/seed_categories.sql` ausfuehren, um die 7 Standard-Hauptkategorien vorzubelegen.
+5. In `config.js` setzen:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
-5. Seite neu laden. Danach liest/schreibt die App in Supabase.
+6. Seite neu laden. Danach liest/schreibt die App in Supabase.
 
 ## Login / Mitarbeiter-Flow
 

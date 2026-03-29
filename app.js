@@ -256,13 +256,44 @@ function bindEvents() {
       return;
     }
 
+    const actor = getCurrentActorInfo();
+    const nowIso = new Date().toISOString();
+
     if (editingProviderId) {
       const provider = state.providers.find((entry) => entry.id === editingProviderId);
       if (provider) {
-        Object.assign(provider, providerPayload);
+        Object.assign(provider, providerPayload, {
+          updatedAt: nowIso,
+          updatedByName: actor.name,
+          updatedByRole: actor.role,
+          updatedByUserId: actor.userId,
+        });
+        if (!provider.createdAt) {
+          provider.createdAt = nowIso;
+        }
+        if (!provider.createdByName) {
+          provider.createdByName = actor.name;
+        }
+        if (!provider.createdByRole) {
+          provider.createdByRole = actor.role;
+        }
+        if (!provider.createdByUserId) {
+          provider.createdByUserId = actor.userId;
+        }
       }
     } else {
-      state.providers.push({ id: createId("p"), ...providerPayload });
+      state.providers.push({
+        id: createId("p"),
+        ...providerPayload,
+        createdAt: nowIso,
+        createdByName: actor.name,
+        createdByRole: actor.role,
+        createdByUserId: actor.userId,
+        updatedAt: nowIso,
+        updatedByName: actor.name,
+        updatedByRole: actor.role,
+        updatedByUserId: actor.userId,
+      });
     }
 
     saveState();
@@ -651,7 +682,7 @@ function renderProvidersTable() {
   const admin = isAdmin();
   if (!state.providers.length) {
     els.providersTableBody.innerHTML =
-      '<tr><td colspan="5" class="empty">Noch keine Anbieter vorhanden.</td></tr>';
+      '<tr><td colspan="7" class="empty">Noch keine Anbieter vorhanden.</td></tr>';
     return;
   }
 
@@ -660,6 +691,16 @@ function renderProvidersTable() {
       const topicNames = provider.topicIds
         .map((topicId) => getTopicById(topicId)?.name)
         .filter(Boolean);
+      const createdLabel = formatAuditStamp(
+        provider.createdAt,
+        provider.createdByRole,
+        provider.createdByName
+      );
+      const updatedLabel = formatAuditStamp(
+        provider.updatedAt,
+        provider.updatedByRole,
+        provider.updatedByName
+      );
 
       return `
         <tr>
@@ -667,6 +708,8 @@ function renderProvidersTable() {
           <td>${escapeHtml(provider.status)}</td>
           <td>${escapeHtml(provider.city)}</td>
           <td>${escapeHtml(String(topicNames.length))}</td>
+          <td class="audit-cell">${escapeHtml(createdLabel)}</td>
+          <td class="audit-cell">${escapeHtml(updatedLabel)}</td>
           <td>
             ${
               admin
@@ -1553,6 +1596,41 @@ function isAdmin() {
   return getCurrentUser()?.role === "admin";
 }
 
+function getCurrentActorInfo() {
+  const currentUser = getCurrentUser();
+  return {
+    userId: authProfile?.user_id || "",
+    name: (currentUser?.name || authProfile?.full_name || authProfile?.email || "Unbekannt").trim(),
+    role: currentUser?.role === "admin" ? "admin" : "mitarbeiter",
+  };
+}
+
+function getRoleLabel(role) {
+  return role === "admin" ? "Admin" : "Mitarbeiter";
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "–";
+  }
+  const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "–";
+  }
+  return new Intl.DateTimeFormat("de-AT", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(parsedDate);
+}
+
+function formatAuditStamp(timestamp, role, name) {
+  const dateLabel = formatDateTime(timestamp);
+  if (dateLabel === "–") {
+    return "–";
+  }
+  return `${dateLabel} · ${getRoleLabel(role)} (${(name || "Unbekannt").trim()})`;
+}
+
 function ensureSessionUser() {
   if (authProfile?.user_id) {
     const authUserEntry = state.users.find((entry) => entry.source === "profile" && entry.sourceId === authProfile.user_id);
@@ -2041,11 +2119,36 @@ function cloneDefaultState() {
 }
 
 function normalizePersistedState(parsed) {
+  const normalizedProviders = Array.isArray(parsed.providers)
+    ? parsed.providers
+        .map((provider) => normalizeProviderRecord(provider))
+        .filter(Boolean)
+    : [];
+
   return {
     sessionUserId: parsed.sessionUserId || defaultState.sessionUserId,
     users: Array.isArray(parsed.users) && parsed.users.length ? parsed.users : defaultState.users,
-    providers: Array.isArray(parsed.providers) ? parsed.providers : [],
+    providers: normalizedProviders,
     categories: Array.isArray(parsed.categories) ? parsed.categories : [],
+  };
+}
+
+function normalizeProviderRecord(provider) {
+  if (!provider || typeof provider !== "object") {
+    return null;
+  }
+
+  return {
+    ...provider,
+    topicIds: Array.isArray(provider.topicIds) ? provider.topicIds.filter(Boolean) : [],
+    createdAt: provider.createdAt || "",
+    createdByName: provider.createdByName || "",
+    createdByRole: provider.createdByRole || "",
+    createdByUserId: provider.createdByUserId || "",
+    updatedAt: provider.updatedAt || "",
+    updatedByName: provider.updatedByName || "",
+    updatedByRole: provider.updatedByRole || "",
+    updatedByUserId: provider.updatedByUserId || "",
   };
 }
 
