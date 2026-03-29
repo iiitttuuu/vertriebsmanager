@@ -61,6 +61,7 @@ let currentAddressSuggestions = [];
 let googleMapsReady = false;
 let googleAutocompleteService = null;
 let googlePlacesService = null;
+let googleGeocoder = null;
 let googleSessionToken = null;
 let addressPredictionRequestId = 0;
 let googlePlacesLoadError = "";
@@ -68,6 +69,7 @@ let dashboardMap = null;
 let dashboardMapMarkers = [];
 let dashboardMapCircles = [];
 let dashboardMapInfoWindows = [];
+let providerGeocodeInFlight = new Set();
 let mapCountryFilter = "all";
 let mapLevelFilter = "category";
 let mapItemFilter = "all";
@@ -786,6 +788,7 @@ function renderDashboardMap() {
   const countryProviders = state.providers.filter((provider) =>
     providerMatchesCountry(provider, mapCountryFilter)
   );
+  queueProviderGeocoding(countryProviders);
   const countryProvidersWithCoords = countryProviders.filter((provider) => !!getProviderCoordinates(provider));
 
   const hits = countryProvidersWithCoords
@@ -795,8 +798,13 @@ function renderDashboardMap() {
         return null;
       }
       const groups = getProviderGroupsForLevel(provider, mapLevelFilter, topicLookup);
+      const fallbackGroup = {
+        id: `unassigned_${mapLevelFilter}`,
+        label: "Ohne Zuordnung",
+      };
+      const groupsWithFallback = groups.length ? groups : [fallbackGroup];
       const relevantGroups =
-        mapItemFilter === "all" ? groups : groups.filter((group) => group.id === mapItemFilter);
+        mapItemFilter === "all" ? groupsWithFallback : groupsWithFallback.filter((group) => group.id === mapItemFilter);
       if (!relevantGroups.length) {
         return null;
       }
@@ -815,12 +823,17 @@ function renderDashboardMap() {
       return;
     }
     if (!countryProvidersWithCoords.length) {
+      const pendingCount = providerGeocodeInFlight.size;
       showDashboardMapEmpty(
-        "Keine Koordinaten vorhanden. Bitte Anbieteradresse über Google-Vorschlag auswählen und speichern."
+        pendingCount
+          ? `Koordinaten werden automatisch ermittelt (${pendingCount} offen). Bitte 5-15 Sekunden warten.`
+          : "Keine Koordinaten vorhanden. Bitte Anbieteradresse über Google-Vorschlag auswählen und speichern."
       );
       return;
     }
-    showDashboardMapEmpty("Keine Treffer für die aktuelle Auswahl gefunden.");
+    showDashboardMapEmpty(
+      "Keine Treffer für die aktuelle Auswahl gefunden. Prüfe Themen-Zuordnung beim Anbieter."
+    );
     return;
   }
 
@@ -850,10 +863,10 @@ function renderDashboardMap() {
       center: hit.coords,
       radius: radiusKm * 1000,
       fillColor: color,
-      fillOpacity: 0.22,
+      fillOpacity: 0.32,
       strokeColor: color,
-      strokeOpacity: 0.6,
-      strokeWeight: 1.2,
+      strokeOpacity: 0.8,
+      strokeWeight: 1.8,
     });
     const infoWindow = new window.google.maps.InfoWindow({
       content: `
@@ -916,6 +929,12 @@ function renderDashboardMapControls() {
   els.mapLevelSelect.value = mapLevelFilter;
 
   const entities = getMapEntitiesForLevel(mapLevelFilter);
+  if (!entities.length) {
+    mapItemFilter = "all";
+    els.mapItemSelect.innerHTML = '<option value="all">Keine Einträge vorhanden</option>';
+    els.mapItemSelect.value = "all";
+    return;
+  }
   const validEntityIds = new Set(entities.map((entry) => entry.id));
   if (mapItemFilter !== "all" && !validEntityIds.has(mapItemFilter)) {
     mapItemFilter = "all";
@@ -995,6 +1014,92 @@ function getProviderCoordinates(provider) {
     return null;
   }
   return { lat: latitude, lng: longitude };
+}
+
+function queueProviderGeocoding(providers) {
+  if (!googleGeocoder || !Array.isArray(providers) || !providers.length) {
+    return;
+  }
+
+  const maxConcurrent = 4;
+  const openSlots = Math.max(0, maxConcurrent - providerGeocodeInFlight.size);
+  if (!openSlots) {
+    return;
+  }
+
+  const candidates = providers
+    .filter((provider) => !getProviderCoordinates(provider))
+    .filter((provider) => !!provider?.id && !providerGeocodeInFlight.has(provider.id))
+    .slice(0, openSlots);
+
+  candidates.forEach((provider) => {
+    geocodeProviderAddress(provider);
+  });
+}
+
+function geocodeProviderAddress(provider) {
+  if (!googleGeocoder || !provider?.id) {
+    return;
+  }
+
+  const query = buildProviderGeocodeQuery(provider);
+  if (!query) {
+    return;
+  }
+
+  providerGeocodeInFlight.add(provider.id);
+  googleGeocoder.geocode(
+    {
+      address: query,
+      language: "de",
+      region: "AT",
+    },
+    (results, status) => {
+      providerGeocodeInFlight.delete(provider.id);
+      const ok = status === "OK" && Array.isArray(results) && results.length;
+      if (!ok) {
+        renderDashboardMap();
+        return;
+      }
+
+      const location = results[0]?.geometry?.location;
+      const lat = typeof location?.lat === "function" ? Number(location.lat()) : null;
+      const lng = typeof location?.lng === "function" ? Number(location.lng()) : null;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        renderDashboardMap();
+        return;
+      }
+
+      const target = state.providers.find((entry) => entry.id === provider.id);
+      if (!target) {
+        renderDashboardMap();
+        return;
+      }
+      target.latitude = lat;
+      target.longitude = lng;
+      if (!target.updatedAt) {
+        target.updatedAt = new Date().toISOString();
+      }
+      saveState();
+      renderDashboardMap();
+    }
+  );
+}
+
+function buildProviderGeocodeQuery(provider) {
+  const parts = [
+    provider.address,
+    provider.postalCode,
+    provider.city,
+    provider.state,
+    provider.country,
+  ]
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+  if (!parts.length) {
+    return "";
+  }
+  return parts.join(", ");
 }
 
 function getDashboardColorMap(hits) {
@@ -1208,6 +1313,7 @@ function setupGooglePlacesServices() {
   }
   googleAutocompleteService = new window.google.maps.places.AutocompleteService();
   googlePlacesService = new window.google.maps.places.PlacesService(document.createElement("div"));
+  googleGeocoder = new window.google.maps.Geocoder();
   googleSessionToken = new window.google.maps.places.AutocompleteSessionToken();
   googleMapsReady = true;
   googlePlacesLoadError = "";
