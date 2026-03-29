@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vertriebsmanager Plattform</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="background-shape"></div>
+    <div class="app-shell">
+      <header class="topbar card">
+        <div class="brand-group">
+          <span class="brand-chip">VM</span>
+          <div>
+          <p class="overline">CRM Plattform</p>
+          <h1>Vertriebsmanager</h1>
+          </div>
+        </div>
+        <div class="topbar-controls">
+          <label for="user-switch">Anmelden als</label>
+          <select id="user-switch"></select>
+          <span id="role-badge" class="role-badge"></span>
+        </div>
+      </header>
+
+      <aside class="sidebar card">
+        <button class="nav-btn active" data-target="dashboard-section">Dashboard</button>
+        <button class="nav-btn admin-only" data-target="users-section">Mitarbeiter</button>
+        <button class="nav-btn" data-target="providers-section">Anbieter</button>
+        <button class="nav-btn admin-only" data-target="management-section">Verwaltung</button>
+      </aside>
+
+      <main class="content">
+        <section id="dashboard-section" class="panel card active">
+          <div class="section-header">
+            <h2>Übersicht</h2>
+            <p>Alle wichtigen Kennzahlen auf einen Blick.</p>
+          </div>
+
+          <div class="stats-grid">
+            <article class="stat-box">
+              <h3 id="stat-users">0</h3>
+              <p>Mitarbeiter</p>
+            </article>
+            <article class="stat-box">
+              <h3 id="stat-providers">0</h3>
+              <p>Anbieter</p>
+            </article>
+            <article class="stat-box">
+              <h3 id="stat-topics">0</h3>
+              <p>Themen gesamt</p>
+            </article>
+          </div>
+        </section>
+
+        <section id="users-section" class="panel card">
+          <div class="section-header">
+            <h2>Mitarbeiter</h2>
+            <p>Übersicht und Verwaltung aller Mitarbeiter.</p>
+          </div>
+          <div class="section-tools">
+            <button type="button" id="user-create-btn" class="btn btn-success btn-action">Neuen Mitarbeiter anlegen</button>
+          </div>
+
+          <div id="users-list-view">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Rolle</th>
+                    <th>E-Mail</th>
+                    <th>Telefon</th>
+                    <th>Adresse</th>
+                    <th>Aktion</th>
+                  </tr>
+                </thead>
+                <tbody id="users-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="users-form-view" class="hidden">
+            <form id="user-form" class="form-grid admin-lock">
+              <label>
+                Name
+                <input type="text" name="name" required />
+              </label>
+              <label>
+                Adresse
+                <input type="text" name="address" required />
+              </label>
+              <label>
+                E-Mail
+                <input type="email" name="email" required />
+              </label>
+              <label>
+                Telefon
+                <input type="tel" name="phone" required />
+              </label>
+              <label>
+                Rolle
+                <select name="role" required>
+                  <option value="mitarbeiter">Mitarbeiter</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </label>
+              <div class="form-actions split">
+                <button type="button" id="user-cancel-btn" class="btn btn-primary">Zur Übersicht</button>
+                <button type="submit" id="user-save-btn" class="btn btn-success btn-action">Speichern</button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section id="providers-section" class="panel card">
+          <div class="section-header">
+            <h2>Anbieter</h2>
+            <p>Übersicht und Verwaltung aller Anbieter.</p>
+          </div>
+
+          <div class="section-tools">
+            <button type="button" id="provider-create-btn" class="btn btn-success btn-action">Neuen Anbieter anlegen</button>
+          </div>
+
+          <div id="providers-list-view">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Ort</th>
+                    <th>Themen</th>
+                    <th>Aktion</th>
+                  </tr>
+                </thead>
+                <tbody id="providers-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="providers-form-view" class="hidden">
+            <form id="provider-form" class="form-grid admin-lock">
+              <label>
+                Name
+                <input type="text" name="name" required />
+              </label>
+              <label class="provider-address-field">
+                Adresse
+                <input
+                  type="text"
+                  id="provider-address-input"
+                  name="address"
+                  autocomplete="off"
+                  required
+                />
+                <div id="provider-address-suggestions" class="address-suggestions hidden"></div>
+              </label>
+              <label>
+                PLZ
+                <input type="text" name="postalCode" required />
+              </label>
+              <label>
+                Ort
+                <input type="text" name="city" required />
+              </label>
+              <label>
+                Land
+                <input type="text" name="country" required />
+              </label>
+              <label>
+                Bundesland
+                <input type="text" name="state" required />
+              </label>
+              <label>
+                Website
+                <input type="url" name="website" placeholder="https://..." />
+              </label>
+              <label>
+                E-Mail
+                <input type="email" name="email" required />
+              </label>
+              <label>
+                Telefon
+                <input type="tel" name="phone" required />
+              </label>
+              <label>
+                Status
+                <select name="status" required>
+                  <option value="offen">offen</option>
+                  <option value="in Bearbeitung">in Bearbeitung</option>
+                  <option value="live">live</option>
+                </select>
+              </label>
+
+              <div class="topic-selector">
+                <h3>Themenauswahl pro Anbieter</h3>
+                <p>Suche Themen direkt, nutze Vorlagen und ordne sie schnell per Klick zu.</p>
+
+                <div class="topic-toolbar">
+                  <label class="topic-template-field">
+                    Vorlage
+                    <select id="provider-topic-template"></select>
+                  </label>
+                  <button type="button" id="provider-template-apply" class="btn btn-primary">Vorlage anwenden</button>
+                  <button type="button" id="provider-topic-clear" class="btn btn-primary">Zuordnung leeren</button>
+                </div>
+
+                <label class="topic-search-field">
+                  Thema suchen
+                  <input
+                    type="search"
+                    id="provider-topic-search"
+                    placeholder="Thema, Unterkategorie oder Kategorie suchen..."
+                  />
+                </label>
+
+                <div class="topic-grid">
+                  <div class="topic-col">
+                    <h4>Verfügbare Themen</h4>
+                    <div id="provider-topic-results" class="topic-list"></div>
+                  </div>
+                  <div class="topic-col">
+                    <h4>Zugeordnet</h4>
+                    <div id="provider-topic-chips" class="topic-chip-list"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-actions split">
+                <button type="button" id="provider-reset-btn" class="btn btn-primary">Zur Übersicht</button>
+                <button type="submit" id="provider-save-btn" class="btn btn-success btn-action">Speichern</button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section id="management-section" class="panel card">
+          <div class="section-header">
+            <h2>Verwaltung</h2>
+            <p>Kategorien, Unterkategorien und Themen nebeneinander, dynamisch und schnell verwalten.</p>
+          </div>
+
+          <div class="management-summary">
+            <div class="summary-chip">
+              <span id="management-cat-count">0</span>
+              Kategorien
+            </div>
+            <div class="summary-chip">
+              <span id="management-subcat-count">0</span>
+              Unterkategorien
+            </div>
+            <div class="summary-chip">
+              <span id="management-topic-count">0</span>
+              Themen
+            </div>
+          </div>
+
+          <div class="management-board">
+            <article class="management-lane">
+              <div class="lane-head">
+                <div class="lane-title">
+                  <span class="lane-icon">▣</span>
+                  <h3>Kategorie</h3>
+                </div>
+                <select class="lane-filter" disabled>
+                  <option>Alle</option>
+                </select>
+              </div>
+              <form id="category-form" class="lane-form admin-lock">
+                <input type="text" name="name" placeholder="Neue Kategorie anlegen" required />
+                <button type="submit" class="mini-btn mini-btn-add" title="Kategorie speichern" aria-label="Kategorie speichern">+</button>
+              </form>
+              <ul id="categories-list" class="lane-list"></ul>
+            </article>
+
+            <article class="management-lane">
+              <div class="lane-head">
+                <div class="lane-title">
+                  <span class="lane-icon">▣</span>
+                  <h3>Themenbereich</h3>
+                </div>
+                <p id="subcategory-context">Schritt 2</p>
+              </div>
+              <form id="subcategory-form" class="lane-form admin-lock">
+                <input type="text" name="name" placeholder="Neue Unterkategorie anlegen" required />
+                <button type="submit" class="mini-btn mini-btn-add" title="Themenbereich speichern" aria-label="Themenbereich speichern">+</button>
+              </form>
+              <ul id="subcategories-list" class="lane-list"></ul>
+            </article>
+
+            <article class="management-lane">
+              <div class="lane-head">
+                <div class="lane-title">
+                  <span class="lane-icon">▣</span>
+                  <h3>Thema</h3>
+                </div>
+                <p id="topic-context">Schritt 3</p>
+              </div>
+              <form id="topic-form" class="lane-form admin-lock">
+                <input type="text" name="name" placeholder="Neues Thema anlegen" required />
+                <button type="submit" class="mini-btn mini-btn-add" title="Thema speichern" aria-label="Thema speichern">+</button>
+              </form>
+              <ul id="topics-list" class="lane-list"></ul>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
