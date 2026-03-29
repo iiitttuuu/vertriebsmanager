@@ -1675,7 +1675,7 @@ async function initializeAuth() {
       return;
     }
     if (event === "SIGNED_IN") {
-      window.location.reload();
+      authSession = session || null;
     }
   });
 
@@ -1790,7 +1790,7 @@ async function handleAuthSubmit(event) {
   }
   const { email, password } = credentials;
 
-  const { error } = await client.auth.signInWithPassword({
+  const { data, error } = await client.auth.signInWithPassword({
     email,
     password,
   });
@@ -1801,7 +1801,7 @@ async function handleAuthSubmit(event) {
   }
 
   showAuthGate("Anmeldung erfolgreich. Seite wird geladen...");
-  window.location.reload();
+  await activateSignedInSession(data?.session || null);
 }
 
 async function handleSignUp() {
@@ -1829,7 +1829,7 @@ async function handleSignUp() {
 
   if (data.session) {
     showAuthGate("Konto erstellt und angemeldet. Seite wird geladen...");
-    window.location.reload();
+    await activateSignedInSession(data.session);
     return;
   }
 
@@ -1858,7 +1858,41 @@ async function handleSignOut() {
     return;
   }
   await client.auth.signOut();
-  window.location.reload();
+  authSession = null;
+  authProfile = null;
+  showAuthGate("Bitte melde dich an.");
+}
+
+async function activateSignedInSession(session) {
+  authSession = session || authSession;
+  const client = getSupabaseClient();
+  if (!client) {
+    showAuthGate("Supabase ist nicht erreichbar. Konfiguration prüfen.");
+    return;
+  }
+
+  if (!authSession) {
+    const { data, error } = await client.auth.getSession();
+    if (error || !data?.session) {
+      showAuthGate("Session konnte nicht geladen werden. Bitte erneut anmelden.");
+      return;
+    }
+    authSession = data.session;
+  }
+
+  await ensureAuthProfile(authSession.user);
+  if (!authProfile) {
+    showAuthGate("Benutzerprofil fehlt oder konnte nicht geladen werden.");
+    return;
+  }
+
+  if (authProfile.status === "inactive") {
+    showAuthGate("Dein Zugang ist deaktiviert. Bitte Admin kontaktieren.");
+    return;
+  }
+
+  hideAuthGate();
+  await bootstrapAfterAuth();
 }
 
 async function syncUsersFromSupabase() {
