@@ -7,6 +7,20 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <div id="auth-gate" class="auth-gate hidden">
+      <div class="auth-card">
+        <h2>Anmeldung</h2>
+        <p>Melde dich mit deiner Firmen-E-Mail an. Du bekommst einen sicheren Login-Link per E-Mail.</p>
+        <form id="auth-form" class="auth-form">
+          <label>
+            E-Mail
+            <input type="email" id="auth-email" placeholder="name@firma.at" required />
+          </label>
+          <button type="submit" class="btn btn-success btn-action">Login-Link senden</button>
+        </form>
+        <p id="auth-message" class="auth-message"></p>
+      </div>
+    </div>
     <div class="background-shape"></div>
     <div class="app-shell">
       <header class="topbar card">
@@ -18,9 +32,9 @@
           </div>
         </div>
         <div class="topbar-controls">
-          <label for="user-switch">Anmelden als</label>
-          <select id="user-switch"></select>
+          <span id="current-user-label" class="current-user-label">Nicht angemeldet</span>
           <span id="role-badge" class="role-badge"></span>
+          <button type="button" id="sign-out-btn" class="btn btn-primary">Abmelden</button>
         </div>
       </header>
 

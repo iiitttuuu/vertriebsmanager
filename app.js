@@ -22,17 +22,8 @@ const PROVIDER_TOPIC_TEMPLATES = [
 ];
 
 const defaultState = {
-  sessionUserId: "u_admin",
-  users: [
-    {
-      id: "u_admin",
-      name: "System Admin",
-      address: "Musterstraße 1, 1010 Wien",
-      email: "admin@vertriebsmanager.local",
-      phone: "+43 1 234567",
-      role: "admin",
-    },
-  ],
+  sessionUserId: "",
+  users: [],
   providers: [],
   categories: [],
 };
@@ -57,9 +48,17 @@ let supabaseClient = null;
 let storageMode = "local";
 let remoteSaveTimeoutId = null;
 let lastRemotePayloadFingerprint = "";
+let authSession = null;
+let authProfile = null;
+let boundEvents = false;
 
 const els = {
-  userSwitch: document.getElementById("user-switch"),
+  authGate: document.getElementById("auth-gate"),
+  authForm: document.getElementById("auth-form"),
+  authEmail: document.getElementById("auth-email"),
+  authMessage: document.getElementById("auth-message"),
+  currentUserLabel: document.getElementById("current-user-label"),
+  signOutBtn: document.getElementById("sign-out-btn"),
   roleBadge: document.getElementById("role-badge"),
   navButtons: document.querySelectorAll(".nav-btn"),
   panels: document.querySelectorAll(".panel"),
@@ -105,22 +104,35 @@ const els = {
 initialize();
 
 async function initialize() {
+  const authReady = await initializeAuth();
+  bindEvents();
+  if (!authReady) {
+    showAuthGate("Bitte melde dich an.");
+    return;
+  }
+  hideAuthGate();
+  await bootstrapAfterAuth();
+}
+
+async function bootstrapAfterAuth() {
   await hydrateState();
+  await syncUsersFromSupabase();
   ensureSessionUser();
   ensureManagementSelection();
   initGooglePlaces();
-  bindEvents();
   setUsersView("list");
   setProvidersView("list");
   renderAll();
 }
 
 function bindEvents() {
-  els.userSwitch.addEventListener("change", (event) => {
-    state.sessionUserId = event.target.value;
-    saveState();
-    renderAll();
-  });
+  if (boundEvents) {
+    return;
+  }
+  boundEvents = true;
+
+  els.authForm.addEventListener("submit", handleAuthSubmit);
+  els.signOutBtn.addEventListener("click", handleSignOut);
 
   els.navButtons.forEach((button) => {
     button.addEventListener("click", () => {
@@ -145,7 +157,7 @@ function bindEvents() {
     setUsersView("list");
   });
 
-  els.userForm.addEventListener("submit", (event) => {
+  els.userForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!isAdmin()) {
       return;
@@ -155,7 +167,7 @@ function bindEvents() {
     const userPayload = {
       name: formData.get("name").toString().trim(),
       address: formData.get("address").toString().trim(),
-      email: formData.get("email").toString().trim(),
+      email: (formData.get("email") ?? els.userForm.elements.email.value).toString().trim(),
       phone: formData.get("phone").toString().trim(),
       role: formData.get("role").toString(),
     };
@@ -164,17 +176,15 @@ function bindEvents() {
       return;
     }
 
-    if (editingUserId) {
-      const user = state.users.find((entry) => entry.id === editingUserId);
-      if (user) {
-        Object.assign(user, userPayload);
-      }
-    } else {
-      state.users.push({ id: createId("u"), ...userPayload });
+    const selectedUser = editingUserId
+      ? state.users.find((entry) => entry.id === editingUserId) || null
+      : null;
+    const success = await saveEmployeeRecord(userPayload, selectedUser);
+    if (!success) {
+      return;
     }
 
-    ensureSessionUser();
-    saveState();
+    await syncUsersFromSupabase();
     clearUserForm();
     setUsersView("list");
     renderAll();
@@ -201,7 +211,7 @@ function bindEvents() {
       if (!isAdmin()) {
         return;
       }
-      handleDeleteUser(deleteButton.dataset.deleteUser);
+      void handleDeleteUser(deleteButton.dataset.deleteUser);
     }
   });
 
@@ -532,23 +542,21 @@ function renderAll() {
 
 function renderUserSwitch() {
   const activeUser = getCurrentUser();
-  els.userSwitch.innerHTML = state.users
-    .map(
-      (user) =>
-        `<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)} (${escapeHtml(
-          user.role
-        )})</option>`
-    )
-    .join("");
-
-  if (activeUser) {
-    els.userSwitch.value = activeUser.id;
+  if (!activeUser) {
+    els.currentUserLabel.textContent = "Nicht angemeldet";
+    return;
   }
+
+  els.currentUserLabel.textContent = `${activeUser.name} (${activeUser.email})`;
 }
 
 function renderRoleState() {
   const activeUser = getCurrentUser();
   if (!activeUser) {
+    els.roleBadge.textContent = "Nicht angemeldet";
+    els.adminOnlyNav.forEach((button) => {
+      button.classList.add("hidden");
+    });
     return;
   }
 
@@ -584,7 +592,8 @@ function renderRoleState() {
 }
 
 function renderDashboardStats() {
-  els.statUsers.textContent = String(state.users.length);
+  const activeUsers = state.users.filter((entry) => entry.source === "profile" && entry.status !== "inactive").length;
+  els.statUsers.textContent = String(activeUsers);
   els.statProviders.textContent = String(state.providers.length);
   els.statTopics.textContent = String(getAllTopics().length);
 }
@@ -601,7 +610,7 @@ function renderUsersTable() {
       (user) => `
       <tr>
         <td>${escapeHtml(user.name)}</td>
-        <td>${escapeHtml(user.role)}</td>
+        <td>${escapeHtml(user.role)}${user.statusLabel ? ` · ${escapeHtml(user.statusLabel)}` : ""}</td>
         <td>${escapeHtml(user.email)}</td>
         <td>${escapeHtml(user.phone)}</td>
         <td>${escapeHtml(user.address)}</td>
@@ -1050,12 +1059,14 @@ function fillUserForm(user) {
   formElements.email.value = user.email;
   formElements.phone.value = user.phone;
   formElements.role.value = user.role;
+  formElements.email.disabled = user.source === "profile";
   els.userSaveBtn.textContent = "Aktualisieren";
 }
 
 function clearUserForm() {
   editingUserId = null;
   els.userForm.reset();
+  els.userForm.elements.email.disabled = false;
   els.userSaveBtn.textContent = "Speichern";
 }
 
@@ -1070,21 +1081,29 @@ function clearProviderForm() {
   els.providerSaveBtn.textContent = "Speichern";
 }
 
-function handleDeleteUser(userId) {
+async function handleDeleteUser(userId) {
   const userIndex = state.users.findIndex((entry) => entry.id === userId);
   if (userIndex < 0) {
     return;
   }
 
-  if (state.users.length <= 1) {
-    window.alert("Mindestens ein Mitarbeiter muss bestehen bleiben.");
+  const user = state.users[userIndex];
+  const activeProfiles = state.users.filter((entry) => entry.source === "profile" && entry.status !== "inactive");
+  if (activeProfiles.length <= 1 && user.source === "profile") {
+    window.alert("Mindestens ein aktiver Mitarbeiter muss bestehen bleiben.");
     return;
   }
 
-  const user = state.users[userIndex];
-  const adminCount = state.users.filter((entry) => entry.role === "admin").length;
+  const adminCount = state.users.filter(
+    (entry) => entry.source === "profile" && entry.role === "admin" && entry.status !== "inactive"
+  ).length;
   if (user.role === "admin" && adminCount <= 1) {
     window.alert("Der letzte Admin kann nicht gelöscht werden.");
+    return;
+  }
+
+  if (user.source === "profile" && user.sourceId === authProfile?.user_id) {
+    window.alert("Du kannst deinen eigenen Zugang nicht löschen.");
     return;
   }
 
@@ -1093,12 +1112,34 @@ function handleDeleteUser(userId) {
     return;
   }
 
-  state.users.splice(userIndex, 1);
+  const client = getSupabaseClient();
+  if (!client) {
+    window.alert("Supabase Verbindung fehlt.");
+    return;
+  }
+
+  if (user.source === "invite") {
+    const { error } = await client.from("employee_invites").delete().eq("id", user.sourceId);
+    if (error) {
+      window.alert("Einladung konnte nicht gelöscht werden.");
+      return;
+    }
+  } else if (user.source === "profile") {
+    const { error } = await client
+      .from("profiles")
+      .update({ status: "inactive" })
+      .eq("user_id", user.sourceId);
+    if (error) {
+      window.alert("Mitarbeiter konnte nicht deaktiviert werden.");
+      return;
+    }
+  }
+
   if (editingUserId === userId) {
     clearUserForm();
   }
+  await syncUsersFromSupabase();
   ensureSessionUser();
-  saveState();
   renderAll();
 }
 
@@ -1492,7 +1533,15 @@ function setProvidersView(mode) {
 }
 
 function getCurrentUser() {
-  return state.users.find((user) => user.id === state.sessionUserId) || null;
+  if (!authProfile) {
+    return null;
+  }
+  return {
+    id: `profile_${authProfile.user_id}`,
+    name: authProfile.full_name || authProfile.email || "Benutzer",
+    email: authProfile.email || "",
+    role: authProfile.role || "mitarbeiter",
+  };
 }
 
 function isAdmin() {
@@ -1500,10 +1549,17 @@ function isAdmin() {
 }
 
 function ensureSessionUser() {
-  const exists = state.users.some((user) => user.id === state.sessionUserId);
-  if (!exists && state.users.length) {
+  if (authProfile?.user_id) {
+    const authUserEntry = state.users.find((entry) => entry.source === "profile" && entry.sourceId === authProfile.user_id);
+    if (authUserEntry) {
+      state.sessionUserId = authUserEntry.id;
+      return;
+    }
+  }
+  if (state.users.length) {
     state.sessionUserId = state.users[0].id;
-    saveState();
+  } else {
+    state.sessionUserId = "";
   }
 }
 
@@ -1597,6 +1653,309 @@ function getAllTopics() {
 
 function getTopicById(topicId) {
   return getAllTopics().find((topic) => topic.id === topicId) || null;
+}
+
+async function initializeAuth() {
+  const client = getSupabaseClient();
+  if (!client) {
+    showAuthGate("Supabase ist nicht konfiguriert. Bitte config.js prüfen.");
+    return false;
+  }
+
+  client.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_OUT") {
+      authSession = null;
+      authProfile = null;
+      showAuthGate("Bitte melde dich erneut an.");
+      return;
+    }
+    if (event === "SIGNED_IN") {
+      window.location.reload();
+    }
+  });
+
+  const { data, error } = await client.auth.getSession();
+  if (error || !data?.session) {
+    return false;
+  }
+
+  authSession = data.session;
+  await ensureAuthProfile(data.session.user);
+  if (!authProfile) {
+    return false;
+  }
+  if (authProfile.status === "inactive") {
+    showAuthGate("Dein Zugang ist deaktiviert. Bitte Admin kontaktieren.");
+    return false;
+  }
+  return true;
+}
+
+async function ensureAuthProfile(user) {
+  const client = getSupabaseClient();
+  if (!client || !user?.id) {
+    return;
+  }
+
+  const email = String(user.email || "").trim().toLowerCase();
+  const { data: existingProfile, error: fetchError } = await client
+    .from("profiles")
+    .select("user_id, email, full_name, role, phone, address, status")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.warn("Profil konnte nicht geladen werden.", fetchError);
+    return;
+  }
+
+  if (existingProfile) {
+    authProfile = existingProfile;
+    return;
+  }
+
+  const fallbackName =
+    user.user_metadata?.full_name ||
+    user.user_metadata?.name ||
+    (email.includes("@") ? email.split("@")[0] : "Neuer Benutzer");
+
+  const { error: insertError } = await client.from("profiles").insert({
+    user_id: user.id,
+    email,
+    full_name: fallbackName,
+    role: "mitarbeiter",
+    status: "active",
+  });
+
+  if (insertError) {
+    console.warn("Profil konnte nicht erstellt werden.", insertError);
+    return;
+  }
+
+  const { data: createdProfile } = await client
+    .from("profiles")
+    .select("user_id, email, full_name, role, phone, address, status")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  authProfile = createdProfile || null;
+}
+
+function showAuthGate(message = "") {
+  els.authGate.classList.remove("hidden");
+  if (message) {
+    els.authMessage.textContent = message;
+  }
+}
+
+function hideAuthGate() {
+  els.authGate.classList.add("hidden");
+  els.authMessage.textContent = "";
+}
+
+function getEmailRedirectUrl() {
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+  const client = getSupabaseClient();
+  if (!client) {
+    showAuthGate("Supabase ist nicht erreichbar. Konfiguration prüfen.");
+    return;
+  }
+
+  const email = String(els.authEmail.value || "").trim().toLowerCase();
+  if (!email) {
+    showAuthGate("Bitte eine gültige E-Mail eingeben.");
+    return;
+  }
+
+  const { error } = await client.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: getEmailRedirectUrl(),
+      shouldCreateUser: true,
+    },
+  });
+
+  if (error) {
+    showAuthGate("Login-Link konnte nicht gesendet werden. Bitte später erneut versuchen.");
+    return;
+  }
+
+  showAuthGate("Login-Link wurde gesendet. Bitte E-Mail öffnen und Link anklicken.");
+}
+
+async function handleSignOut() {
+  const client = getSupabaseClient();
+  if (!client) {
+    return;
+  }
+  await client.auth.signOut();
+  window.location.reload();
+}
+
+async function syncUsersFromSupabase() {
+  const client = getSupabaseClient();
+  if (!client) {
+    state.users = [];
+    return;
+  }
+
+  const shouldLoadInvites = authProfile?.role === "admin";
+  const inviteQuery = shouldLoadInvites
+    ? client
+        .from("employee_invites")
+        .select("id, email, full_name, role, phone, address, status, created_at")
+        .eq("status", "pending")
+        .order("created_at", { ascending: true })
+    : Promise.resolve({ data: [], error: null });
+
+  const [profilesResult, invitesResult] = await Promise.all([
+    client
+      .from("profiles")
+      .select("user_id, email, full_name, role, phone, address, status, created_at")
+      .order("created_at", { ascending: true }),
+    inviteQuery,
+  ]);
+
+  if (profilesResult.error) {
+    console.warn("Profiles konnten nicht geladen werden.", profilesResult.error);
+  }
+  if (invitesResult.error) {
+    console.warn("Invites konnten nicht geladen werden.", invitesResult.error);
+  }
+
+  const profileRows = profilesResult.data || [];
+  if (authProfile?.user_id) {
+    const freshAuthProfile = profileRows.find((entry) => entry.user_id === authProfile.user_id);
+    if (freshAuthProfile) {
+      authProfile = freshAuthProfile;
+    }
+  }
+
+  const profileUsers = profileRows.map((profile) => ({
+    id: `profile_${profile.user_id}`,
+    source: "profile",
+    sourceId: profile.user_id,
+    name: profile.full_name || profile.email || "Benutzer",
+    address: profile.address || "",
+    email: profile.email || "",
+    phone: profile.phone || "",
+    role: profile.role || "mitarbeiter",
+    status: profile.status || "active",
+    statusLabel: profile.status === "inactive" ? "deaktiviert" : "aktiv",
+  }));
+
+  const inviteUsers = (invitesResult.data || []).map((invite) => ({
+    id: `invite_${invite.id}`,
+    source: "invite",
+    sourceId: invite.id,
+    name: invite.full_name || invite.email || "Einladung",
+    address: invite.address || "",
+    email: invite.email || "",
+    phone: invite.phone || "",
+    role: invite.role || "mitarbeiter",
+    status: invite.status || "pending",
+    statusLabel: "eingeladen",
+  }));
+
+  state.users = [...profileUsers, ...inviteUsers];
+}
+
+async function saveEmployeeRecord(userPayload, selectedUser) {
+  const client = getSupabaseClient();
+  if (!client) {
+    window.alert("Supabase Verbindung fehlt.");
+    return false;
+  }
+
+  const normalizedEmail = String(userPayload.email || "").trim().toLowerCase();
+  const basePayload = {
+    full_name: userPayload.name,
+    address: userPayload.address,
+    phone: userPayload.phone,
+    role: userPayload.role,
+  };
+
+  if (selectedUser?.source === "profile") {
+    const { error } = await client.from("profiles").update(basePayload).eq("user_id", selectedUser.sourceId);
+    if (error) {
+      window.alert("Mitarbeiter konnte nicht aktualisiert werden.");
+      return false;
+    }
+    return true;
+  }
+
+  if (selectedUser?.source === "invite") {
+    const { error } = await client
+      .from("employee_invites")
+      .update({ ...basePayload, email: normalizedEmail })
+      .eq("id", selectedUser.sourceId);
+    if (error) {
+      window.alert("Einladung konnte nicht aktualisiert werden.");
+      return false;
+    }
+    return true;
+  }
+
+  const { data: existingProfile } = await client
+    .from("profiles")
+    .select("user_id")
+    .eq("email", normalizedEmail)
+    .maybeSingle();
+
+  if (existingProfile?.user_id) {
+    const { error } = await client
+      .from("profiles")
+      .update(basePayload)
+      .eq("user_id", existingProfile.user_id);
+    if (error) {
+      window.alert("Bestehender Mitarbeiter konnte nicht aktualisiert werden.");
+      return false;
+    }
+    return true;
+  }
+
+  const invitePayload = {
+    email: normalizedEmail,
+    ...basePayload,
+    status: "pending",
+    invited_by: authProfile?.user_id || null,
+  };
+
+  const { error: inviteError } = await client
+    .from("employee_invites")
+    .upsert(invitePayload, { onConflict: "email" });
+
+  if (inviteError) {
+    window.alert("Einladung konnte nicht gespeichert werden.");
+    return false;
+  }
+
+  const inviteSent = await sendEmployeeLoginLink(normalizedEmail);
+  if (!inviteSent) {
+    window.alert(
+      "Einladung gespeichert, aber E-Mail konnte nicht gesendet werden. Bitte später erneut senden."
+    );
+  }
+  return true;
+}
+
+async function sendEmployeeLoginLink(email) {
+  const client = getSupabaseClient();
+  if (!client) {
+    return false;
+  }
+  const { error } = await client.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: getEmailRedirectUrl(),
+      shouldCreateUser: true,
+    },
+  });
+  return !error;
 }
 
 function cloneDefaultState() {
