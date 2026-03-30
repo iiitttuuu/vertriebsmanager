@@ -106,6 +106,39 @@
             <div id="dashboard-map-legend" class="dashboard-map-legend"></div>
           </div>
 
+          <div id="dashboard-matrix-panel" class="dashboard-matrix-panel admin-only-view">
+            <div class="dashboard-matrix-head">
+              <h3>Bundesland-Matrix</h3>
+              <p>Live-Anbieter pro Bundesland, umschaltbar nach Ebene und Land.</p>
+            </div>
+
+            <div class="dashboard-matrix-controls">
+              <label>
+                Land
+                <select id="matrix-country-select"></select>
+              </label>
+              <label>
+                Ebene
+                <select id="matrix-level-select">
+                  <option value="category">Kategorie</option>
+                  <option value="subcategory">Themenbereich</option>
+                  <option value="topic">Thema</option>
+                </select>
+              </label>
+              <p class="matrix-status-pill">Statusfilter: <strong>live</strong></p>
+            </div>
+
+            <p id="dashboard-matrix-info" class="matrix-info"></p>
+            <p id="dashboard-matrix-empty" class="empty hidden"></p>
+
+            <div id="dashboard-matrix-wrap" class="table-wrap dashboard-matrix-wrap hidden">
+              <table class="dashboard-matrix-table">
+                <thead id="dashboard-matrix-head"></thead>
+                <tbody id="dashboard-matrix-body"></tbody>
+              </table>
+            </div>
+          </div>
+
         </section>
 
         <section id="users-section" class="panel card">

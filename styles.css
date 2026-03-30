@@ -520,6 +520,112 @@ body::after {
   display: inline-block;
 }
 
+.dashboard-matrix-panel {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fbff 100%);
+  padding: 14px;
+}
+
+.dashboard-matrix-head h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  color: #153b76;
+}
+
+.dashboard-matrix-head p {
+  margin: 4px 0 10px;
+  color: #62748f;
+  font-size: 0.82rem;
+}
+
+.dashboard-matrix-controls {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+}
+
+.dashboard-matrix-controls label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #49607f;
+  font-weight: 700;
+  min-width: 0;
+}
+
+.dashboard-matrix-controls select {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  border: 1px solid #cfd9e8;
+  border-radius: 9px;
+  padding: 0 10px;
+  background: #ffffff;
+  font-size: 0.86rem;
+  color: #1d3253;
+}
+
+.matrix-status-pill {
+  margin: 0;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  border: 1px solid #bad9c4;
+  background: #edf9f1;
+  color: #335948;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.matrix-status-pill strong {
+  margin-left: 5px;
+}
+
+.matrix-info {
+  margin: 10px 0 0;
+  color: #4f6689;
+  font-size: 0.8rem;
+}
+
+.dashboard-matrix-wrap {
+  margin-top: 10px;
+}
+
+.dashboard-matrix-table {
+  min-width: 620px;
+}
+
+.dashboard-matrix-table th,
+.dashboard-matrix-table td {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.dashboard-matrix-table th.matrix-state-col,
+.dashboard-matrix-table td.matrix-state-col {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.dashboard-matrix-table th.matrix-state-col {
+  z-index: 2;
+}
+
+.dashboard-matrix-table th.matrix-state-col,
+.dashboard-matrix-table td.matrix-state-col,
+.dashboard-matrix-table th.matrix-total-col,
+.dashboard-matrix-table td.matrix-total-col {
+  background: #f5f8fd;
+  font-weight: 700;
+}
+
 .stat-box p {
   margin: 3px 0 0;
   color: var(--muted);
@@ -1191,6 +1297,10 @@ td.audit-cell {
     grid-template-columns: 1fr 1fr;
   }
 
+  .dashboard-matrix-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .dashboard-map-canvas {
     height: 340px;
   }
@@ -1254,6 +1364,10 @@ td.audit-cell {
   }
 
   .dashboard-map-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-matrix-controls {
     grid-template-columns: 1fr;
   }
 

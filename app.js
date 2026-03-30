@@ -73,6 +73,8 @@ let providerGeocodeInFlight = new Set();
 let mapCountryFilter = "all";
 let mapLevelFilter = "category";
 let mapItemFilter = "all";
+let matrixCountryFilter = "all";
+let matrixLevelFilter = "category";
 let supabaseClient = null;
 let storageMode = "local";
 let remoteSaveTimeoutId = null;
@@ -143,6 +145,14 @@ const els = {
   dashboardMapCanvas: document.getElementById("dashboard-map-canvas"),
   dashboardMapEmpty: document.getElementById("dashboard-map-empty"),
   dashboardMapLegend: document.getElementById("dashboard-map-legend"),
+  dashboardMatrixPanel: document.getElementById("dashboard-matrix-panel"),
+  matrixCountrySelect: document.getElementById("matrix-country-select"),
+  matrixLevelSelect: document.getElementById("matrix-level-select"),
+  dashboardMatrixInfo: document.getElementById("dashboard-matrix-info"),
+  dashboardMatrixWrap: document.getElementById("dashboard-matrix-wrap"),
+  dashboardMatrixHead: document.getElementById("dashboard-matrix-head"),
+  dashboardMatrixBody: document.getElementById("dashboard-matrix-body"),
+  dashboardMatrixEmpty: document.getElementById("dashboard-matrix-empty"),
   mapParamsForm: document.getElementById("map-params-form"),
   paramRadiusCategory: document.getElementById("param-radius-category"),
   paramRadiusSubcategory: document.getElementById("param-radius-subcategory"),
@@ -447,6 +457,16 @@ function bindEvents() {
     renderDashboardMap();
   });
 
+  els.matrixCountrySelect?.addEventListener("change", () => {
+    matrixCountryFilter = els.matrixCountrySelect.value || "all";
+    renderBundeslandMatrix();
+  });
+
+  els.matrixLevelSelect?.addEventListener("change", () => {
+    matrixLevelFilter = els.matrixLevelSelect.value || "category";
+    renderBundeslandMatrix();
+  });
+
   els.mapParamsForm?.addEventListener("submit", (event) => {
     event.preventDefault();
     if (!isAdmin()) {
@@ -654,6 +674,7 @@ function renderAll() {
   renderDashboardStats();
   renderMapParameterForm();
   renderDashboardMap();
+  renderBundeslandMatrix();
   renderUsersTable();
   renderManagementSummary();
   renderCategoryList();
@@ -956,6 +977,160 @@ function renderDashboardMapControls() {
     )
     .join("");
   els.mapItemSelect.value = mapItemFilter;
+}
+
+function renderBundeslandMatrix() {
+  if (!els.dashboardMatrixPanel) {
+    return;
+  }
+  if (!isAdmin()) {
+    els.dashboardMatrixPanel.classList.add("hidden");
+    return;
+  }
+  els.dashboardMatrixPanel.classList.remove("hidden");
+
+  renderBundeslandMatrixControls();
+  const matrixData = buildBundeslandMatrixData();
+  const selectedCountryLabel = matrixCountryFilter === "all" ? "Alle Länder" : matrixCountryFilter;
+  if (els.dashboardMatrixInfo) {
+    els.dashboardMatrixInfo.textContent =
+      `Land: ${selectedCountryLabel} · Ebene: ${getMapLevelLabel(matrixLevelFilter)} · Live-Anbieter: ${matrixData.liveProviderCount}`;
+  }
+
+  if (!matrixData.liveProviderCount) {
+    showBundeslandMatrixEmpty("Keine Anbieter mit Status live für die aktuelle Auswahl vorhanden.");
+    return;
+  }
+
+  hideBundeslandMatrixEmpty();
+  if (!els.dashboardMatrixHead || !els.dashboardMatrixBody) {
+    return;
+  }
+
+  els.dashboardMatrixHead.innerHTML = `
+    <tr>
+      <th class="matrix-state-col">Bundesland</th>
+      <th class="matrix-total-col">Live gesamt</th>
+      ${matrixData.columnIds
+        .map((columnId) => `<th>${escapeHtml(matrixData.columnLabels.get(columnId) || columnId)}</th>`)
+        .join("")}
+    </tr>
+  `;
+
+  els.dashboardMatrixBody.innerHTML = matrixData.rows
+    .map(
+      (row) => `
+        <tr>
+          <td class="matrix-state-col">${escapeHtml(row.stateLabel)}</td>
+          <td class="matrix-total-col">${escapeHtml(String(row.total))}</td>
+          ${matrixData.columnIds
+            .map((columnId) => `<td>${escapeHtml(String(row.counts.get(columnId) || 0))}</td>`)
+            .join("")}
+        </tr>
+      `
+    )
+    .join("");
+}
+
+function renderBundeslandMatrixControls() {
+  if (!els.matrixCountrySelect || !els.matrixLevelSelect) {
+    return;
+  }
+
+  const countries = Array.from(
+    new Set(
+      state.providers
+        .map((provider) => String(provider.country || "").trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, "de"));
+
+  els.matrixCountrySelect.innerHTML = ['<option value="all">Alle Länder</option>']
+    .concat(countries.map((country) => `<option value="${escapeHtml(country)}">${escapeHtml(country)}</option>`))
+    .join("");
+
+  if (!countries.includes(matrixCountryFilter)) {
+    matrixCountryFilter = "all";
+  }
+  els.matrixCountrySelect.value = matrixCountryFilter;
+
+  if (!["category", "subcategory", "topic"].includes(matrixLevelFilter)) {
+    matrixLevelFilter = "category";
+  }
+  els.matrixLevelSelect.value = matrixLevelFilter;
+}
+
+function buildBundeslandMatrixData() {
+  const allTopics = getAllTopics();
+  const topicLookup = new Map(allTopics.map((topic) => [topic.id, topic]));
+  const liveProviders = state.providers.filter(
+    (provider) =>
+      normalizeText(provider.status || "") === "live" && providerMatchesCountry(provider, matrixCountryFilter)
+  );
+
+  const rowsByState = new Map();
+  const columnLabels = new Map();
+
+  liveProviders.forEach((provider) => {
+    const stateLabel = String(provider.state || "").trim() || "Ohne Bundesland";
+    const rawGroups = getProviderGroupsForLevel(provider, matrixLevelFilter, topicLookup);
+    const groups = rawGroups.length ? rawGroups : [{ id: `unassigned_${matrixLevelFilter}`, label: "Ohne Zuordnung" }];
+
+    let row = rowsByState.get(stateLabel);
+    if (!row) {
+      row = {
+        stateLabel,
+        total: 0,
+        counts: new Map(),
+      };
+      rowsByState.set(stateLabel, row);
+    }
+
+    row.total += 1;
+    groups.forEach((group) => {
+      columnLabels.set(group.id, group.label);
+      row.counts.set(group.id, (row.counts.get(group.id) || 0) + 1);
+    });
+  });
+
+  const columnIds = Array.from(columnLabels.entries())
+    .sort((a, b) => a[1].localeCompare(b[1], "de"))
+    .map(([columnId]) => columnId);
+
+  const rows = Array.from(rowsByState.values()).sort((a, b) => a.stateLabel.localeCompare(b.stateLabel, "de"));
+
+  return {
+    liveProviderCount: liveProviders.length,
+    columnIds,
+    columnLabels,
+    rows,
+  };
+}
+
+function showBundeslandMatrixEmpty(message) {
+  if (els.dashboardMatrixEmpty) {
+    els.dashboardMatrixEmpty.textContent = message;
+    els.dashboardMatrixEmpty.classList.remove("hidden");
+  }
+  if (els.dashboardMatrixWrap) {
+    els.dashboardMatrixWrap.classList.add("hidden");
+  }
+  if (els.dashboardMatrixHead) {
+    els.dashboardMatrixHead.innerHTML = "";
+  }
+  if (els.dashboardMatrixBody) {
+    els.dashboardMatrixBody.innerHTML = "";
+  }
+}
+
+function hideBundeslandMatrixEmpty() {
+  if (els.dashboardMatrixEmpty) {
+    els.dashboardMatrixEmpty.textContent = "";
+    els.dashboardMatrixEmpty.classList.add("hidden");
+  }
+  if (els.dashboardMatrixWrap) {
+    els.dashboardMatrixWrap.classList.remove("hidden");
+  }
 }
 
 function truncateSelectLabel(value, maxLength = 42) {
@@ -2168,6 +2343,7 @@ function setActiveSection(targetId) {
   if (targetId === "dashboard-section") {
     window.setTimeout(() => {
       renderDashboardMap();
+      renderBundeslandMatrix();
     }, 0);
   }
   if (targetId === "parameters-section") {
