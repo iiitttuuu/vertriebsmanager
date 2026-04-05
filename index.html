@@ -3,26 +3,45 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vertriebsmanager Plattform</title>
-    <link rel="stylesheet" href="styles.css" />
+    <title>Vertriebsmanager VM</title>
+    <link rel="stylesheet" href="styles.css?v=20260331-2498" />
   </head>
-  <body>
+  <body class="app-loading">
     <div id="auth-gate" class="auth-gate hidden">
       <div class="auth-card">
         <h2>Anmeldung</h2>
-        <p>Melde dich mit Firmen-E-Mail und Passwort an oder erstelle ein Konto mit deiner Einladung.</p>
+        <p>Bitte anmelden oder neu registrieren. Zugriff nach Admin-Freigabe.</p>
+        <div class="auth-mode-switch">
+          <button type="button" id="auth-mode-signin-btn" class="auth-mode-btn active">Anmelden</button>
+          <button type="button" id="auth-mode-signup-btn" class="auth-mode-btn">Registrieren</button>
+        </div>
         <form id="auth-form" class="auth-form">
-          <label>
-            E-Mail
-            <input type="email" id="auth-email" placeholder="name@firma.at" required />
-          </label>
-          <label>
-            Passwort
-            <input type="password" id="auth-password" placeholder="Mind. 8 Zeichen" required />
-          </label>
+          <div id="auth-signin-fields" class="auth-fields">
+            <label>
+              E-Mail
+              <input type="email" id="auth-signin-email" placeholder="name@firma.at" required />
+            </label>
+            <label>
+              Passwort
+              <input type="password" id="auth-signin-password" placeholder="Mind. 8 Zeichen" required />
+            </label>
+          </div>
+          <div id="auth-signup-fields" class="auth-fields hidden">
+            <label>
+              Name
+              <input type="text" id="auth-signup-full-name" placeholder="Vor- und Nachname" />
+            </label>
+            <label>
+              E-Mail
+              <input type="email" id="auth-signup-email" placeholder="name@firma.at" />
+            </label>
+            <label>
+              Passwort
+              <input type="password" id="auth-signup-password" placeholder="Mind. 8 Zeichen" />
+            </label>
+          </div>
           <div class="auth-actions">
-            <button type="submit" id="auth-signin-btn" class="btn btn-success btn-action">Anmelden</button>
-            <button type="button" id="auth-signup-btn" class="btn btn-primary">Konto erstellen</button>
+            <button type="submit" id="auth-submit-btn" class="btn btn-success btn-action">Anmelden</button>
           </div>
         </form>
         <p id="auth-message" class="auth-message"></p>
@@ -39,6 +58,10 @@
           </div>
         </div>
         <div class="topbar-controls">
+          <label for="platform-country-select" class="platform-country-control">
+            <span class="platform-country-label">Plattform-Land</span>
+            <select id="platform-country-select"></select>
+          </label>
           <span id="current-user-label" class="current-user-label">Nicht angemeldet</span>
           <span id="role-badge" class="role-badge"></span>
           <button type="button" id="sign-out-btn" class="btn btn-primary">Abmelden</button>
@@ -49,33 +72,48 @@
         <button class="nav-btn active" data-target="dashboard-section">Dashboard</button>
         <button class="nav-btn admin-only" data-target="users-section">Mitarbeiter</button>
         <button class="nav-btn" data-target="providers-section">Anbieter</button>
-        <button class="nav-btn admin-only" data-target="management-section">Verwaltung</button>
+        <button class="nav-btn" data-target="management-section">Verwaltung</button>
         <button class="nav-btn admin-only" data-target="parameters-section">Parameter</button>
       </aside>
 
       <main class="content">
-        <section id="dashboard-section" class="panel card active">
+        <section id="dashboard-section" class="panel card active dashboard-view">
           <div class="section-header">
             <h2>Übersicht</h2>
             <p>Alle wichtigen Kennzahlen auf einen Blick.</p>
+            <div class="dashboard-status-filter" role="group" aria-label="Dashboard Statusfilter">
+              <span class="dashboard-status-filter-label">Statusfilter</span>
+              <label class="dashboard-status-filter-option">
+                <input type="radio" name="dashboard-status-filter" value="liveOnly" checked />
+                <span>Nur LIVE</span>
+              </label>
+              <label class="dashboard-status-filter-option">
+                <input type="radio" name="dashboard-status-filter" value="liveAndOpen" />
+                <span>LIVE + OFFEN</span>
+              </label>
+            </div>
           </div>
 
-          <div class="stats-grid">
-            <article class="stat-box">
-              <h3 id="stat-users">0</h3>
-              <p>Mitarbeiter</p>
-            </article>
-            <article class="stat-box">
-              <h3 id="stat-providers">0</h3>
-              <p>Anbieter</p>
-            </article>
-            <article class="stat-box">
-              <h3 id="stat-topics">0</h3>
-              <p>Themen gesamt</p>
-            </article>
+          <div id="dashboard-admin-tabs" class="dashboard-admin-tabs admin-only-view">
+            <button type="button" class="dashboard-admin-tab-btn active" data-dashboard-admin-tab="map">
+              Kartenanalyse
+            </button>
+            <button type="button" class="dashboard-admin-tab-btn" data-dashboard-admin-tab="matrix">
+              Bundesland-Matrix
+            </button>
+            <button type="button" class="dashboard-admin-tab-btn" data-dashboard-admin-tab="employee">
+              Mitarbeiter
+            </button>
           </div>
 
-          <div id="dashboard-map-panel" class="dashboard-map-panel admin-only-view">
+          <div id="dashboard-live-kpis" class="dashboard-live-kpis admin-only-view"></div>
+          <div id="dashboard-provider-target-gauge" class="dashboard-provider-target-gauge admin-only-view"></div>
+
+          <div
+            id="dashboard-map-panel"
+            class="dashboard-map-panel dashboard-admin-tab-panel"
+            data-dashboard-admin-panel="map"
+          >
             <div class="dashboard-map-head">
               <h3>Kartenanalyse</h3>
               <p>Land, Ebene und Treffer-Umkreis dynamisch auswerten.</p>
@@ -106,10 +144,17 @@
             <div id="dashboard-map-legend" class="dashboard-map-legend"></div>
           </div>
 
-          <div id="dashboard-matrix-panel" class="dashboard-matrix-panel admin-only-view">
+          <div id="dashboard-week-live-activations" class="dashboard-week-live-activations admin-only-view"></div>
+          <div id="dashboard-state-ranking" class="dashboard-state-ranking"></div>
+
+          <div
+            id="dashboard-matrix-panel"
+            class="dashboard-matrix-panel dashboard-admin-tab-panel admin-only-view hidden"
+            data-dashboard-admin-panel="matrix"
+          >
             <div class="dashboard-matrix-head">
               <h3>Bundesland-Matrix</h3>
-              <p>Live-Anbieter pro Bundesland, umschaltbar nach Ebene und Land.</p>
+              <p>Anbieter pro Bundesland, umschaltbar nach Ebene, Land und Statusfilter.</p>
             </div>
 
             <div class="dashboard-matrix-controls">
@@ -125,7 +170,7 @@
                   <option value="topic">Thema</option>
                 </select>
               </label>
-              <p class="matrix-status-pill">Statusfilter: <strong>live</strong></p>
+              <p class="matrix-status-pill">Statusfilter: <strong id="dashboard-matrix-status-value">nur LIVE</strong></p>
             </div>
 
             <p id="dashboard-matrix-info" class="matrix-info"></p>
@@ -137,6 +182,111 @@
                 <tbody id="dashboard-matrix-body"></tbody>
               </table>
             </div>
+          </div>
+
+          <div
+            id="dashboard-employee-panel"
+            class="dashboard-employee-panel dashboard-admin-tab-panel hidden"
+            data-dashboard-admin-panel="employee"
+          >
+            <div class="dashboard-employee-head">
+              <h3>Mitarbeiter Performance</h3>
+              <p>Zeitraum und Land zuerst, danach Kennzahlen und Detailauswertung.</p>
+            </div>
+
+            <div id="employee-extended-wrap" class="employee-dashboard-layout">
+              <section class="employee-section-box employee-section-box-controls">
+                <div class="employee-section-box-head">
+                  <h4>Zeitraum & Land</h4>
+                </div>
+                <div class="dashboard-employee-controls">
+                  <label>
+                    Zeitraum
+                    <select id="employee-range-mode">
+                      <option value="last24h">Letzte 24 Stunden</option>
+                      <option value="day">Datum</option>
+                      <option value="week">Aktuelle Woche</option>
+                      <option value="fromTo">Von bis</option>
+                      <option value="month">Monat</option>
+                      <option value="year">Jahr</option>
+                    </select>
+                  </label>
+                  <label>
+                    Land
+                    <select id="employee-country-select"></select>
+                  </label>
+                  <label id="employee-date-wrap" class="hidden">
+                    Datum
+                    <input type="date" id="employee-date-input" />
+                  </label>
+                  <label id="employee-from-wrap" class="hidden">
+                    Von
+                    <input type="date" id="employee-from-input" />
+                  </label>
+                  <label id="employee-to-wrap" class="hidden">
+                    Bis
+                    <input type="date" id="employee-to-input" />
+                  </label>
+                  <label id="employee-month-wrap" class="hidden">
+                    Monat
+                    <input type="month" id="employee-month-input" />
+                  </label>
+                  <label id="employee-year-wrap" class="hidden">
+                    Jahr
+                    <input type="number" id="employee-year-input" min="2000" max="2100" step="1" />
+                  </label>
+                </div>
+                <p id="employee-range-info" class="matrix-info"></p>
+              </section>
+
+              <section class="employee-section-box">
+                <div class="employee-section-box-head">
+                  <h4>Honorar Kennzahlen</h4>
+                </div>
+                <div id="employee-honorarium-kpis" class="employee-honorarium-kpis"></div>
+              </section>
+
+              <section class="employee-section-box">
+                <div class="employee-section-box-head">
+                  <h4>Mitarbeiter Übersicht</h4>
+                </div>
+                <p id="employee-activity-empty" class="empty hidden"></p>
+
+                <div id="employee-activity-wrap" class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Mitarbeiter</th>
+                        <th>Offen</th>
+                        <th>In Bearbeitung</th>
+                        <th>Live</th>
+                        <th>Gesamt</th>
+                        <th>Honorar €/Live</th>
+                        <th>Verdienst</th>
+                        <th>Details</th>
+                      </tr>
+                    </thead>
+                    <tbody id="employee-activity-body"></tbody>
+                  </table>
+                </div>
+              </section>
+
+              <div id="employee-race-wrap" class="employee-race-wrap admin-only-view">
+                <div class="employee-race-head">
+                  <h4>Mitarbeiter-Rennen</h4>
+                  <p id="employee-race-info"></p>
+                </div>
+                <div id="employee-race-board" class="employee-race-board"></div>
+              </div>
+            </div>
+
+            <section class="employee-section-box employee-section-box-status">
+              <div class="employee-section-box-head">
+                <h4>Status Kennzahlen</h4>
+              </div>
+              <div id="employee-status-kpis" class="employee-status-kpis"></div>
+            </section>
+
           </div>
 
         </section>
@@ -157,9 +307,8 @@
                   <tr>
                     <th>Name</th>
                     <th>Rolle</th>
-                    <th>E-Mail</th>
-                    <th>Telefon</th>
-                    <th>Adresse</th>
+                    <th>Gebiete</th>
+                    <th>Honorar €/Live</th>
                     <th>Aktion</th>
                   </tr>
                 </thead>
@@ -176,15 +325,15 @@
               </label>
               <label>
                 Adresse
-                <input type="text" name="address" required />
+                <input type="text" id="user-address-input" name="address" autocomplete="off" required />
               </label>
               <label>
                 E-Mail
-                <input type="email" name="email" required />
+                <input type="email" name="email" />
               </label>
               <label>
                 Telefon
-                <input type="tel" name="phone" required />
+                <input type="tel" name="phone" />
               </label>
               <label>
                 Rolle
@@ -193,6 +342,64 @@
                   <option value="admin">Admin</option>
                 </select>
               </label>
+              <div class="user-detail-sections">
+                <div id="user-honorarium-field" class="user-honorarium-field">
+                  <div class="user-detail-card-head">
+                    <p class="user-detail-card-kicker">Vergütung</p>
+                    <h3>Honorar</h3>
+                  </div>
+                  <label class="user-honorarium-toggle">
+                    <input type="checkbox" id="user-honorarium-enabled" name="honorariumEnabled" />
+                    Honorar freigeschaltet
+                  </label>
+                  <label>
+                    Honorar pro Live-Anbieter (€)
+                    <input
+                      type="number"
+                      id="user-honorarium-rate"
+                      name="honorariumRate"
+                      class="employee-rate-input"
+                      min="0"
+                      step="0.01"
+                      inputmode="decimal"
+                    />
+                  </label>
+                  <small id="user-honorarium-hint">
+                    Nur in der Detailansicht bearbeitbar. Für Einladungen erst nach erster Anmeldung verfügbar.
+                  </small>
+                </div>
+                <div class="user-territories-field">
+                  <div class="user-detail-card-head">
+                    <p class="user-detail-card-kicker">Sichtbarkeit</p>
+                    <h3>Gebietszuordnung</h3>
+                  </div>
+                  <div class="user-territory-country-add">
+                    <label for="user-country-input">Land hinzufügen</label>
+                    <div class="user-territory-country-add-row">
+                      <input
+                        type="text"
+                        id="user-country-input"
+                        placeholder="z. B. Österreich"
+                        list="user-country-datalist"
+                        autocomplete="off"
+                      />
+                      <datalist id="user-country-datalist"></datalist>
+                      <button
+                        type="button"
+                        id="user-country-add-btn"
+                        class="mini-btn mini-btn-add"
+                        title="Land hinzufügen"
+                        aria-label="Land hinzufügen"
+                      >+</button>
+                    </div>
+                  </div>
+                  <div id="user-selected-countries" class="user-selected-countries"></div>
+                  <div id="user-country-state-panels" class="user-country-state-panels"></div>
+                  <small>
+                    Mehrere Länder und pro Land mehrere Bundesländer möglich. Ohne Zuordnung sieht der Mitarbeiter alle Gebiete.
+                  </small>
+                </div>
+              </div>
               <div class="form-actions split">
                 <button type="button" id="user-cancel-btn" class="btn btn-primary">Zur Übersicht</button>
                 <button type="submit" id="user-save-btn" class="btn btn-success btn-action">Speichern</button>
@@ -203,16 +410,32 @@
 
         <section id="providers-section" class="panel card">
           <div class="section-header">
-            <h2>Anbieter</h2>
+            <h2 class="provider-heading">
+              <span id="provider-heading-label">Anbieter (0)</span>
+              <span
+                id="provider-header-live-light"
+                class="provider-header-live-light hidden"
+                title="Live"
+                aria-label="Anbieter ist Live"
+              ></span>
+            </h2>
             <p>Übersicht und Verwaltung aller Anbieter.</p>
           </div>
 
           <div class="section-tools">
+            <label id="provider-list-search-field" class="provider-list-search-field">
+              <input
+                type="search"
+                id="provider-list-search-input"
+                placeholder="Suche: Name, Ort, Land, Bundesland, Kategorie, Themenbereich, Thema"
+                autocomplete="off"
+              />
+            </label>
             <button type="button" id="provider-create-btn" class="btn btn-success btn-action">Neuen Anbieter anlegen</button>
           </div>
 
           <div id="providers-list-view">
-            <div class="table-wrap">
+            <div id="providers-table-wrap" class="table-wrap">
               <table>
                 <thead>
                   <tr>
@@ -220,7 +443,6 @@
                     <th>Status</th>
                     <th>Ort</th>
                     <th>Themen</th>
-                    <th>Geändert</th>
                     <th>Aktion</th>
                   </tr>
                 </thead>
@@ -230,102 +452,304 @@
           </div>
 
           <div id="providers-form-view" class="hidden">
-            <form id="provider-form" class="form-grid admin-lock">
-              <label>
-                Name
-                <input type="text" name="name" required />
-              </label>
-              <label class="provider-address-field">
-                Adresse
-                <input
-                  type="text"
-                  id="provider-address-input"
-                  name="address"
-                  autocomplete="off"
-                  required
-                />
-                <div id="provider-address-suggestions" class="address-suggestions hidden"></div>
-              </label>
-              <input type="hidden" name="latitude" id="provider-latitude-input" />
-              <input type="hidden" name="longitude" id="provider-longitude-input" />
-              <label>
-                PLZ
-                <input type="text" name="postalCode" required />
-              </label>
-              <label>
-                Ort
-                <input type="text" name="city" required />
-              </label>
-              <label>
-                Land
-                <input type="text" name="country" required />
-              </label>
-              <label>
-                Bundesland
-                <input type="text" name="state" required />
-              </label>
-              <label>
-                Website
-                <input type="url" name="website" placeholder="https://..." />
-              </label>
-              <label>
-                E-Mail
-                <input type="email" name="email" required />
-              </label>
-              <label>
-                Telefon
-                <input type="tel" name="phone" required />
-              </label>
-              <label>
-                Status
-                <select name="status" required>
-                  <option value="offen">offen</option>
-                  <option value="in Bearbeitung">in Bearbeitung</option>
-                  <option value="live">live</option>
-                </select>
-              </label>
+            <form id="provider-form" class="form-grid">
+              <div class="provider-detail-tabs">
+                <button
+                  type="button"
+                  class="provider-detail-tab-btn active"
+                  data-provider-detail-tab-btn="master"
+                  data-admin-lock-exempt="true"
+                >Stammdaten</button>
+                <button
+                  type="button"
+                  class="provider-detail-tab-btn"
+                  data-provider-detail-tab-btn="notes"
+                  data-admin-lock-exempt="true"
+                >Notizen</button>
+              </div>
+              <div id="provider-master-tab-panel" class="provider-detail-tab-panel">
+                <section class="provider-section-box provider-section-box-compact">
+                  <div class="provider-meta-bar">
+                    <label class="provider-meta-admin-toggle admin-only-view">
+                      <input type="checkbox" name="adminOnly" />
+                      <span>Nur für Admin sichtbar</span>
+                    </label>
+                    <p class="provider-meta-item">
+                      <span>Angelegt</span>
+                      <strong id="provider-created-meta">-</strong>
+                    </p>
+                    <p class="provider-meta-item">
+                      <span>Geändert</span>
+                      <strong id="provider-updated-meta">-</strong>
+                    </p>
+                    <p class="provider-meta-item">
+                      <span>Live geschaltet</span>
+                      <strong id="provider-live-meta">-</strong>
+                    </p>
+                  </div>
+                </section>
 
-              <div class="provider-audit-panel">
-                <p><span>Angelegt</span><strong id="provider-created-meta">-</strong></p>
-                <p><span>Geändert</span><strong id="provider-updated-meta">-</strong></p>
+                <section class="provider-section-box">
+                  <h3 class="provider-section-title">Basisdaten</h3>
+                  <div class="provider-section-grid provider-section-grid-2">
+                    <label class="provider-name-field">
+                      Name
+                      <input type="text" id="provider-name-input" name="name" autocomplete="off" required />
+                      <div id="provider-name-suggestions" class="address-suggestions hidden"></div>
+                    </label>
+                    <div class="provider-status-slider-field">
+                      <span class="provider-status-slider-caption">Status</span>
+                      <div id="provider-status-slider" class="provider-status-slider status-offen">
+                        <span class="provider-status-slider-indicator" aria-hidden="true"></span>
+                        <label class="provider-status-option active">
+                          <input type="radio" name="status" value="offen" checked />
+                          <span>Offen</span>
+                        </label>
+                        <label class="provider-status-option">
+                          <input type="radio" name="status" value="in Bearbeitung" />
+                          <span>In Bearbeitung</span>
+                        </label>
+                        <label class="provider-status-option">
+                          <input type="radio" name="status" value="live" />
+                          <span>Live</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="provider-section-box">
+                  <h3 class="provider-section-title">Standort & Abdeckung</h3>
+                  <div class="provider-section-grid provider-section-grid-2">
+                    <div class="provider-coverage-panel admin-only-view">
+                      <div class="provider-coverage-head">
+                        <h3>Abdeckungsmodus</h3>
+                        <p>Standard mit Adressen oder als Big Player auf Bundesland-Ebene.</p>
+                      </div>
+                      <div class="provider-coverage-mode">
+                        <label class="provider-coverage-mode-option">
+                          <input type="radio" name="coverageMode" value="locations" checked />
+                          <span class="provider-coverage-mode-text">
+                            <strong>Standorte per Adresse</strong>
+                            <small>Einzeladressen und zusätzliche Standorte</small>
+                          </span>
+                        </label>
+                        <label class="provider-coverage-mode-option">
+                          <input type="radio" name="coverageMode" value="bigPlayer" />
+                          <span class="provider-coverage-mode-text">
+                            <strong>Big Player (flächendeckend)</strong>
+                            <small>Landweit oder nach Bundesländern begrenzt</small>
+                          </span>
+                        </label>
+                        <label class="provider-coverage-mode-option">
+                          <input type="checkbox" name="onlineOnly" />
+                          <span class="provider-coverage-mode-text">
+                            <strong>Online Anbieter</strong>
+                            <small>Nur online, Adresse = Firmensitz</small>
+                          </span>
+                        </label>
+                      </div>
+                      <div id="provider-coverage-config" class="provider-coverage-config hidden">
+                        <label>
+                          Land
+                          <input
+                            type="text"
+                            id="provider-coverage-country-input"
+                            name="coverageCountry"
+                            list="provider-coverage-country-datalist"
+                            placeholder="z. B. Österreich"
+                          />
+                          <datalist id="provider-coverage-country-datalist"></datalist>
+                        </label>
+                        <div id="provider-coverage-state-wrap" class="provider-coverage-state-wrap">
+                          <p>Optional Bundesländer einschränken. Ohne Auswahl gilt: ganzes Land.</p>
+                          <div id="provider-coverage-state-list" class="provider-coverage-state-list"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <label class="provider-address-field">
+                      Adresse
+                      <input
+                        type="text"
+                        id="provider-address-input"
+                        name="address"
+                        autocomplete="off"
+                        required
+                      />
+                      <div id="provider-address-suggestions" class="address-suggestions hidden"></div>
+                    </label>
+                    <input type="hidden" name="latitude" id="provider-latitude-input" />
+                    <input type="hidden" name="longitude" id="provider-longitude-input" />
+                    <label>
+                      PLZ
+                      <input type="text" name="postalCode" required />
+                    </label>
+                    <label>
+                      Ort
+                      <input type="text" name="city" required />
+                    </label>
+                    <label>
+                      Land
+                      <input type="text" name="country" required />
+                    </label>
+                    <label>
+                      Bundesland
+                      <input type="text" name="state" required />
+                    </label>
+                    <div class="provider-locations-panel">
+                      <div class="provider-locations-head">
+                        <h3>Weitere Standorte</h3>
+                        <button
+                          type="button"
+                          id="provider-location-add"
+                          class="mini-btn mini-btn-add"
+                          title="Weiteren Standort hinzufügen"
+                          aria-label="Weiteren Standort hinzufügen"
+                        >+</button>
+                      </div>
+                      <p>Mit + kannst du zusätzliche Adressen hinzufügen.</p>
+                      <div id="provider-locations-list" class="provider-locations-list"></div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="provider-section-box">
+                  <h3 class="provider-section-title">Kontakt</h3>
+                  <div class="provider-section-grid provider-section-grid-3">
+                    <label>
+                      Website
+                      <input type="url" id="provider-website-input" name="website" placeholder="https://..." />
+                      <a
+                        id="provider-website-preview-link"
+                        class="provider-website-preview-link hidden"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >Website öffnen</a>
+                    </label>
+                    <label>
+                      E-Mail
+                      <input type="email" name="email" />
+                    </label>
+                    <label>
+                      Telefon
+                      <input type="tel" name="phone" />
+                    </label>
+                  </div>
+                </section>
+
+                <section class="provider-section-box">
+                  <div
+                    id="provider-bigplayer-topic-tools"
+                    class="bigplayer-topic-tools admin-only-view hidden"
+                  >
+                    <h3 class="provider-section-title">Big Player Schnell-Zuordnung</h3>
+                    <div class="bigplayer-topic-tools-head">
+                      <small>1. Modus wählen · 2. Anwenden · 3. Optional in Themen feinjustieren</small>
+                    </div>
+                    <div class="bigplayer-mode-switch">
+                      <label class="bigplayer-mode-option">
+                        <input type="radio" name="provider-bigplayer-mode" value="all" />
+                        <span>Alle Themen</span>
+                      </label>
+                      <label class="bigplayer-mode-option">
+                        <input type="radio" name="provider-bigplayer-mode" value="category" checked />
+                        <span>Ganze Kategorie</span>
+                      </label>
+                      <label class="bigplayer-mode-option">
+                        <input type="radio" name="provider-bigplayer-mode" value="subcategory" />
+                        <span>Ganzer Themenbereich</span>
+                      </label>
+                    </div>
+                    <div id="provider-bigplayer-row-all" class="bigplayer-action-row hidden">
+                      <button type="button" id="provider-bigplayer-all-btn" class="btn btn-primary">Alle Themen hinzufügen</button>
+                    </div>
+                    <div id="provider-bigplayer-row-category" class="bigplayer-action-row">
+                      <label>
+                        Kategorie
+                        <select id="provider-bigplayer-category-select"></select>
+                      </label>
+                      <button type="button" id="provider-bigplayer-category-btn" class="btn btn-primary">Kategorie hinzufügen</button>
+                    </div>
+                    <div id="provider-bigplayer-row-subcategory" class="bigplayer-action-row hidden">
+                      <label>
+                        Kategorie
+                        <select id="provider-bigplayer-subcategory-category-select"></select>
+                      </label>
+                      <label>
+                        Themenbereich
+                        <select id="provider-bigplayer-subcategory-select"></select>
+                      </label>
+                      <button type="button" id="provider-bigplayer-subcategory-btn" class="btn btn-primary">Themenbereich hinzufügen</button>
+                    </div>
+                    <div class="bigplayer-tools-footer">
+                      <p id="provider-bigplayer-selection-summary">0 Themen aktuell zugeordnet</p>
+                      <button type="button" id="provider-bigplayer-clear-btn" class="btn btn-danger">Zuordnung leeren</button>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="provider-section-box">
+                  <h3 class="provider-section-title">Themen</h3>
+                  <div class="topic-selector">
+                    <h3>Themenauswahl pro Anbieter</h3>
+                    <p>Optional: Einzelne Themen ergänzen oder entfernen.</p>
+
+                    <div class="topic-search-field">
+                      <input
+                        type="search"
+                        id="provider-topic-search"
+                        placeholder="Thema, Themenbereich oder Kategorie suchen..."
+                        aria-label="Themen suchen"
+                      />
+                    </div>
+
+                    <div class="topic-grid">
+                      <div class="topic-col">
+                        <h4>Verfügbare Themen</h4>
+                        <div id="provider-topic-results" class="topic-list"></div>
+                      </div>
+                      <div class="topic-col">
+                        <h4>Zugeordnet</h4>
+                        <div id="provider-topic-chips" class="topic-chip-list"></div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
               </div>
 
-              <div class="topic-selector">
-                <h3>Themenauswahl pro Anbieter</h3>
-                <p>Suche Themen direkt, nutze Vorlagen und ordne sie schnell per Klick zu.</p>
-
-                <div class="topic-toolbar">
-                  <label class="topic-template-field">
-                    Vorlage
-                    <select id="provider-topic-template"></select>
+              <div id="provider-notes-tab-panel" class="provider-detail-tab-panel hidden">
+                <div class="provider-notes-panel">
+                  <div class="provider-notes-head">
+                    <h3>Notizen</h3>
+                    <p>Nur eigene Notizen sind sichtbar.</p>
+                  </div>
+                  <label>
+                    Neue Notiz
+                    <textarea
+                      id="provider-note-input"
+                      rows="4"
+                      placeholder="Notiz eingeben..."
+                      data-admin-lock-exempt="true"
+                    ></textarea>
                   </label>
-                  <button type="button" id="provider-template-apply" class="btn btn-primary">Vorlage anwenden</button>
-                  <button type="button" id="provider-topic-clear" class="btn btn-primary">Zuordnung leeren</button>
-                </div>
-
-                <label class="topic-search-field">
-                  Thema suchen
-                  <input
-                    type="search"
-                    id="provider-topic-search"
-                    placeholder="Thema, Unterkategorie oder Kategorie suchen..."
-                  />
-                </label>
-
-                <div class="topic-grid">
-                  <div class="topic-col">
-                    <h4>Verfügbare Themen</h4>
-                    <div id="provider-topic-results" class="topic-list"></div>
-                  </div>
-                  <div class="topic-col">
-                    <h4>Zugeordnet</h4>
-                    <div id="provider-topic-chips" class="topic-chip-list"></div>
-                  </div>
+                  <button
+                    type="button"
+                    id="provider-note-add-btn"
+                    class="btn btn-primary"
+                    data-admin-lock-exempt="true"
+                  >Notiz speichern</button>
+                  <div id="provider-notes-list" class="provider-notes-list"></div>
                 </div>
               </div>
 
               <div class="form-actions split">
-                <button type="button" id="provider-reset-btn" class="btn btn-primary">Zur Übersicht</button>
+                <button
+                  type="button"
+                  id="provider-reset-btn"
+                  class="btn btn-primary"
+                  data-admin-lock-exempt="true"
+                >Zur Übersicht</button>
                 <button type="submit" id="provider-save-btn" class="btn btn-success btn-action">Speichern</button>
               </div>
             </form>
@@ -406,7 +830,7 @@
         <section id="parameters-section" class="panel card">
           <div class="section-header">
             <h2>Parameter</h2>
-            <p>Admin-Parameter für Kartenanalyse und Treffer-Umkreis.</p>
+            <p>Admin-Parameter für Kartenanalyse, Treffer-Umkreis und Bundesland-KPI.</p>
           </div>
 
           <form id="map-params-form" class="form-grid admin-lock">
@@ -422,16 +846,159 @@
               Umkreis Thema (km)
               <input type="number" id="param-radius-topic" name="radiusTopic" min="1" max="500" step="1" required />
             </label>
+            <label>
+              Top Bundesländer (Anbieter > X)
+              <input
+                type="number"
+                id="param-state-top-threshold"
+                name="stateTopThreshold"
+                min="0"
+                max="1000000"
+                step="1"
+                required
+              />
+            </label>
+            <label>
+              Flop Bundesländer (Anbieter < X)
+              <input
+                type="number"
+                id="param-state-flop-threshold"
+                name="stateFlopThreshold"
+                min="0"
+                max="1000000"
+                step="1"
+                required
+              />
+            </label>
             <div class="form-actions split">
               <button type="submit" id="map-params-save-btn" class="btn btn-success btn-action">Parameter speichern</button>
             </div>
           </form>
+
+          <div class="parameter-target-panel admin-lock">
+            <h3>Zielwert Live-Anbieter je Land</h3>
+            <form id="provider-target-form" class="form-grid">
+              <label>
+                Land
+                <select id="param-target-country" name="targetCountry"></select>
+              </label>
+              <label>
+                Zielwert (Anbieter Live)
+                <input
+                  type="number"
+                  id="param-target-value"
+                  name="targetValue"
+                  min="0"
+                  max="1000000"
+                  step="1"
+                  placeholder="z.B. 250"
+                />
+              </label>
+              <div class="form-actions split">
+                <button type="submit" id="provider-target-save-btn" class="btn btn-success btn-action">
+                  Zielwert speichern
+                </button>
+              </div>
+              <p id="param-target-info" class="param-target-info"></p>
+              <div id="param-target-list" class="param-target-list"></div>
+            </form>
+          </div>
         </section>
       </main>
     </div>
 
+    <div
+      id="employee-detail-panel"
+      class="employee-detail-panel hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="employee-detail-title"
+    >
+      <div id="employee-detail-dialog" class="employee-detail-dialog">
+        <div class="employee-detail-head">
+          <h4 id="employee-detail-title"></h4>
+          <button
+            type="button"
+            id="employee-detail-close"
+            class="mini-btn"
+            title="Details schließen"
+            aria-label="Details schließen"
+          >✕</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Angelegt</th>
+                <th>Anbieter</th>
+                <th>Status</th>
+                <th>Live seit</th>
+                <th>Honorar</th>
+                <th>Ort</th>
+              </tr>
+            </thead>
+            <tbody id="employee-detail-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="live-confirm-panel"
+      class="employee-detail-panel hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="live-confirm-title"
+    >
+      <div class="employee-detail-dialog live-confirm-dialog">
+        <div class="employee-detail-head">
+          <h4 id="live-confirm-title">Live-Freigabe bestätigen</h4>
+          <button
+            type="button"
+            id="live-confirm-close"
+            class="mini-btn"
+            title="Schließen"
+            aria-label="Schließen"
+          >✕</button>
+        </div>
+        <p id="live-confirm-text" class="matrix-info">
+          Wurde der Anbieter auf my-waycard.com wirklich angemeldet?
+        </p>
+        <div class="auth-actions">
+          <button type="button" id="live-confirm-no" class="btn btn-primary">Abbrechen</button>
+          <button type="button" id="live-confirm-yes" class="btn btn-success btn-action">JA - Live schalten</button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="delete-confirm-panel"
+      class="employee-detail-panel hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-confirm-title"
+    >
+      <div class="employee-detail-dialog live-confirm-dialog">
+        <div class="employee-detail-head">
+          <h4 id="delete-confirm-title">Löschen bestätigen</h4>
+          <button
+            type="button"
+            id="delete-confirm-close"
+            class="mini-btn"
+            title="Schließen"
+            aria-label="Schließen"
+          >✕</button>
+        </div>
+        <p id="delete-confirm-text" class="matrix-info">Wirklich löschen?</p>
+        <div class="auth-actions">
+          <button type="button" id="delete-confirm-no" class="btn btn-primary">Abbrechen</button>
+          <button type="button" id="delete-confirm-yes" class="btn btn-danger">Ja, löschen</button>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js"></script>
-    <script src="app.js"></script>
+    <script src="config.js?v=20260330-0845"></script>
+    <script src="app.js?v=20260331-2497"></script>
   </body>
 </html>
