@@ -2168,6 +2168,12 @@ function filterProvidersByDashboardStatusFilter(providers) {
   return (Array.isArray(providers) ? providers : []).filter((provider) => providerMatchesDashboardStatusFilter(provider));
 }
 
+function getDashboardStatusScopedProviders(countryFilter = "all") {
+  return filterProvidersByDashboardStatusFilter(getVisibleProvidersForCurrentUser()).filter((provider) =>
+    providerMatchesCountry(provider, countryFilter)
+  );
+}
+
 function getProviderStateEntriesForRanking(provider, countryFilter = "all") {
   const normalizedCountryFilter = normalizeText(countryFilter);
   const includeAllCountries = !countryFilter || countryFilter === "all";
@@ -3432,13 +3438,10 @@ function calculateHonorariumForRange(range, countryFilter = "all") {
     userRates.set(String(authProfile.user_id).trim(), getEmployeeRateByUserId(authProfile.user_id));
   }
 
-  const scopedProviders = getVisibleProvidersForCurrentUser();
+  const scopedProviders = getDashboardStatusScopedProviders(countryFilter);
   let totalEur = 0;
   let liveCount = 0;
   scopedProviders.forEach((provider) => {
-    if (!providerMatchesCountry(provider, countryFilter)) {
-      return;
-    }
     if (!isLiveStatus(provider?.status)) {
       return;
     }
@@ -3464,22 +3467,20 @@ function renderEmployeeStatusKpis(countryFilter = "all") {
   if (!els.employeeStatusKpis) {
     return;
   }
-  const totals = getVisibleProvidersForCurrentUser()
-    .filter((provider) => providerMatchesCountry(provider, countryFilter))
-    .reduce(
-      (accumulator, provider) => {
-        const bucket = getProviderStatusBucket(provider?.status);
-        if (bucket === "live") {
-          accumulator.live += 1;
-        } else if (bucket === "inProgress") {
-          accumulator.inProgress += 1;
-        } else {
-          accumulator.open += 1;
-        }
-        return accumulator;
-      },
-      { open: 0, inProgress: 0, live: 0 }
-    );
+  const totals = getDashboardStatusScopedProviders(countryFilter).reduce(
+    (accumulator, provider) => {
+      const bucket = getProviderStatusBucket(provider?.status);
+      if (bucket === "live") {
+        accumulator.live += 1;
+      } else if (bucket === "inProgress") {
+        accumulator.inProgress += 1;
+      } else {
+        accumulator.open += 1;
+      }
+      return accumulator;
+    },
+    { open: 0, inProgress: 0, live: 0 }
+  );
 
   els.employeeStatusKpis.innerHTML = `
     <article class="employee-status-kpi employee-status-kpi-open">
@@ -3604,10 +3605,11 @@ function renderEmployeeRaceBoard(employeeRows, range, countryFilter = "all") {
 
   const rankedRows = rankEmployeeRaceRows(employeeRows);
   const countryLabel = countryFilter === "all" ? "Alle Länder" : countryFilter;
+  const statusLabel = getDashboardStatusFilterLabel();
   const raceTarget = Math.max(0, Number(rankedRows[0]?.raceMetric || 0));
   if (els.employeeRaceInfo) {
     const targetLabel = raceTarget > 0 ? `${raceTarget} Live` : "kein Zielwert";
-    els.employeeRaceInfo.textContent = `${range.label} · Land: ${countryLabel} · Zielwert: ${targetLabel}`;
+    els.employeeRaceInfo.textContent = `${range.label} · Land: ${countryLabel} · Status: ${statusLabel} · Zielwert: ${targetLabel}`;
   }
 
   if (!rankedRows.length) {
@@ -3691,7 +3693,8 @@ function renderDashboardEmployeePanel() {
 
   if (els.employeeRangeInfo) {
     const countryLabel = activeCountryFilter === "all" ? "Alle Länder" : activeCountryFilter;
-    els.employeeRangeInfo.textContent = `${range.label} · Land: ${countryLabel}`;
+    const statusLabel = getDashboardStatusFilterLabel();
+    els.employeeRangeInfo.textContent = `${range.label} · Land: ${countryLabel} · Status: ${statusLabel}`;
   }
 
   if (!employeeRows.length) {
@@ -3890,8 +3893,9 @@ function getEmployeeRangeSelection() {
 function buildEmployeeActivityRows(range, countryFilter = "all") {
   const adminDashboardMode = isAdminDashboardMode();
   const activeUser = getCurrentUser();
+  const statusScopedProviders = getDashboardStatusScopedProviders(countryFilter);
   const adminScopedProviders = adminDashboardMode
-    ? getVisibleProvidersForCurrentUser().filter((provider) => providerMatchesCountry(provider, countryFilter))
+    ? statusScopedProviders
     : [];
 
   if (!adminDashboardMode) {
@@ -3912,7 +3916,7 @@ function buildEmployeeActivityRows(range, countryFilter = "all") {
       providers: [],
     };
 
-    state.providers.forEach((provider) => {
+    statusScopedProviders.forEach((provider) => {
       const createdAt = new Date(provider.createdAt || "");
       if (Number.isNaN(createdAt.getTime())) {
         return;
@@ -3921,12 +3925,6 @@ function buildEmployeeActivityRows(range, countryFilter = "all") {
         return;
       }
       if (!providerBelongsToUser(provider, activeUser)) {
-        return;
-      }
-      if (!providerVisibleForCurrentUser(provider)) {
-        return;
-      }
-      if (!providerMatchesCountry(provider, countryFilter)) {
         return;
       }
 
@@ -3942,13 +3940,7 @@ function buildEmployeeActivityRows(range, countryFilter = "all") {
       appendProviderToEmployeeRow(ownRow, provider);
     });
 
-    state.providers.forEach((provider) => {
-      if (!providerVisibleForCurrentUser(provider)) {
-        return;
-      }
-      if (!providerMatchesCountry(provider, countryFilter)) {
-        return;
-      }
+    statusScopedProviders.forEach((provider) => {
       if (!isLiveStatus(provider?.status)) {
         return;
       }
@@ -4394,6 +4386,9 @@ function renderEmployeeDetails(employeeRows, range, countryFilter = "all") {
 
   const detailProviders = selectedEntry.providers
     .filter((provider) => {
+      if (!providerMatchesDashboardStatusFilter(provider)) {
+        return false;
+      }
       if (!providerMatchesCountry(provider, countryFilter)) {
         return false;
       }
