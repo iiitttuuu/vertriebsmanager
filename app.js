@@ -3532,8 +3532,12 @@ function renderEmployeeHonorariumKpis(selectedRange, countryFilter = "all") {
 
 function getEmployeeRaceMetric(entry) {
   const liveCount = Number(entry?.liveCount || 0);
+  const openCount = Number(entry?.openCount || 0);
   if (!Number.isFinite(liveCount)) {
     return 0;
+  }
+  if (dashboardStatusFilter === DASHBOARD_STATUS_FILTER_LIVE_AND_OPEN) {
+    return Math.max(0, liveCount + (Number.isFinite(openCount) ? openCount : 0));
   }
   return Math.max(0, liveCount);
 }
@@ -3606,9 +3610,10 @@ function renderEmployeeRaceBoard(employeeRows, range, countryFilter = "all") {
   const rankedRows = rankEmployeeRaceRows(employeeRows);
   const countryLabel = countryFilter === "all" ? "Alle Länder" : countryFilter;
   const statusLabel = getDashboardStatusFilterLabel();
+  const raceMetricLabel = dashboardStatusFilter === DASHBOARD_STATUS_FILTER_LIVE_AND_OPEN ? "Live + offen" : "Live";
   const raceTarget = Math.max(0, Number(rankedRows[0]?.raceMetric || 0));
   if (els.employeeRaceInfo) {
-    const targetLabel = raceTarget > 0 ? `${raceTarget} Live` : "kein Zielwert";
+    const targetLabel = raceTarget > 0 ? `${raceTarget} ${raceMetricLabel}` : "kein Zielwert";
     els.employeeRaceInfo.textContent = `${range.label} · Land: ${countryLabel} · Status: ${statusLabel} · Zielwert: ${targetLabel}`;
   }
 
@@ -3620,11 +3625,12 @@ function renderEmployeeRaceBoard(employeeRows, range, countryFilter = "all") {
   els.employeeRaceBoard.innerHTML = rankedRows
     .map((entry) => {
       const progressPercent = Number.isFinite(entry.progressPercent) ? entry.progressPercent : 0;
-      const detailsTitle = `Live: ${entry.liveCount} · Ziel: ${raceTarget} · Gesamt: ${entry.totalCount} · Offen: ${entry.openCount} · In Bearbeitung: ${entry.inProgressCount} · Verdienst: ${formatEuroAmount(entry.earningsEur || 0)}`;
+      const raceMetricValue = getEmployeeRaceMetric(entry);
+      const detailsTitle = `${raceMetricLabel}: ${raceMetricValue} · Ziel: ${raceTarget} · Gesamt: ${entry.totalCount} · Offen: ${entry.openCount} · In Bearbeitung: ${entry.inProgressCount} · Live: ${entry.liveCount} · Verdienst: ${formatEuroAmount(entry.earningsEur || 0)}`;
       const rankClass = entry.rank <= 3 ? `rank-${entry.rank}` : "rank-other";
       const liveValueLabel = raceTarget > 0
-        ? `${entry.liveCount} / ${raceTarget} Live`
-        : `${entry.liveCount} Live`;
+        ? `${raceMetricValue} / ${raceTarget} ${raceMetricLabel}`
+        : `${raceMetricValue} ${raceMetricLabel}`;
       return `
         <article class="employee-race-lane ${rankClass}" title="${escapeHtml(detailsTitle)}">
           <div class="employee-race-label">
