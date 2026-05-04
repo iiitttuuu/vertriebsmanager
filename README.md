@@ -1,4 +1,4 @@
-# Vertriebsmanager Plattform
+# MyWayControl Plattform
 
 Web-App (MVP) fuer Admin- und Mitarbeiter-Rollen:
 
@@ -12,6 +12,7 @@ Web-App (MVP) fuer Admin- und Mitarbeiter-Rollen:
 
 - Frontend: statische Dateien (`index.html`, `app.js`, `styles.css`)
 - Backend/DB: Supabase (Tabelle `app_state` mit JSONB-Zustand)
+- Dokumentablage: Plattform-API (`/api/incoming-invoices/files/*`) als Bridge zur internen Dateiablage
 - Deployment: Vercel
 
 Wenn Supabase nicht konfiguriert ist, laeuft die App weiter mit lokalem Fallback (`localStorage`).
@@ -29,11 +30,12 @@ Dann `http://localhost:8080/index.html` oeffnen.
 1. In Supabase ein neues Projekt erstellen.
 2. SQL aus `supabase/schema.sql` im SQL Editor ausfuehren.
 3. SQL aus `supabase/auth_and_rls.sql` im SQL Editor ausfuehren.
-4. Optional: SQL aus `supabase/seed_categories.sql` ausfuehren, um die 7 Standard-Hauptkategorien vorzubelegen.
-5. In `config.js` setzen:
+4. Fuer Gesprächsnotizen (Superadmin-Tool): SQL aus `supabase/patch_conversation_notes.sql` ausfuehren.
+5. Optional: SQL aus `supabase/seed_categories.sql` ausfuehren, um die 7 Standard-Hauptkategorien vorzubelegen.
+6. In `config.js` setzen:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
-6. Seite neu laden. Danach liest/schreibt die App in Supabase.
+7. Seite neu laden. Danach liest/schreibt die App in Supabase.
 
 ## Login / Mitarbeiter-Flow
 
@@ -63,6 +65,20 @@ Hinweis:
 3. Nach Deploy `config.js` mit deinen Werten ausliefern (oder vorab im Repo setzen).
 4. Bei Google Referrer die Vercel-Domain freigeben, z. B.:
    - `https://dein-projekt.vercel.app/*`
+
+## Dokumentablage-Bridge (transparent fuer User)
+
+Damit Upload/Download in der UI wie eine native Plattform-Funktion wirkt, werden Dateien ueber interne API-Routen geleitet:
+
+- `POST /api/incoming-invoices/files/upload`
+- `GET /api/incoming-invoices/files/download`
+
+Noetige Vercel ENV Variablen:
+
+- `FILE_BRIDGE_BASE_URL` (URL deines internen File-Services, der auf NAS schreibt/liest)
+- `FILE_BRIDGE_SHARED_KEY` (optional, Shared Secret zwischen Vercel-API und File-Service)
+
+Der eigentliche NAS-Zugriff passiert damit nur serverseitig ueber den File-Service, nie direkt im Browser.
 
 ## Wichtige Sicherheitshinweise
 
