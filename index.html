@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vertriebsmanager VM</title>
-    <link rel="stylesheet" href="styles.css?v=20260331-2498" />
+    <title>MyWayControl</title>
+    <link rel="stylesheet" href="styles.css?v=20260503-56" />
   </head>
   <body class="app-loading">
     <div id="auth-gate" class="auth-gate hidden">
@@ -54,7 +54,7 @@
           <span class="brand-chip">VM</span>
           <div>
           <p class="overline">CRM Plattform</p>
-          <h1>Vertriebsmanager</h1>
+          <h1>MyWayControl</h1>
           </div>
         </div>
         <div class="topbar-controls">
@@ -62,18 +62,125 @@
             <span class="platform-country-label">Plattform-Land</span>
             <select id="platform-country-select"></select>
           </label>
-          <span id="current-user-label" class="current-user-label">Nicht angemeldet</span>
-          <span id="role-badge" class="role-badge"></span>
-          <button type="button" id="sign-out-btn" class="btn btn-primary">Abmelden</button>
+          <div class="topbar-user-meta" aria-live="polite">
+            <span id="current-user-label" class="current-user-label">Nicht angemeldet</span>
+            <span id="role-badge" class="role-badge"></span>
+          </div>
+          <div class="topbar-action-row">
+            <button type="button" id="command-palette-open-btn" class="btn btn-primary topbar-search-btn">
+              <span class="topbar-search-label">Schnellsuche</span>
+              <span>Ctrl/⌘ K</span>
+            </button>
+            <button type="button" id="sign-out-btn" class="btn btn-primary">Abmelden</button>
+          </div>
         </div>
       </header>
 
-      <aside class="sidebar card">
-        <button class="nav-btn active" data-target="dashboard-section">Dashboard</button>
-        <button class="nav-btn admin-only" data-target="users-section">Mitarbeiter</button>
-        <button class="nav-btn" data-target="providers-section">Anbieter</button>
-        <button class="nav-btn" data-target="management-section">Verwaltung</button>
-        <button class="nav-btn admin-only" data-target="parameters-section">Parameter</button>
+      <aside class="sidebar">
+        <div class="nav-group">
+          <button type="button" id="main-dashboard-nav-btn" class="nav-btn active" data-target="dashboard-section">Dashboard</button>
+        </div>
+
+        <div class="nav-group">
+          <button
+            type="button"
+            class="nav-btn nav-parent-btn"
+            data-nav-toggle="organization-submenu"
+            data-child-targets="users-section,departments-section"
+            aria-controls="organization-nav-submenu"
+            aria-expanded="false"
+          >
+            Organisation
+          </button>
+          <div id="organization-nav-submenu" class="nav-submenu hidden">
+            <button type="button" class="nav-btn nav-sub-btn role-admin-only" data-target="users-section">
+              Mitarbeiter
+            </button>
+            <button type="button" class="nav-btn nav-sub-btn role-admin-only" data-target="departments-section">
+              Abteilungen
+            </button>
+          </div>
+        </div>
+
+        <div class="nav-group">
+          <button
+            type="button"
+            class="nav-btn nav-parent-btn"
+            data-nav-toggle="masterdata-submenu"
+            data-child-targets="companies-section,providers-section,management-section,parameters-section"
+            aria-controls="masterdata-nav-submenu"
+            aria-expanded="false"
+          >
+            Stammdaten
+          </button>
+          <div id="masterdata-nav-submenu" class="nav-submenu hidden">
+            <button type="button" class="nav-btn nav-sub-btn role-admin-only" data-target="companies-section">Firmen</button>
+            <button type="button" class="nav-btn nav-sub-btn" data-target="providers-section">Anbieter</button>
+            <button type="button" class="nav-btn nav-sub-btn role-admin-only" data-target="management-section">Kategorien</button>
+            <button type="button" class="nav-btn nav-sub-btn admin-only" data-target="parameters-section">Parameter</button>
+          </div>
+        </div>
+
+        <div class="nav-group">
+          <button
+            type="button"
+            class="nav-btn nav-parent-btn"
+            data-nav-toggle="sales-submenu"
+            data-child-targets="sales-dashboard-section,sales-leads-section,tour-planner-section,sales-phone-section"
+            aria-controls="sales-nav-submenu"
+            aria-expanded="false"
+          >
+            Vertrieb
+          </button>
+          <div id="sales-nav-submenu" class="nav-submenu hidden">
+            <button type="button" class="nav-btn nav-sub-btn" data-target="sales-dashboard-section">Dashboard</button>
+            <button type="button" class="nav-btn nav-sub-btn" data-target="sales-leads-section">Leads</button>
+            <button type="button" class="nav-btn nav-sub-btn" data-target="tour-planner-section">Tourenplanung</button>
+            <button type="button" class="nav-btn nav-sub-btn" data-target="sales-phone-section">Telefonakquise</button>
+          </div>
+        </div>
+
+        <div class="nav-group role-admin-only">
+          <button
+            type="button"
+            class="nav-btn nav-parent-btn role-admin-only"
+            data-nav-toggle="finance-submenu"
+            data-child-targets="incoming-invoices-section,incoming-offers-section,contract-manager-section"
+            aria-controls="finance-nav-submenu"
+            aria-expanded="false"
+          >
+            Finanzen
+          </button>
+          <div id="finance-nav-submenu" class="nav-submenu hidden">
+            <button type="button" class="nav-btn nav-sub-btn role-admin-only" data-target="incoming-invoices-section">
+              Eingangsrechnungen
+            </button>
+            <button type="button" class="nav-btn nav-sub-btn role-admin-only" data-target="incoming-offers-section">
+              Eingangsangebote
+            </button>
+            <button type="button" class="nav-btn nav-sub-btn superadmin-only" data-target="contract-manager-section">
+              Verträge &amp; Fristen
+            </button>
+          </div>
+        </div>
+
+        <div class="nav-group">
+          <button
+            type="button"
+            class="nav-btn nav-parent-btn"
+            data-nav-toggle="activities-submenu"
+            data-child-targets="conversation-notes-section"
+            aria-controls="activities-nav-submenu"
+            aria-expanded="false"
+          >
+            Aktivitäten
+          </button>
+          <div id="activities-nav-submenu" class="nav-submenu hidden">
+            <button type="button" class="nav-btn nav-sub-btn role-admin-only" data-target="conversation-notes-section">
+              Gesprächsnotizen
+            </button>
+          </div>
+        </div>
       </aside>
 
       <main class="content">
@@ -124,7 +231,7 @@
                 Land
                 <select id="map-country-select"></select>
               </label>
-              <label>
+              <label id="map-level-field">
                 Ebene
                 <select id="map-level-select">
                   <option value="category">Kategorie</option>
@@ -132,7 +239,17 @@
                   <option value="topic">Thema</option>
                 </select>
               </label>
-              <label>
+              <label id="map-item-search-field">
+                Themen-Suche
+                <input
+                  type="search"
+                  id="map-item-search-input"
+                  placeholder="Thema suchen..."
+                  autocomplete="off"
+                />
+                <div id="map-item-search-suggestions" class="address-suggestions map-topic-suggestions hidden"></div>
+              </label>
+              <label id="map-item-select-field">
                 Auswahl
                 <select id="map-item-select"></select>
               </label>
@@ -260,6 +377,7 @@
                         <th>Offen</th>
                         <th>In Bearbeitung</th>
                         <th>Live</th>
+                        <th>Live-Provision</th>
                         <th>Gesamt</th>
                         <th>Honorar €/Live</th>
                         <th>Verdienst</th>
@@ -271,7 +389,7 @@
                 </div>
               </section>
 
-              <div id="employee-race-wrap" class="employee-race-wrap admin-only-view">
+              <div id="employee-race-wrap" class="employee-race-wrap">
                 <div class="employee-race-head">
                   <h4>Mitarbeiter-Rennen</h4>
                   <p id="employee-race-info"></p>
@@ -291,7 +409,7 @@
 
         </section>
 
-        <section id="users-section" class="panel card">
+        <section id="users-section" class="panel card role-admin-only-view">
           <div class="section-header">
             <h2>Mitarbeiter</h2>
             <p>Übersicht und Verwaltung aller Mitarbeiter.</p>
@@ -307,8 +425,7 @@
                   <tr>
                     <th>Name</th>
                     <th>Rolle</th>
-                    <th>Gebiete</th>
-                    <th>Honorar €/Live</th>
+                    <th>Abteilung</th>
                     <th>Aktion</th>
                   </tr>
                 </thead>
@@ -317,96 +434,1300 @@
             </div>
           </div>
 
-          <div id="users-form-view" class="hidden">
-            <form id="user-form" class="form-grid admin-lock">
-              <label>
-                Name
-                <input type="text" name="name" required />
-              </label>
-              <label>
-                Adresse
-                <input type="text" id="user-address-input" name="address" autocomplete="off" required />
-              </label>
-              <label>
-                E-Mail
-                <input type="email" name="email" />
-              </label>
-              <label>
-                Telefon
-                <input type="tel" name="phone" />
-              </label>
-              <label>
-                Rolle
-                <select name="role" required>
-                  <option value="mitarbeiter">Mitarbeiter</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </label>
-              <div class="user-detail-sections">
-                <div id="user-honorarium-field" class="user-honorarium-field">
-                  <div class="user-detail-card-head">
-                    <p class="user-detail-card-kicker">Vergütung</p>
-                    <h3>Honorar</h3>
-                  </div>
-                  <label class="user-honorarium-toggle">
-                    <input type="checkbox" id="user-honorarium-enabled" name="honorariumEnabled" />
-                    Honorar freigeschaltet
-                  </label>
-                  <label>
-                    Honorar pro Live-Anbieter (€)
-                    <input
-                      type="number"
-                      id="user-honorarium-rate"
-                      name="honorariumRate"
-                      class="employee-rate-input"
-                      min="0"
-                      step="0.01"
-                      inputmode="decimal"
-                    />
-                  </label>
-                  <small id="user-honorarium-hint">
-                    Nur in der Detailansicht bearbeitbar. Für Einladungen erst nach erster Anmeldung verfügbar.
-                  </small>
+          <div id="users-form-view" class="modal-overlay-page hidden">
+            <div class="modal-dialog-panel users-dialog-panel">
+              <div class="modal-dialog-head">
+                <h3>Mitarbeiter bearbeiten</h3>
+                <button type="button" id="user-form-close-btn" class="mini-btn" aria-label="Popup schließen">✕</button>
+              </div>
+              <form id="user-form" class="form-grid admin-lock user-form-layout">
+              <div class="user-form-identity">
+                <label>
+                  Name
+                  <input type="text" name="name" required />
+                </label>
+                <label>
+                  Adresse
+                  <input type="text" id="user-address-input" name="address" autocomplete="off" required />
+                </label>
+                <label>
+                  E-Mail
+                  <input type="email" name="email" required />
+                </label>
+                <label>
+                  Telefon
+                  <input type="tel" name="phone" required />
+                </label>
+              </div>
+              <div class="user-form-tabs" role="tablist" aria-label="Mitarbeiter Details">
+                <button type="button" class="user-form-tab-btn is-active" data-user-form-tab="profil">Profil</button>
+                <button type="button" class="user-form-tab-btn" data-user-form-tab="kontakt">Kontakt</button>
+                <button type="button" class="user-form-tab-btn" data-user-form-tab="anstellung">Anstellung</button>
+                <button type="button" class="user-form-tab-btn" data-user-form-tab="role">Rolle</button>
+                <button type="button" class="user-form-tab-btn" data-user-form-tab="visibility">Sichtbarkeit</button>
+                <button type="button" class="user-form-tab-btn" data-user-form-tab="notizen">Notizen &amp; Aufgaben</button>
+              </div>
+              <div id="user-form-wizard-bar" class="user-form-wizard-bar">
+                <p id="user-form-step-meta" class="user-form-step-meta">Schritt 1 von 6</p>
+                <div class="user-form-step-progress" aria-hidden="true">
+                  <span id="user-form-step-progress-fill" class="user-form-step-progress-fill"></span>
                 </div>
-                <div class="user-territories-field">
-                  <div class="user-detail-card-head">
-                    <p class="user-detail-card-kicker">Sichtbarkeit</p>
-                    <h3>Gebietszuordnung</h3>
+                <div class="user-form-wizard-actions">
+                  <button type="button" id="user-form-prev-btn" class="btn btn-primary">Zurück</button>
+                  <button type="button" id="user-form-next-btn" class="btn btn-primary">Weiter</button>
+                </div>
+              </div>
+
+              <div class="user-form-panels">
+              <section class="user-form-tab-panel" data-user-form-tab-panel="profil">
+                <div class="user-detail-sections user-detail-sections-single">
+                  <div class="employee-admin-form-fields-grid">
+                    <label>
+                      Abteilung
+                      <select id="user-profile-department-select" name="profileDepartment">
+                        <option value="">Keine Zuordnung</option>
+                      </select>
+                    </label>
+                    <label>
+                      Mitarbeiterfarbe
+                      <input type="color" name="profileMarkerColor" value="#1d4ed8" />
+                    </label>
+                    <label>
+                      Position
+                      <input type="text" name="profilePosition" placeholder="z. B. Key Account Manager" />
+                    </label>
+                    <label>
+                      Standort
+                      <input type="text" name="profileLocation" placeholder="z. B. Wien" />
+                    </label>
+                    <label>
+                      Geburtsdatum
+                      <input type="date" name="profileBirthDate" />
+                    </label>
+                    <label>
+                      Vorgesetzte/r
+                      <select id="user-profile-manager-select" name="profileManagerUserId">
+                        <option value="">Keine Zuordnung</option>
+                      </select>
+                    </label>
+                    <label>
+                      Personalstatus
+                      <select name="profileHrStatus">
+                        <option value="aktiv">Aktiv</option>
+                        <option value="onboarding">Onboarding</option>
+                        <option value="karenz">Karenz</option>
+                        <option value="ausgetreten">Ausgetreten</option>
+                      </select>
+                    </label>
                   </div>
-                  <div class="user-territory-country-add">
-                    <label for="user-country-input">Land hinzufügen</label>
-                    <div class="user-territory-country-add-row">
+                  <label class="employee-admin-notes-field">
+                    Zuständigkeit / Aufgabenbeschreibung
+                    <div class="tag-input-field">
+                      <div id="user-responsibility-tags" class="tag-input-tags"></div>
                       <input
                         type="text"
-                        id="user-country-input"
-                        placeholder="z. B. Österreich"
-                        list="user-country-datalist"
+                        id="user-responsibility-input"
+                        list="responsibility-tag-suggestions"
+                        placeholder="Aufgabe eingeben und Enter drücken"
                         autocomplete="off"
                       />
-                      <datalist id="user-country-datalist"></datalist>
-                      <button
-                        type="button"
-                        id="user-country-add-btn"
-                        class="mini-btn mini-btn-add"
-                        title="Land hinzufügen"
-                        aria-label="Land hinzufügen"
-                      >+</button>
+                      <input type="hidden" id="user-responsibility-hidden" name="profileResponsibility" />
+                      <datalist id="responsibility-tag-suggestions"></datalist>
                     </div>
-                  </div>
-                  <div id="user-selected-countries" class="user-selected-countries"></div>
-                  <div id="user-country-state-panels" class="user-country-state-panels"></div>
-                  <small>
-                    Mehrere Länder und pro Land mehrere Bundesländer möglich. Ohne Zuordnung sieht der Mitarbeiter alle Gebiete.
-                  </small>
+                  </label>
                 </div>
+              </section>
+
+              <section class="user-form-tab-panel hidden" data-user-form-tab-panel="kontakt">
+                <div class="user-detail-sections user-detail-sections-single">
+                  <div class="employee-admin-form-fields-grid">
+                    <label>
+                      Straße
+                      <input type="text" name="profileStreet" placeholder="z. B. Musterstraße 1" />
+                    </label>
+                    <label>
+                      PLZ
+                      <input type="text" name="profilePostalCode" placeholder="z. B. 1010" />
+                    </label>
+                    <label>
+                      Ort
+                      <input type="text" name="profileCity" placeholder="z. B. Wien" />
+                    </label>
+                    <label>
+                      Land
+                      <input type="text" name="profileCountry" placeholder="z. B. Österreich" />
+                    </label>
+                    <label>
+                      E-Mail (Profil)
+                      <input type="email" name="profileEmail" placeholder="name@firma.at" />
+                    </label>
+                    <label>
+                      Telefon (Profil)
+                      <input type="tel" name="profilePhone" placeholder="+43 ..." />
+                    </label>
+                  </div>
+                </div>
+              </section>
+
+              <section class="user-form-tab-panel hidden" data-user-form-tab-panel="anstellung">
+                <div class="user-detail-sections user-detail-sections-single">
+                  <div class="employee-admin-form-fields-grid">
+                    <label>
+                      Beschäftigungsart
+                      <select name="profileEmploymentType">
+                        <option value="">Bitte wählen</option>
+                        <option value="vollzeit">Vollzeit</option>
+                        <option value="teilzeit">Teilzeit</option>
+                        <option value="freelance">Freelance</option>
+                        <option value="praktikum">Praktikum</option>
+                        <option value="geringfugig">Geringfügig</option>
+                        <option value="werksvertrag">Werksvertrag</option>
+                        <option value="extern">Extern</option>
+                      </select>
+                    </label>
+                    <label>
+                      Arbeitsmodell
+                      <select name="profileWorkModel">
+                        <option value="">Bitte wählen</option>
+                        <option value="vor_ort">Vor Ort</option>
+                        <option value="hybrid">Hybrid</option>
+                        <option value="remote">Remote</option>
+                      </select>
+                    </label>
+                    <label>
+                      Eintrittsdatum
+                      <input type="date" name="profileStartDate" />
+                    </label>
+                    <label>
+                      Nächstes Mitarbeitergespräch
+                      <input type="date" name="profileNextReviewDate" />
+                    </label>
+                  </div>
+
+                  <section id="user-employment-details" class="employee-admin-employment-details hidden">
+                    <h4 id="user-employment-details-title">Zusatzfelder</h4>
+
+                    <div class="employee-admin-employment-detail-panel hidden" data-employment-type-panel="vollzeit">
+                      <label>
+                        Wochenstunden
+                        <input type="number" min="0" step="0.5" name="employmentDetailVollzeitWeeklyHours" placeholder="z. B. 38.5" />
+                      </label>
+                      <label>
+                        Jahresbrutto (EUR)
+                        <input type="number" min="0" step="0.01" name="employmentDetailVollzeitYearlySalaryEur" placeholder="z. B. 56000" />
+                      </label>
+                      <label>
+                        Befristet bis
+                        <input type="date" name="employmentDetailVollzeitContractEndDate" />
+                      </label>
+                    </div>
+
+                    <div class="employee-admin-employment-detail-panel hidden" data-employment-type-panel="teilzeit">
+                      <label>
+                        Wochenstunden
+                        <input type="number" min="0" step="0.5" name="employmentDetailTeilzeitWeeklyHours" placeholder="z. B. 20" />
+                      </label>
+                      <label>
+                        Monatsbrutto (EUR)
+                        <input type="number" min="0" step="0.01" name="employmentDetailTeilzeitMonthlySalaryEur" placeholder="z. B. 1800" />
+                      </label>
+                      <label>
+                        Arbeitstage pro Woche
+                        <input type="number" min="1" max="7" step="1" name="employmentDetailTeilzeitDaysPerWeek" placeholder="z. B. 3" />
+                      </label>
+                    </div>
+
+                    <div class="employee-admin-employment-detail-panel hidden" data-employment-type-panel="freelance">
+                      <label>
+                        Stundensatz (EUR)
+                        <input type="number" min="0" step="0.01" name="employmentDetailFreelanceHourlyRateEur" placeholder="z. B. 85" />
+                      </label>
+                      <label>
+                        Abrechnung
+                        <select name="employmentDetailFreelanceBillingCycle">
+                          <option value="">Bitte wählen</option>
+                          <option value="monatlich">Monatlich</option>
+                          <option value="projektweise">Projektweise</option>
+                        </select>
+                      </label>
+                      <label>
+                        Vertrag bis
+                        <input type="date" name="employmentDetailFreelanceContractEndDate" />
+                      </label>
+                    </div>
+
+                    <div class="employee-admin-employment-detail-panel hidden" data-employment-type-panel="praktikum">
+                      <label>
+                        Praktikumsart
+                        <select name="employmentDetailPraktikumType">
+                          <option value="">Bitte wählen</option>
+                          <option value="pflicht">Pflichtpraktikum</option>
+                          <option value="freiwillig">Freiwilliges Praktikum</option>
+                        </select>
+                      </label>
+                      <label>
+                        Schule / Universität
+                        <input type="text" name="employmentDetailPraktikumInstitution" placeholder="z. B. FH Wien" />
+                      </label>
+                      <label>
+                        Praktikum Ende
+                        <input type="date" name="employmentDetailPraktikumEndDate" />
+                      </label>
+                    </div>
+
+                    <div class="employee-admin-employment-detail-panel hidden" data-employment-type-panel="geringfugig">
+                      <label>
+                        Wochenstunden
+                        <input type="number" min="0" step="0.5" name="employmentDetailGeringfugigWeeklyHours" placeholder="z. B. 8" />
+                      </label>
+                      <label>
+                        Monatsentgelt (EUR)
+                        <input type="number" min="0" step="0.01" name="employmentDetailGeringfugigMonthlySalaryEur" placeholder="z. B. 518.44" />
+                      </label>
+                      <label>
+                        Sozialversicherung Hinweis
+                        <input type="text" name="employmentDetailGeringfugigInsuranceNote" placeholder="optional" />
+                      </label>
+                    </div>
+
+                    <div class="employee-admin-employment-detail-panel hidden" data-employment-type-panel="werksvertrag">
+                      <label class="employee-admin-employment-detail-wide">
+                        Leistungsbeschreibung
+                        <textarea name="employmentDetailWerksvertragServiceDescription" rows="3" placeholder="Kurzbeschreibung der vereinbarten Leistung"></textarea>
+                      </label>
+                      <label>
+                        Vertragswert (EUR)
+                        <input type="number" min="0" step="0.01" name="employmentDetailWerksvertragContractValueEur" placeholder="z. B. 12000" />
+                      </label>
+                      <label>
+                        Startdatum
+                        <input type="date" name="employmentDetailWerksvertragStartDate" />
+                      </label>
+                      <label>
+                        Enddatum
+                        <input type="date" name="employmentDetailWerksvertragEndDate" />
+                      </label>
+                      <label>
+                        Abrechnung
+                        <select name="employmentDetailWerksvertragBillingType">
+                          <option value="">Bitte wählen</option>
+                          <option value="pauschal">Pauschal</option>
+                          <option value="teilzahlungen">Teilzahlungen</option>
+                          <option value="nach_aufwand">Nach Aufwand</option>
+                          <option value="provision">Provision</option>
+                        </select>
+                      </label>
+                      <label class="hidden" data-werksvertrag-provision-fields>
+                        Provision pro LIVE-Anbieter (EUR)
+                        <input type="number" min="0" step="0.01" name="employmentDetailWerksvertragLiveProviderCommissionEur" placeholder="z. B. 25" />
+                      </label>
+                      <label class="hidden" data-werksvertrag-provision-fields>
+                        Anzahl LIVE-Anbieter
+                        <input type="number" min="0" step="1" name="employmentDetailWerksvertragLiveProviderCount" placeholder="z. B. 12" />
+                      </label>
+                      <label class="hidden" data-werksvertrag-provision-fields>
+                        Zeitraum von
+                        <input type="date" name="employmentDetailWerksvertragLiveProviderPeriodFrom" />
+                      </label>
+                      <label class="hidden" data-werksvertrag-provision-fields>
+                        Zeitraum bis
+                        <input type="date" name="employmentDetailWerksvertragLiveProviderPeriodTo" />
+                      </label>
+                    </div>
+
+                    <div class="employee-admin-employment-detail-panel hidden" data-employment-type-panel="extern">
+                      <label>
+                        Firma / Agentur
+                        <input type="text" name="employmentDetailExternCompanyName" placeholder="z. B. Musteragentur GmbH" />
+                      </label>
+                      <label>
+                        Ansprechpartner
+                        <input type="text" name="employmentDetailExternContactName" placeholder="Vor- und Nachname" />
+                      </label>
+                      <label>
+                        Kontakt E-Mail
+                        <input type="email" name="employmentDetailExternContactEmail" placeholder="name@firma.at" />
+                      </label>
+                    </div>
+                  </section>
+                </div>
+              </section>
+
+              <section class="user-form-tab-panel hidden" data-user-form-tab-panel="notizen">
+                <div class="user-detail-sections user-detail-sections-single">
+                  <label class="employee-admin-notes-field">
+                    Interne Notiz
+                    <textarea name="profileNotes" rows="4" placeholder="Wichtige interne Infos"></textarea>
+                  </label>
+                </div>
+                <div class="employee-admin-tasks user-profile-tasks">
+                  <div class="employee-admin-tasks-head">
+                    <h4>Aufgaben</h4>
+                  </div>
+                  <div class="employee-admin-task-create">
+                    <input type="text" id="user-profile-task-input" placeholder="Neue Aufgabe..." />
+                    <input type="date" id="user-profile-task-due" />
+                    <button type="button" id="user-profile-task-add-btn" class="btn btn-primary">Aufgabe hinzufügen</button>
+                  </div>
+                  <ul id="user-profile-task-list" class="employee-admin-task-list"></ul>
+                </div>
+              </section>
+
+              <section class="user-form-tab-panel hidden" data-user-form-tab-panel="role">
+                <div class="user-detail-sections user-detail-sections-single">
+                  <label class="user-role-field">
+                    Rolle
+                    <select name="role" required>
+                      <option value="mitarbeiter">Mitarbeiter</option>
+                      <option value="vertriebsmitarbeiter">Vertriebsmitarbeiter</option>
+                      <option value="admin">Admin</option>
+                      <option value="superadmin">Superadmin</option>
+                    </select>
+                  </label>
+                </div>
+              </section>
+
+              <section class="user-form-tab-panel hidden" data-user-form-tab-panel="visibility">
+                <div class="user-detail-sections user-detail-sections-single">
+                  <div class="user-territories-field">
+                    <div class="user-detail-card-head">
+                      <p class="user-detail-card-kicker">Sichtbarkeit</p>
+                      <h3>Gebietszuordnung</h3>
+                    </div>
+                    <div class="user-territory-country-add">
+                      <label for="user-country-input">Land hinzufügen</label>
+                      <div class="user-territory-country-add-row">
+                        <input
+                          type="text"
+                          id="user-country-input"
+                          placeholder="z. B. Österreich"
+                          list="user-country-datalist"
+                          autocomplete="off"
+                        />
+                        <datalist id="user-country-datalist"></datalist>
+                        <button
+                          type="button"
+                          id="user-country-add-btn"
+                          class="mini-btn mini-btn-add"
+                          title="Land hinzufügen"
+                          aria-label="Land hinzufügen"
+                        >+</button>
+                      </div>
+                    </div>
+                    <div id="user-selected-countries" class="user-selected-countries"></div>
+                    <div id="user-country-state-panels" class="user-country-state-panels"></div>
+                    <small>
+                      Mehrere Länder und pro Land mehrere Bundesländer möglich. Ohne Zuordnung sieht der Mitarbeiter alle Gebiete.
+                    </small>
+                  </div>
+                </div>
+              </section>
               </div>
               <div class="form-actions split">
                 <button type="button" id="user-cancel-btn" class="btn btn-primary">Zur Übersicht</button>
                 <button type="submit" id="user-save-btn" class="btn btn-success btn-action">Speichern</button>
               </div>
-            </form>
+              </form>
+            </div>
           </div>
         </section>
+
+        <section id="departments-section" class="panel card role-admin-only-view">
+          <div class="section-header">
+            <h2>Abteilungen</h2>
+            <p>Abteilungen zentral anlegen und für Mitarbeiter wiederverwenden.</p>
+          </div>
+          <div class="department-page-tabs" role="tablist" aria-label="Abteilungsseiten">
+            <button type="button" class="department-page-tab-btn is-active" data-departments-tab-target="departments">Abteilungen</button>
+            <button type="button" class="department-page-tab-btn" data-departments-tab-target="orgchart">Organigramm</button>
+          </div>
+
+          <section id="departments-tab-panel-departments" class="department-page-tab-panel" data-departments-tab-panel="departments">
+            <div class="department-toolbar">
+              <label class="department-search-field">
+                <span>Suche</span>
+                <input type="search" id="departments-search-input" placeholder="Abteilung suchen" autocomplete="off" />
+              </label>
+              <button type="button" id="departments-create-btn" class="btn btn-success btn-action">Neue Abteilung</button>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Abteilung</th>
+                    <th>Beschreibung</th>
+                    <th>Mitarbeiter</th>
+                    <th>Aktualisiert</th>
+                    <th>Aktion</th>
+                  </tr>
+                </thead>
+                <tbody id="departments-table-body"></tbody>
+              </table>
+            </div>
+            <p id="departments-empty" class="empty hidden"></p>
+          </section>
+
+          <section id="departments-tab-panel-orgchart" class="department-page-tab-panel hidden" data-departments-tab-panel="orgchart">
+            <div class="orgchart-toolbar">
+              <label class="orgchart-search-field">
+                <span>Suche</span>
+                <input
+                  type="search"
+                  id="orgchart-search-input"
+                  placeholder="Name, Rolle, Position, Abteilung"
+                  autocomplete="off"
+                />
+              </label>
+              <label class="orgchart-filter-field">
+                <span>Abteilung</span>
+                <select id="orgchart-department-filter">
+                  <option value="all">Alle Abteilungen</option>
+                </select>
+              </label>
+            </div>
+
+            <div id="orgchart-board" class="orgchart-board"></div>
+            <p id="orgchart-empty" class="empty hidden"></p>
+          </section>
+
+          <div id="department-modal" class="modal-overlay-page hidden">
+            <div class="modal-dialog-panel department-dialog-panel">
+              <div class="modal-dialog-head">
+                <h3 id="department-modal-title">Abteilung anlegen</h3>
+                <button type="button" id="department-modal-close-btn" class="mini-btn" aria-label="Popup schließen">✕</button>
+              </div>
+              <form id="department-form" class="form-grid">
+                <label>
+                  Name
+                  <input type="text" id="department-name-input" name="name" placeholder="z. B. Vertrieb" required />
+                </label>
+                <label>
+                  Beschreibung
+                  <textarea id="department-description-input" name="description" rows="4" placeholder="optional"></textarea>
+                </label>
+                <div class="form-actions split">
+                  <button type="button" id="department-form-cancel-btn" class="btn btn-primary">Abbrechen</button>
+                  <button type="submit" id="department-form-save-btn" class="btn btn-success btn-action">Speichern</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div id="department-members-modal" class="modal-overlay-page hidden">
+            <div class="modal-dialog-panel department-members-dialog-panel">
+              <div class="modal-dialog-head">
+                <h3 id="department-members-modal-title">Abteilung</h3>
+                <button
+                  type="button"
+                  id="department-members-modal-close-btn"
+                  class="mini-btn"
+                  aria-label="Popup schließen"
+                >✕</button>
+              </div>
+              <p id="department-members-modal-meta" class="subtle">0 Mitarbeiter</p>
+              <div id="department-members-modal-list" class="department-members-list"></div>
+            </div>
+          </div>
+          
+          <div id="orgchart-edit-modal" class="modal-overlay-page hidden">
+            <div class="modal-dialog-panel orgchart-edit-dialog-panel">
+              <div class="modal-dialog-head">
+                <h3 id="orgchart-edit-title">Organigramm-Eintrag bearbeiten</h3>
+                <button type="button" id="orgchart-edit-close-btn" class="mini-btn" aria-label="Popup schließen">✕</button>
+              </div>
+              <form id="orgchart-edit-form" class="form-grid">
+                <label>
+                  Mitarbeiter
+                  <input type="text" id="orgchart-edit-name" disabled />
+                </label>
+                <label>
+                  Abteilung
+                  <select id="orgchart-edit-department" name="department">
+                    <option value="">Keine Zuordnung</option>
+                  </select>
+                </label>
+                <label>
+                  Position
+                  <input type="text" id="orgchart-edit-position" name="position" placeholder="z. B. Teamleitung Vertrieb" />
+                </label>
+                <label>
+                  Vorgesetzte/r
+                  <select id="orgchart-edit-manager" name="managerUserId">
+                    <option value="">Keine Zuordnung (Top-Level)</option>
+                  </select>
+                </label>
+                <div class="form-actions split">
+                  <button type="button" id="orgchart-edit-cancel-btn" class="btn btn-primary">Abbrechen</button>
+                  <button type="submit" id="orgchart-edit-save-btn" class="btn btn-success btn-action">Speichern</button>
+                </div>
+              </form>
+            </div>
+          </div>
+          <div id="orgchart-info-modal" class="modal-overlay-page hidden">
+            <div class="modal-dialog-panel orgchart-info-dialog-panel">
+              <div class="modal-dialog-head">
+                <h3 id="orgchart-info-title">Zuständigkeit</h3>
+                <button type="button" id="orgchart-info-close-btn" class="mini-btn" aria-label="Popup schließen">✕</button>
+              </div>
+              <div id="orgchart-info-meta" class="orgchart-info-meta"></div>
+              <article class="orgchart-info-content">
+                <h4>Aufgabenbeschreibung</h4>
+                <div id="orgchart-info-responsibility" class="orgchart-info-responsibility"></div>
+              </article>
+              <article class="orgchart-info-content">
+                <h4>Gemeinsame Zuständigkeiten</h4>
+                <div id="orgchart-info-shared" class="orgchart-info-shared"></div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section id="employee-admin-section" class="panel card superadmin-only-view">
+          <div class="section-header">
+            <h2>Mitarbeiterverwaltung</h2>
+            <p>Superadmin-Tool für Abteilungen, Stammdaten, Aufgaben und interne Notizen.</p>
+          </div>
+
+          <div class="employee-admin-layout">
+            <section class="employee-admin-block">
+              <div class="employee-admin-toolbar">
+                <label class="employee-admin-search-field">
+                  <span>Suche</span>
+                  <input
+                    type="search"
+                    id="employee-admin-search-input"
+                    placeholder="Name, E-Mail, Abteilung, Position, Standort"
+                    autocomplete="off"
+                  />
+                </label>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Mitarbeiter</th>
+                      <th>Abteilung</th>
+                      <th>Position</th>
+                      <th>Standort</th>
+                      <th>Status</th>
+                      <th>Offene Aufgaben</th>
+                    </tr>
+                  </thead>
+                  <tbody id="employee-admin-table-body"></tbody>
+                </table>
+              </div>
+              <p id="employee-admin-empty" class="empty hidden"></p>
+            </section>
+          </div>
+
+          <div id="employee-admin-detail-panel" class="modal-overlay-page hidden">
+            <div class="modal-dialog-panel employee-admin-dialog-panel">
+              <div class="modal-dialog-head">
+                <h3 id="employee-admin-selected-title">Mitarbeiter wählen</h3>
+                <button type="button" id="employee-admin-detail-close" class="mini-btn" aria-label="Popup schließen">✕</button>
+              </div>
+              <form id="employee-admin-form" class="form-grid employee-admin-form-grid">
+                <div class="employee-admin-form-tabs" role="tablist" aria-label="Mitarbeiter Stammdaten Tabs">
+                  <button type="button" class="employee-admin-form-tab-btn is-active" data-employee-admin-form-tab="profil">Profil</button>
+                  <button type="button" class="employee-admin-form-tab-btn" data-employee-admin-form-tab="kontakt">Kontakt</button>
+                  <button type="button" class="employee-admin-form-tab-btn" data-employee-admin-form-tab="anstellung">Anstellung</button>
+                  <button type="button" class="employee-admin-form-tab-btn" data-employee-admin-form-tab="notiz">Notiz</button>
+                </div>
+
+                <section class="employee-admin-form-tab-panel" data-employee-admin-form-tab-panel="profil">
+                  <div class="employee-admin-form-fields-grid">
+                    <label>
+                      Abteilung
+                      <select id="employee-admin-department-select" name="department">
+                        <option value="">Keine Zuordnung</option>
+                      </select>
+                    </label>
+                    <label>
+                      Mitarbeiterfarbe
+                      <input type="color" name="markerColor" value="#1d4ed8" />
+                    </label>
+                    <label>
+                      Position
+                      <input type="text" name="position" placeholder="z. B. Key Account Manager" />
+                    </label>
+                    <label>
+                      Standort
+                      <input type="text" name="location" placeholder="z. B. Wien" />
+                    </label>
+                    <label>
+                      Geburtsdatum
+                      <input type="date" name="birthDate" />
+                    </label>
+                    <label>
+                      Vorgesetzte/r
+                      <select id="employee-admin-manager-select" name="managerUserId">
+                        <option value="">Keine Zuordnung</option>
+                      </select>
+                    </label>
+                    <label>
+                      Personalstatus
+                      <select name="hrStatus">
+                        <option value="aktiv">Aktiv</option>
+                        <option value="onboarding">Onboarding</option>
+                        <option value="karenz">Karenz</option>
+                        <option value="ausgetreten">Ausgetreten</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label class="employee-admin-notes-field">
+                    Zuständigkeit / Aufgabenbeschreibung
+                    <div class="tag-input-field">
+                      <div id="employee-admin-responsibility-tags" class="tag-input-tags"></div>
+                      <input
+                        type="text"
+                        id="employee-admin-responsibility-input"
+                        list="responsibility-tag-suggestions"
+                        placeholder="Aufgabe eingeben und Enter drücken"
+                        autocomplete="off"
+                      />
+                      <input type="hidden" id="employee-admin-responsibility-hidden" name="responsibility" />
+                    </div>
+                  </label>
+                </section>
+
+                <section class="employee-admin-form-tab-panel hidden" data-employee-admin-form-tab-panel="kontakt">
+                  <div class="employee-admin-form-fields-grid">
+                    <label>
+                      Straße
+                      <input type="text" name="street" placeholder="z. B. Musterstraße 1" />
+                    </label>
+                    <label>
+                      PLZ
+                      <input type="text" name="postalCode" placeholder="z. B. 1010" />
+                    </label>
+                    <label>
+                      Ort
+                      <input type="text" name="city" placeholder="z. B. Wien" />
+                    </label>
+                    <label>
+                      Land
+                      <input type="text" name="country" placeholder="z. B. Österreich" />
+                    </label>
+                    <label>
+                      E-Mail
+                      <input type="email" name="email" placeholder="name@firma.at" />
+                    </label>
+                    <label>
+                      Telefon
+                      <input type="tel" name="phone" placeholder="+43 ..." />
+                    </label>
+                  </div>
+                </section>
+
+                <section class="employee-admin-form-tab-panel hidden" data-employee-admin-form-tab-panel="anstellung">
+                  <div class="employee-admin-form-fields-grid">
+                    <label>
+                      Beschäftigungsart
+                      <select name="employmentType">
+                        <option value="">Bitte wählen</option>
+                        <option value="vollzeit">Vollzeit</option>
+                        <option value="teilzeit">Teilzeit</option>
+                        <option value="freelance">Freelance</option>
+                        <option value="praktikum">Praktikum</option>
+                        <option value="geringfugig">Geringfügig</option>
+                        <option value="werksvertrag">Werksvertrag</option>
+                        <option value="extern">Extern</option>
+                      </select>
+                    </label>
+                    <label>
+                      Arbeitsmodell
+                      <select name="workModel">
+                        <option value="">Bitte wählen</option>
+                        <option value="vor_ort">Vor Ort</option>
+                        <option value="hybrid">Hybrid</option>
+                        <option value="remote">Remote</option>
+                      </select>
+                    </label>
+                    <label>
+                      Eintrittsdatum
+                      <input type="date" name="startDate" />
+                    </label>
+                    <label>
+                      Nächstes Mitarbeitergespräch
+                      <input type="date" name="nextReviewDate" />
+                    </label>
+                  </div>
+
+                  <section id="employee-admin-employment-details" class="employee-admin-employment-details hidden">
+                    <h4 id="employee-admin-employment-details-title">Zusatzfelder</h4>
+
+                    <div class="employee-admin-employment-detail-panel hidden" data-employment-type-panel="vollzeit">
+                      <label>
+                        Wochenstunden
+                        <input type="number" min="0" step="0.5" name="employmentDetailVollzeitWeeklyHours" placeholder="z. B. 38.5" />
+                      </label>
+                      <label>
+                        Jahresbrutto (EUR)
+                        <input type="number" min="0" step="0.01" name="employmentDetailVollzeitYearlySalaryEur" placeholder="z. B. 56000" />
+                      </label>
+                      <label>
+                        Befristet bis
+                        <input type="date" name="employmentDetailVollzeitContractEndDate" />
+                      </label>
+                    </div>
+
+                    <div class="employee-admin-employment-detail-panel hidden" data-employment-type-panel="teilzeit">
+                      <label>
+                        Wochenstunden
+                        <input type="number" min="0" step="0.5" name="employmentDetailTeilzeitWeeklyHours" placeholder="z. B. 20" />
+                      </label>
+                      <label>
+                        Monatsbrutto (EUR)
+                        <input type="number" min="0" step="0.01" name="employmentDetailTeilzeitMonthlySalaryEur" placeholder="z. B. 1800" />
+                      </label>
+                      <label>
+                        Arbeitstage pro Woche
+                        <input type="number" min="1" max="7" step="1" name="employmentDetailTeilzeitDaysPerWeek" placeholder="z. B. 3" />
+                      </label>
+                    </div>
+
+                    <div class="employee-admin-employment-detail-panel hidden" data-employment-type-panel="freelance">
+                      <label>
+                        Stundensatz (EUR)
+                        <input type="number" min="0" step="0.01" name="employmentDetailFreelanceHourlyRateEur" placeholder="z. B. 85" />
+                      </label>
+                      <label>
+                        Abrechnung
+                        <select name="employmentDetailFreelanceBillingCycle">
+                          <option value="">Bitte wählen</option>
+                          <option value="monatlich">Monatlich</option>
+                          <option value="projektweise">Projektweise</option>
+                        </select>
+                      </label>
+                      <label>
+                        Vertrag bis
+                        <input type="date" name="employmentDetailFreelanceContractEndDate" />
+                      </label>
+                    </div>
+
+                    <div class="employee-admin-employment-detail-panel hidden" data-employment-type-panel="praktikum">
+                      <label>
+                        Praktikumsart
+                        <select name="employmentDetailPraktikumType">
+                          <option value="">Bitte wählen</option>
+                          <option value="pflicht">Pflichtpraktikum</option>
+                          <option value="freiwillig">Freiwilliges Praktikum</option>
+                        </select>
+                      </label>
+                      <label>
+                        Schule / Universität
+                        <input type="text" name="employmentDetailPraktikumInstitution" placeholder="z. B. FH Wien" />
+                      </label>
+                      <label>
+                        Praktikum Ende
+                        <input type="date" name="employmentDetailPraktikumEndDate" />
+                      </label>
+                    </div>
+
+                    <div class="employee-admin-employment-detail-panel hidden" data-employment-type-panel="geringfugig">
+                      <label>
+                        Wochenstunden
+                        <input type="number" min="0" step="0.5" name="employmentDetailGeringfugigWeeklyHours" placeholder="z. B. 8" />
+                      </label>
+                      <label>
+                        Monatsentgelt (EUR)
+                        <input type="number" min="0" step="0.01" name="employmentDetailGeringfugigMonthlySalaryEur" placeholder="z. B. 518.44" />
+                      </label>
+                      <label>
+                        Sozialversicherung Hinweis
+                        <input type="text" name="employmentDetailGeringfugigInsuranceNote" placeholder="optional" />
+                      </label>
+                    </div>
+
+                    <div class="employee-admin-employment-detail-panel hidden" data-employment-type-panel="werksvertrag">
+                      <label class="employee-admin-employment-detail-wide">
+                        Leistungsbeschreibung
+                        <textarea name="employmentDetailWerksvertragServiceDescription" rows="3" placeholder="Kurzbeschreibung der vereinbarten Leistung"></textarea>
+                      </label>
+                      <label>
+                        Vertragswert (EUR)
+                        <input type="number" min="0" step="0.01" name="employmentDetailWerksvertragContractValueEur" placeholder="z. B. 12000" />
+                      </label>
+                      <label>
+                        Startdatum
+                        <input type="date" name="employmentDetailWerksvertragStartDate" />
+                      </label>
+                      <label>
+                        Enddatum
+                        <input type="date" name="employmentDetailWerksvertragEndDate" />
+                      </label>
+                      <label>
+                        Abrechnung
+                        <select name="employmentDetailWerksvertragBillingType">
+                          <option value="">Bitte wählen</option>
+                          <option value="pauschal">Pauschal</option>
+                          <option value="teilzahlungen">Teilzahlungen</option>
+                          <option value="nach_aufwand">Nach Aufwand</option>
+                          <option value="provision">Provision</option>
+                        </select>
+                      </label>
+                      <label class="hidden" data-werksvertrag-provision-fields>
+                        Provision pro LIVE-Anbieter (EUR)
+                        <input type="number" min="0" step="0.01" name="employmentDetailWerksvertragLiveProviderCommissionEur" placeholder="z. B. 25" />
+                      </label>
+                      <label class="hidden" data-werksvertrag-provision-fields>
+                        Anzahl LIVE-Anbieter
+                        <input type="number" min="0" step="1" name="employmentDetailWerksvertragLiveProviderCount" placeholder="z. B. 12" />
+                      </label>
+                      <label class="hidden" data-werksvertrag-provision-fields>
+                        Zeitraum von
+                        <input type="date" name="employmentDetailWerksvertragLiveProviderPeriodFrom" />
+                      </label>
+                      <label class="hidden" data-werksvertrag-provision-fields>
+                        Zeitraum bis
+                        <input type="date" name="employmentDetailWerksvertragLiveProviderPeriodTo" />
+                      </label>
+                    </div>
+
+                    <div class="employee-admin-employment-detail-panel hidden" data-employment-type-panel="extern">
+                      <label>
+                        Firma / Agentur
+                        <input type="text" name="employmentDetailExternCompanyName" placeholder="z. B. Musteragentur GmbH" />
+                      </label>
+                      <label>
+                        Ansprechpartner
+                        <input type="text" name="employmentDetailExternContactName" placeholder="Vor- und Nachname" />
+                      </label>
+                      <label>
+                        Kontakt E-Mail
+                        <input type="email" name="employmentDetailExternContactEmail" placeholder="name@firma.at" />
+                      </label>
+                    </div>
+                  </section>
+                </section>
+
+                <section class="employee-admin-form-tab-panel hidden" data-employee-admin-form-tab-panel="notiz">
+                  <div class="employee-admin-form-fields-grid">
+                    <label class="employee-admin-notes-field">
+                      Interne Notiz
+                      <textarea name="notes" rows="4" placeholder="Wichtige interne Infos"></textarea>
+                    </label>
+                  </div>
+                </section>
+
+                <div class="form-actions split employee-admin-form-actions">
+                  <button type="submit" class="btn btn-success btn-action">Stammdaten speichern</button>
+                </div>
+              </form>
+
+              <div class="employee-admin-tasks">
+                <div class="employee-admin-tasks-head">
+                  <h4>Aufgaben</h4>
+                  <p>Aufgaben je Mitarbeiter mit Fälligkeit und Erledigt-Status.</p>
+                </div>
+                <div class="employee-admin-task-create">
+                  <input type="text" id="employee-admin-task-input" placeholder="Neue Aufgabe..." />
+                  <input type="date" id="employee-admin-task-due" />
+                  <button type="button" id="employee-admin-task-add-btn" class="btn btn-primary">Aufgabe hinzufügen</button>
+                </div>
+                <ul id="employee-admin-task-list" class="employee-admin-task-list"></ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="conversation-notes-section" class="panel card role-admin-only-view">
+          <div class="section-header">
+            <h2>Gesprächsnotizen</h2>
+            <p>Gespräche dokumentieren, Aufgaben aus Notizen erstellen und mit Zeitstempeln nachverfolgen.</p>
+          </div>
+
+          <div class="conversation-page-tabs" role="tablist" aria-label="Gesprächsnotizen Seiten">
+            <button type="button" class="conversation-page-tab-btn is-active" data-conversation-detail-tab-target="overview">Übersicht</button>
+          </div>
+
+          <div id="conversation-notes-detail-body" class="hidden">
+            <div id="conversation-detail-tab-overview" class="conversation-detail-tab-panel">
+              <div class="conversation-notes-layout">
+                <aside class="conversation-notes-sidebar">
+                  <div class="conversation-block-head">
+                    <h3>Gesprächsliste</h3>
+                    <p>Filtern, auswählen und per Popup bearbeiten.</p>
+                  </div>
+                  <div class="conversation-notes-toolbar">
+                    <label class="conversation-notes-search-field">
+                      <span>Suche</span>
+                      <input
+                        type="search"
+                        id="conversation-notes-search-input"
+                        placeholder="Titel, Person, Organisation, Kanal"
+                        autocomplete="off"
+                      />
+                    </label>
+                    <label class="conversation-notes-filter-field">
+                      <span>Kontaktart</span>
+                      <select id="conversation-notes-type-filter">
+                        <option value="all">Alle</option>
+                        <option value="intern">Intern</option>
+                        <option value="extern">Extern</option>
+                      </select>
+                    </label>
+                    <label class="conversation-notes-filter-field">
+                      <span>Aufgabenstatus</span>
+                      <select id="conversation-notes-task-filter">
+                        <option value="all">Alle</option>
+                        <option value="offen">Offen</option>
+                        <option value="in_arbeit">In Arbeit</option>
+                        <option value="warten">Warten</option>
+                        <option value="erledigt">Erledigt</option>
+                        <option value="overdue">Überfällig</option>
+                      </select>
+                    </label>
+                    <button type="button" id="conversation-notes-create-btn" class="btn btn-success">Gespräch anlegen</button>
+                  </div>
+                  <div id="conversation-notes-list" class="conversation-notes-list"></div>
+                </aside>
+
+                <section class="conversation-notes-detail">
+                  <p id="conversation-notes-empty" class="empty">Bitte links ein Gespräch auswählen.</p>
+                  <article class="conversation-section-card">
+                    <div class="conversation-block-head">
+                      <h3>Aufgabenstatus</h3>
+                      <p>Offene und überfällige Aufgaben je Gespräch.</p>
+                    </div>
+                    <div class="conversation-overview-actions">
+                      <button type="button" id="conversation-open-edit-modal-btn" class="btn btn-primary">Neue Notiz</button>
+                    </div>
+                    <div id="conversation-task-summary" class="conversation-task-summary"></div>
+                  </article>
+                  <article class="conversation-section-card conversation-details-notes-card">
+                    <div class="conversation-block-head">
+                      <h3>Gesprächsdetails &amp; Notizübersicht</h3>
+                      <p>Stammdaten und Chronik gemeinsam in einem strukturierten Bereich.</p>
+                    </div>
+                    <div class="conversation-details-notes-grid">
+                      <section class="conversation-details-pane">
+                        <div class="conversation-block-subhead">
+                          <h4>Gesprächsdetails</h4>
+                          <p>Alle Kerndaten des ausgewählten Gesprächs.</p>
+                        </div>
+                        <div id="conversation-overview-info" class="conversation-overview-info"></div>
+                      </section>
+                      <section class="conversation-notes-pane">
+                        <div class="conversation-block-subhead">
+                          <h4>Notizübersicht</h4>
+                          <p>Chronologische Übersicht aller Notizen und Aufgabenänderungen.</p>
+                        </div>
+                        <div id="conversation-note-feed" class="conversation-note-feed"></div>
+                      </section>
+                    </div>
+                  </article>
+                </section>
+              </div>
+            </div>
+
+          </div>
+
+          <div id="conversation-edit-modal" class="modal-overlay-page hidden">
+            <div class="modal-dialog-panel conversation-edit-modal-panel">
+              <div class="modal-dialog-head">
+                <h3>Gespräch bearbeiten</h3>
+                <button type="button" id="conversation-edit-close-btn" class="mini-btn" aria-label="Popup schließen">✕</button>
+              </div>
+              <form id="conversation-meta-form" class="form-grid conversation-meta-form">
+                <label>
+                  Titel
+                  <input type="text" name="title" placeholder="z. B. Projektabstimmung Q2" required />
+                </label>
+                <label id="conversation-contact-name-field">
+                  Kontaktname
+                  <input type="text" name="contactName" placeholder="Vor- und Nachname" required />
+                </label>
+                <label>
+                  Kontaktart
+                  <select name="contactType">
+                    <option value="extern">Extern</option>
+                    <option value="intern">Intern</option>
+                  </select>
+                </label>
+                <div id="conversation-organization-field" class="conversation-meta-group">
+                  <label>
+                    Organisation
+                    <select name="organizationId" id="conversation-organization-select">
+                      <option value="">Keine Organisation</option>
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    id="conversation-organization-new-btn"
+                    class="mini-btn mini-btn-add conversation-inline-add-btn"
+                    title="Organisation anlegen"
+                    aria-label="Organisation anlegen"
+                  >+</button>
+                </div>
+                <div id="conversation-internal-participants-wrap" class="conversation-internal-participants hidden">
+                  <p>Mitarbeiter auswählen (ein oder mehrere)</p>
+                  <div id="conversation-internal-participants-list" class="conversation-internal-participants-list"></div>
+                </div>
+                <label>
+                  Kanal
+                  <select name="channel">
+                    <option value="meeting">Meeting</option>
+                    <option value="telefon">Telefon</option>
+                    <option value="email">E-Mail</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="sonstiges">Sonstiges</option>
+                  </select>
+                </label>
+                <label>
+                  Gesprächsdatum
+                  <input type="date" name="conversationDate" />
+                </label>
+                <div class="form-actions split">
+                  <button type="submit" id="conversation-meta-save-btn" class="btn btn-primary">Gespräch speichern</button>
+                  <button type="button" id="conversation-delete-btn" class="btn btn-danger">Gespräch löschen</button>
+                </div>
+              </form>
+
+              <article class="conversation-section-card">
+                <div class="conversation-block-head">
+                  <h3 id="conversation-note-compose-title">Notiz erfassen</h3>
+                  <p>Formatiert schreiben und optional direkt eine Aufgabe erzeugen.</p>
+                </div>
+                <div class="conversation-note-create">
+                  <label>
+                    <span id="conversation-note-input-label">Neue Notiz</span>
+                    <div class="conversation-note-editor-wrap">
+                      <div class="conversation-note-toolbar" role="group" aria-label="Notiz formatieren">
+                        <button type="button" class="mini-btn" data-conversation-format="bold" title="Fett" aria-label="Fett"><strong>B</strong></button>
+                        <button type="button" class="mini-btn" data-conversation-format="italic" title="Kursiv" aria-label="Kursiv"><em>I</em></button>
+                        <button type="button" class="mini-btn" data-conversation-format="underline" title="Unterstrichen" aria-label="Unterstrichen"><u>U</u></button>
+                        <button type="button" class="mini-btn" data-conversation-format="unorderedList" title="Aufzählung" aria-label="Aufzählung">•</button>
+                      </div>
+                      <div
+                        id="conversation-note-editor"
+                        class="conversation-note-editor"
+                        contenteditable="true"
+                        data-placeholder="Inhalt, Entscheidungen, nächste Schritte..."
+                      ></div>
+                    </div>
+                  </label>
+                  <label class="conversation-note-task-toggle">
+                    <input type="checkbox" id="conversation-note-task-toggle" />
+                    Aus dieser Notiz eine Aufgabe erstellen
+                  </label>
+                  <div id="conversation-note-task-fields" class="conversation-note-task-fields hidden">
+                    <label>
+                      Aufgabe
+                      <input type="text" id="conversation-note-task-title" placeholder="Aufgabentitel" />
+                    </label>
+                    <label>
+                      Zuweisungsart
+                      <select id="conversation-note-task-assignee-type">
+                        <option value="organization">Organisation</option>
+                        <option value="employee">Mitarbeiter</option>
+                      </select>
+                    </label>
+                    <label id="conversation-note-task-organization-field">
+                      Organisation
+                      <select id="conversation-note-task-organization"></select>
+                    </label>
+                    <label id="conversation-note-task-employee-field" class="hidden">
+                      Mitarbeiter
+                      <select id="conversation-note-task-assignee"></select>
+                    </label>
+                    <label>
+                      Fällig am
+                      <input type="date" id="conversation-note-task-due" />
+                    </label>
+                    <label>
+                      Priorität
+                      <select id="conversation-note-task-priority">
+                        <option value="mittel">Mittel</option>
+                        <option value="hoch">Hoch</option>
+                        <option value="niedrig">Niedrig</option>
+                      </select>
+                    </label>
+                  </div>
+                  <button type="button" id="conversation-note-add-btn" class="btn btn-success">Notiz speichern</button>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <div id="conversation-organization-create" class="modal-overlay-page hidden">
+            <div class="modal-dialog-panel conversation-organization-modal-panel">
+              <div class="modal-dialog-head">
+                <h3>Neue Firma</h3>
+                <button type="button" id="conversation-organization-close-btn" class="mini-btn" aria-label="Popup schließen">✕</button>
+              </div>
+              <div class="conversation-organization-create-body">
+                <label>
+                  Firmenname
+                  <input type="text" id="conversation-organization-name" placeholder="z. B. Muster GmbH" />
+                </label>
+                <label>
+                  Ansprechpartner
+                  <input type="text" id="conversation-organization-contact" placeholder="Vor- und Nachname" />
+                </label>
+                <label>
+                  E-Mail
+                  <input type="email" id="conversation-organization-email" placeholder="kontakt@firma.at" />
+                </label>
+                <label>
+                  Telefon
+                  <input type="tel" id="conversation-organization-phone" placeholder="+43 ..." />
+                </label>
+                <label>
+                  Website
+                  <input type="url" id="conversation-organization-website" placeholder="https://..." />
+                </label>
+                <button type="button" id="conversation-organization-save-btn" class="btn btn-primary">
+                  Firma speichern
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <section id="companies-section" class="panel card role-admin-only-view">
+          <div class="section-header">
+            <h2>Firmen</h2>
+            <p>Externe Firmen verwalten und verknüpfte Gesprächsnotizen zentral einsehen.</p>
+          </div>
+          <div class="companies-page-tabs" role="tablist" aria-label="Firmen Seiten">
+            <button type="button" class="companies-page-tab-btn is-active" data-companies-tab-target="overview">Übersicht</button>
+            <button type="button" class="companies-page-tab-btn" data-companies-tab-target="detail">Detail</button>
+          </div>
+
+          <div id="companies-tab-overview" class="companies-tab-panel">
+            <article class="conversation-section-card companies-overview-panel">
+              <div class="companies-toolbar">
+                <label class="companies-search-field companies-toolbar-search">
+                  <span>Suche</span>
+                  <input
+                    type="search"
+                    id="companies-search-input"
+                    placeholder="Firmenname, Ort, Ansprechpartner"
+                    autocomplete="off"
+                  />
+                </label>
+                <label class="companies-filter-field">
+                  <span>Land</span>
+                  <select id="companies-country-filter">
+                    <option value="all">Alle Länder</option>
+                  </select>
+                </label>
+                <label class="companies-filter-field">
+                  <span>Aktivität</span>
+                  <select id="companies-activity-filter">
+                    <option value="all">Alle</option>
+                    <option value="with_notes">Mit Notizen</option>
+                    <option value="with_open_tasks">Offene Aufgaben</option>
+                  </select>
+                </label>
+                <button type="button" id="companies-create-btn" class="btn btn-success">Neue Firma</button>
+              </div>
+              <div id="companies-list" class="companies-list"></div>
+            </article>
+          </div>
+
+          <div id="companies-tab-detail" class="companies-tab-panel hidden">
+            <section class="companies-detail">
+              <p id="companies-empty" class="empty">Bitte zuerst in Übersicht eine Firma auswählen.</p>
+              <article class="conversation-section-card">
+                <div class="conversation-block-head">
+                  <h3>Firmendetails</h3>
+                  <p>Stammdaten der ausgewählten Firma.</p>
+                </div>
+                <div id="companies-detail-content" class="companies-detail-content"></div>
+                <div class="conversation-overview-actions">
+                  <button type="button" id="companies-edit-btn" class="btn btn-primary">Bearbeiten</button>
+                </div>
+              </article>
+              <article class="conversation-section-card">
+                <div class="conversation-block-head">
+                  <h3>Gesprächsnotizen zur Firma</h3>
+                  <p>Alle verknüpften Notizen aus Gesprächsnotizen.</p>
+                </div>
+                <div class="conversation-overview-actions">
+                  <button type="button" id="companies-new-conversation-btn" class="btn btn-primary">Neues Gespräch</button>
+                </div>
+                <div id="companies-notes-feed" class="companies-notes-feed"></div>
+              </article>
+            </section>
+          </div>
+        </section>
+
+        <div id="company-modal" class="modal-overlay-page hidden">
+          <div class="modal-dialog-panel company-modal-panel">
+            <div class="modal-dialog-head">
+              <h3 id="company-modal-title">Firma anlegen</h3>
+              <button type="button" id="company-modal-close-btn" class="mini-btn" aria-label="Popup schließen">✕</button>
+            </div>
+            <form id="company-form" class="form-grid">
+              <label>
+                Firmenname
+                <input type="text" name="name" placeholder="z. B. Muster GmbH" required />
+              </label>
+              <label>
+                Adresse suchen
+                <input
+                  type="text"
+                  id="company-address-search-input"
+                  name="addressSearch"
+                  placeholder="Adresse eingeben und auswählen..."
+                  autocomplete="off"
+                />
+              </label>
+              <label>
+                Straße
+                <input
+                  type="text"
+                  id="company-street-input"
+                  name="street"
+                  placeholder="Straße und Hausnummer"
+                  autocomplete="off"
+                />
+              </label>
+              <label>
+                PLZ
+                <input type="text" name="postalCode" placeholder="z. B. 1010" />
+              </label>
+              <label>
+                Ort
+                <input type="text" name="city" placeholder="z. B. Wien" />
+              </label>
+              <label>
+                Land
+                <select id="company-country-select" name="country"></select>
+              </label>
+              <label>
+                Website
+                <input type="url" name="website" placeholder="https://..." />
+              </label>
+              <section class="company-contacts-panel">
+                <div class="company-contacts-head">
+                  <h4>Ansprechpartner</h4>
+                  <button type="button" id="company-contact-add-btn" class="mini-btn mini-btn-add" aria-label="Ansprechpartner hinzufügen">+</button>
+                </div>
+                <div id="company-contacts-list" class="company-contacts-list"></div>
+              </section>
+              <div class="form-actions split">
+                <button type="button" id="company-form-cancel-btn" class="btn btn-primary">Abbrechen</button>
+                <button type="submit" id="company-save-btn" class="btn btn-success btn-action">Speichern</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div id="company-note-read-modal" class="modal-overlay-page hidden">
+          <div class="modal-dialog-panel company-note-read-modal-panel">
+            <div class="modal-dialog-head">
+              <h3 id="company-note-read-title">Gesprächsnotiz</h3>
+              <button type="button" id="company-note-read-close-btn" class="mini-btn" aria-label="Popup schließen">✕</button>
+            </div>
+            <p id="company-note-read-meta" class="company-note-read-meta"></p>
+            <div id="company-note-read-body" class="company-note-read-body"></div>
+          </div>
+        </div>
 
         <section id="providers-section" class="panel card">
           <div class="section-header">
@@ -423,14 +1744,23 @@
           </div>
 
           <div class="section-tools">
-            <label id="provider-list-search-field" class="provider-list-search-field">
-              <input
-                type="search"
-                id="provider-list-search-input"
-                placeholder="Suche: Name, Ort, Land, Bundesland, Kategorie, Themenbereich, Thema"
-                autocomplete="off"
-              />
-            </label>
+            <div id="provider-list-filters" class="provider-list-filters">
+              <label id="provider-list-search-field" class="provider-list-search-field">
+                <span class="provider-list-field-label">Suche</span>
+                <input
+                  type="search"
+                  id="provider-list-search-input"
+                  placeholder="Suche: Name, Ort, Land, Bundesland, Kategorie, Themenbereich, Thema"
+                  autocomplete="off"
+                />
+              </label>
+              <label class="provider-list-select-field">
+                <span>Person</span>
+                <select id="provider-list-owner-filter">
+                  <option value="all">Alle Personen</option>
+                </select>
+              </label>
+            </div>
             <button type="button" id="provider-create-btn" class="btn btn-success btn-action">Neuen Anbieter anlegen</button>
           </div>
 
@@ -439,6 +1769,7 @@
               <table>
                 <thead>
                   <tr>
+                    <th class="provider-tour-check-head">Tour</th>
                     <th>Name</th>
                     <th>Status</th>
                     <th>Ort</th>
@@ -451,8 +1782,13 @@
             </div>
           </div>
 
-          <div id="providers-form-view" class="hidden">
-            <form id="provider-form" class="form-grid">
+          <div id="providers-form-view" class="modal-overlay-page hidden">
+            <div class="modal-dialog-panel providers-dialog-panel">
+              <div class="modal-dialog-head">
+                <h3>Anbieter bearbeiten</h3>
+                <button type="button" id="provider-form-close-btn" class="mini-btn" aria-label="Popup schließen">✕</button>
+              </div>
+              <form id="provider-form" class="form-grid">
               <div class="provider-detail-tabs">
                 <button
                   type="button"
@@ -508,6 +1844,10 @@
                         <label class="provider-status-option">
                           <input type="radio" name="status" value="in Bearbeitung" />
                           <span>In Bearbeitung</span>
+                        </label>
+                        <label class="provider-status-option">
+                          <input type="radio" name="status" value="erfasst" />
+                          <span>Erfasst</span>
                         </label>
                         <label class="provider-status-option">
                           <input type="radio" name="status" value="live" />
@@ -736,7 +2076,7 @@
                   <button
                     type="button"
                     id="provider-note-add-btn"
-                    class="btn btn-primary"
+                    class="btn btn-success"
                     data-admin-lock-exempt="true"
                   >Notiz speichern</button>
                   <div id="provider-notes-list" class="provider-notes-list"></div>
@@ -752,8 +2092,1119 @@
                 >Zur Übersicht</button>
                 <button type="submit" id="provider-save-btn" class="btn btn-success btn-action">Speichern</button>
               </div>
-            </form>
+              </form>
+            </div>
           </div>
+        </section>
+
+        <section id="tour-planner-section" class="panel card tour-planner-view">
+          <div class="section-header">
+            <h2>Tourenplanung</h2>
+            <p>Kurz, mobil, direkt im Einsatz nutzbar.</p>
+          </div>
+
+          <div class="tour-overview-topbar">
+            <button type="button" id="tour-open-create-btn" class="btn btn-success">Neue Tour</button>
+          </div>
+
+          <div class="tour-overview-grid">
+            <article class="tour-summary-panel">
+              <div class="tour-selected-head">
+                <div>
+                  <p class="tour-selected-kicker">Aktive Tour</p>
+                  <h3 id="tour-selected-title">Tour wählen</h3>
+                </div>
+                <label class="tour-select-field">
+                  <span>Tour</span>
+                  <select id="tour-select-input"></select>
+                  <small id="tour-list-meta">0 Touren</small>
+                </label>
+              </div>
+              <div id="tour-mobile-tour-list" class="tour-mobile-tour-list hidden"></div>
+              <div id="tour-selected-summary" class="tour-selected-summary"></div>
+              <div id="tour-kpi-strip" class="tour-kpi-strip"></div>
+
+              <div class="tour-action-grid">
+                <button type="button" id="tour-open-detail-btn" class="btn btn-primary">Details</button>
+                <button type="button" id="tour-open-provider-btn" class="btn btn-primary">Stopps</button>
+                <button type="button" id="tour-delete-btn" class="btn btn-danger">Löschen</button>
+              </div>
+
+              <article class="tour-route-live-panel">
+                <div class="tour-list-head">
+                  <h3>Live</h3>
+                  <span id="tour-route-live-meta">Stopps + Karte</span>
+                </div>
+                <p id="tour-route-hint" class="tour-route-hint">Drag & Drop Reihenfolge.</p>
+                <article id="tour-mobile-quick" class="tour-mobile-quick hidden">
+                  <div class="tour-mobile-quick-head">
+                    <p class="tour-mobile-quick-kicker">Fahrer-Modus</p>
+                    <h4 id="tour-mobile-title">Keine Tour</h4>
+                  </div>
+                  <p id="tour-mobile-meta" class="tour-mobile-meta"></p>
+                  <p id="tour-mobile-next-stop" class="tour-mobile-next-stop"></p>
+                  <div class="tour-mobile-car-actions">
+                    <a
+                      id="tour-mobile-open-maps-btn"
+                      class="btn btn-success tour-mobile-open-maps-btn"
+                      href="#"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >Navigation</a>
+                    <a
+                      id="tour-mobile-call-btn"
+                      class="btn btn-primary tour-mobile-call-btn"
+                      href="#"
+                    >Anrufen</a>
+                    <button
+                      type="button"
+                      id="tour-mobile-complete-btn"
+                      class="btn btn-success tour-mobile-complete-btn"
+                    >Stopp erledigt</button>
+                  </div>
+                  <div class="tour-mobile-car-nav">
+                    <button type="button" id="tour-mobile-prev-btn" class="tour-mobile-car-nav-btn">Zurück</button>
+                    <button type="button" id="tour-mobile-next-btn" class="tour-mobile-car-nav-btn">Weiter</button>
+                  </div>
+                </article>
+                <div id="tour-mobile-view-switch" class="tour-mobile-view-switch hidden" role="group" aria-label="Tour Ansicht">
+                  <button type="button" id="tour-mobile-view-map-btn" class="tour-mobile-view-btn">Car</button>
+                  <button type="button" id="tour-mobile-view-stops-btn" class="tour-mobile-view-btn is-active">
+                    Stopps
+                    <span id="tour-mobile-view-stops-count" class="tour-mobile-view-count">0</span>
+                  </button>
+                </div>
+                <div class="tour-route-layout">
+                  <div id="tour-stop-list" class="tour-stop-list"></div>
+                  <article class="tour-route-map-panel">
+                    <div id="tour-route-map-stats" class="tour-route-map-stats"></div>
+                    <p id="tour-route-map-status" class="tour-route-map-status">Route lädt...</p>
+                    <div id="tour-route-map-canvas" class="tour-route-map-canvas"></div>
+                  </article>
+                </div>
+              </article>
+            </article>
+          </div>
+
+          <div id="tour-create-modal" class="modal-overlay-page hidden" data-tour-modal="create">
+            <div class="modal-dialog-panel tour-modal-panel">
+              <div class="modal-dialog-head">
+                <h3>Neue Tour anlegen</h3>
+                <button type="button" class="mini-btn" data-tour-modal-close="create" aria-label="Popup schließen">✕</button>
+              </div>
+              <form id="tour-create-form" class="tour-modal-form">
+                <div class="tour-modal-grid">
+                  <label>
+                    Tourname
+                    <input type="text" id="tour-name-input" name="name" placeholder="z. B. Wien Nord Runde" required />
+                  </label>
+                  <label>
+                    Tourdatum
+                    <input type="date" id="tour-date-input" name="plannedDate" required />
+                  </label>
+                  <label>
+                    Vertrieb
+                    <select id="tour-assignee-select" name="assigneeUserId"></select>
+                  </label>
+                </div>
+                <div class="form-actions split">
+                  <button type="button" class="btn btn-primary" data-tour-modal-close="create">Abbrechen</button>
+                  <button type="submit" class="btn btn-success">Tour anlegen</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div id="tour-detail-modal" class="modal-overlay-page hidden" data-tour-modal="detail">
+            <div class="modal-dialog-panel tour-modal-panel">
+              <div class="modal-dialog-head">
+                <h3>Tourdaten bearbeiten</h3>
+                <button type="button" class="mini-btn" data-tour-modal-close="detail" aria-label="Popup schließen">✕</button>
+              </div>
+              <form id="tour-detail-form" class="tour-modal-form">
+                <div class="tour-modal-grid">
+                  <label>
+                    Tourname
+                    <input type="text" id="tour-selected-name-input" name="name" required />
+                  </label>
+                  <label>
+                    Datum
+                    <input type="date" id="tour-selected-date-input" name="plannedDate" required />
+                  </label>
+                  <label>
+                    Vertrieb
+                    <select id="tour-selected-assignee-select" name="assigneeUserId"></select>
+                  </label>
+                </div>
+                <div class="form-actions split">
+                  <button type="button" class="btn btn-primary" data-tour-modal-close="detail">Schließen</button>
+                  <button type="submit" id="tour-detail-save-btn" class="btn btn-success">Speichern</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div id="tour-provider-modal" class="modal-overlay-page hidden" data-tour-modal="providers">
+            <div class="modal-dialog-panel tour-modal-panel">
+              <div class="modal-dialog-head">
+                <h3>Anbieter zur Tour hinzufügen</h3>
+                <button type="button" class="mini-btn" data-tour-modal-close="providers" aria-label="Popup schließen">✕</button>
+              </div>
+              <div class="tour-modal-form">
+                <div class="tour-provider-tools-grid">
+                  <div class="tour-provider-smart-row">
+                    <button type="button" id="tour-smart-add-btn" class="btn btn-success">Passenden hinzufügen</button>
+                    <div id="tour-smart-add-meta" class="tour-smart-add-meta is-muted" aria-live="polite"></div>
+                  </div>
+                  <div class="tour-provider-planning-bar">
+                    <div id="tour-provider-planning-metrics" class="tour-provider-planning-metrics"></div>
+                    <p id="tour-provider-planning-status" class="tour-provider-planning-status hidden"></p>
+                  </div>
+                </div>
+                <div class="tour-provider-global-filter">
+                  <div class="tour-provider-global-filter-grid">
+                    <label class="tour-provider-search">
+                      <span>Suche</span>
+                      <input
+                        type="search"
+                        id="tour-provider-search-input"
+                        placeholder="Name, Ort, Land oder Status"
+                        autocomplete="off"
+                      />
+                    </label>
+                    <label class="tour-provider-filter-field">
+                      <span>Land</span>
+                      <select id="tour-provider-country-filter">
+                        <option value="all">Alle Länder</option>
+                      </select>
+                    </label>
+                    <label class="tour-provider-filter-field">
+                      <span>Bundesland</span>
+                      <select id="tour-provider-state-filter">
+                        <option value="all">Alle Bundesländer</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+                <div class="tour-provider-layout">
+                  <section class="tour-provider-layout-col tour-provider-layout-col-available">
+                    <div class="tour-provider-col-head">
+                      <h4>Verfügbare Anbieter</h4>
+                      <p id="tour-provider-available-meta">0 Treffer</p>
+                    </div>
+                    <div class="tour-provider-col-body">
+                      <div id="tour-provider-picker" class="tour-provider-picker"></div>
+                    </div>
+                  </section>
+                  <aside class="tour-provider-layout-col tour-provider-layout-col-selected">
+                    <div class="tour-provider-selected-head">
+                      <h4>In dieser Tour</h4>
+                      <p id="tour-provider-selected-meta">0 Stopps</p>
+                    </div>
+                    <div id="tour-provider-selected-list" class="tour-provider-selected-list"></div>
+                  </aside>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="tour-stop-info-modal" class="modal-overlay-page hidden" data-tour-modal="stopinfo">
+            <div class="modal-dialog-panel tour-modal-panel tour-stop-info-modal-panel">
+              <div class="modal-dialog-head">
+                <h3 id="tour-stop-info-title">Anbieter-Info</h3>
+                <button type="button" class="mini-btn" data-tour-modal-close="stopinfo" aria-label="Popup schließen">✕</button>
+              </div>
+              <div class="tour-modal-form">
+                <p id="tour-stop-info-meta" class="tour-stop-info-meta"></p>
+                <div id="tour-stop-info-body" class="tour-stop-info-body"></div>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <section id="sales-dashboard-section" class="panel card">
+          <div class="section-header">
+            <h2>Vertriebs-Dashboard</h2>
+            <p>Meine wichtigsten Kennzahlen, nächste Aktionen und Risiken auf einen Blick.</p>
+          </div>
+
+          <div id="sales-dashboard-kpis" class="sales-dashboard-kpis"></div>
+
+          <div class="sales-dashboard-subnav" role="tablist" aria-label="Vertriebs-Dashboard Bereiche">
+            <button type="button" class="sales-dashboard-subnav-btn is-active" data-sales-dashboard-tab-target="tour">Tourenplanung</button>
+            <button type="button" class="sales-dashboard-subnav-btn" data-sales-dashboard-tab-target="phone">Telefonakquise</button>
+          </div>
+
+          <div id="sales-dashboard-tab-tour" class="sales-dashboard-tab-panel">
+            <div class="sales-dashboard-grid">
+              <article class="sales-dashboard-card sales-dashboard-card-next">
+                <div class="sales-dashboard-card-head">
+                  <h3>Nächste Aktion</h3>
+                  <p id="sales-dashboard-next-meta">-</p>
+                </div>
+                <div id="sales-dashboard-next-body" class="sales-dashboard-next-body"></div>
+              </article>
+
+              <article class="sales-dashboard-card">
+                <div class="sales-dashboard-card-head">
+                  <h3>Meine Touren</h3>
+                  <p id="sales-dashboard-tour-meta">-</p>
+                </div>
+                <div id="sales-dashboard-tour-list" class="sales-dashboard-tour-list"></div>
+              </article>
+
+              <article class="sales-dashboard-card">
+                <div class="sales-dashboard-card-head">
+                  <h3>Leads nach Status</h3>
+                  <p>In meinen Touren</p>
+                </div>
+                <div id="sales-dashboard-status-grid" class="sales-dashboard-status-grid"></div>
+              </article>
+
+              <article class="sales-dashboard-card">
+                <div class="sales-dashboard-card-head">
+                  <h3>Offene Risiken</h3>
+                  <p id="sales-dashboard-risk-meta">-</p>
+                </div>
+                <ul id="sales-dashboard-risk-list" class="sales-dashboard-risk-list"></ul>
+              </article>
+
+              <article class="sales-dashboard-card sales-dashboard-card-week">
+                <div class="sales-dashboard-card-head">
+                  <h3>Wochenleistung</h3>
+                  <p id="sales-dashboard-week-meta">-</p>
+                </div>
+                <div id="sales-dashboard-week-bars" class="sales-dashboard-week-bars"></div>
+              </article>
+            </div>
+          </div>
+
+          <div id="sales-dashboard-tab-phone" class="sales-dashboard-tab-panel hidden">
+            <div class="sales-dashboard-grid sales-dashboard-grid-phone">
+              <article class="sales-dashboard-card">
+                <div class="sales-dashboard-card-head">
+                  <h3>Telefonakquise</h3>
+                  <p id="sales-dashboard-phone-meta">-</p>
+                </div>
+                <div id="sales-dashboard-phone-list" class="sales-dashboard-phone-list"></div>
+              </article>
+
+              <article class="sales-dashboard-card sales-dashboard-card-team-phone role-admin-only-view hidden">
+                <div class="sales-dashboard-card-head">
+                  <h3>Telefonakquise je Mitarbeiter</h3>
+                  <p id="sales-dashboard-phone-team-meta">-</p>
+                </div>
+                <div class="table-wrap sales-dashboard-phone-team-wrap">
+                  <table class="sales-dashboard-phone-team-table">
+                    <thead>
+                      <tr>
+                        <th>Mitarbeiter</th>
+                        <th>Rolle</th>
+                        <th>Geplant</th>
+                        <th>In Arbeit</th>
+                        <th>Erledigt</th>
+                        <th>Gesamt</th>
+                      </tr>
+                    </thead>
+                    <tbody id="sales-dashboard-phone-team-body"></tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section id="sales-leads-section" class="panel card">
+          <div class="section-header">
+            <h2>Leads</h2>
+            <p>Alle bearbeiteten Anbieter aus Touren mit Statusübersicht pro Mitarbeiter.</p>
+          </div>
+
+          <div class="sales-leads-filters">
+            <label class="sales-leads-filter-field sales-leads-filter-field-search">
+              <span>Suche</span>
+              <input
+                type="search"
+                id="sales-leads-search-input"
+                placeholder="Anbieter, Tour, Mitarbeiter oder Status"
+                autocomplete="off"
+              />
+            </label>
+            <label class="sales-leads-filter-field">
+              <span>Mitarbeiter</span>
+              <select id="sales-leads-employee-filter">
+                <option value="all">Alle Mitarbeiter</option>
+              </select>
+            </label>
+            <label class="sales-leads-filter-field">
+              <span>Status</span>
+              <select id="sales-leads-status-filter">
+                <option value="all">Alle Status</option>
+                <option value="offen">Offen</option>
+                <option value="in Bearbeitung">In Bearbeitung</option>
+                <option value="erfasst">Erfasst</option>
+                <option value="live">Live</option>
+              </select>
+            </label>
+            <label class="sales-leads-filter-field">
+              <span>Von</span>
+              <input type="date" id="sales-leads-date-from" />
+            </label>
+            <label class="sales-leads-filter-field">
+              <span>Bis</span>
+              <input type="date" id="sales-leads-date-to" />
+            </label>
+          </div>
+
+          <div id="sales-leads-kpis" class="sales-leads-kpis"></div>
+
+          <div class="table-wrap sales-leads-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Anbieter</th>
+                  <th>Status</th>
+                  <th>Tour</th>
+                  <th>Mitarbeiter</th>
+                  <th>Hinzugefügt</th>
+                  <th>Erledigt</th>
+                </tr>
+              </thead>
+              <tbody id="sales-leads-table-body"></tbody>
+            </table>
+          </div>
+          <p id="sales-leads-table-meta" class="sales-leads-table-meta"></p>
+        </section>
+
+        <section id="sales-phone-section" class="panel card">
+          <div class="section-header">
+            <h2>Telefonakquise</h2>
+            <p>Anbieter auswählen, telefonieren, Status führen, Aufgaben und Reminder mit Zeitstempel dokumentieren.</p>
+          </div>
+          <div class="sales-phone-subnav" role="tablist" aria-label="Telefonakquise Bereiche">
+            <button type="button" class="sales-phone-subnav-btn is-active" data-sales-phone-subpage-target="overview">Übersicht</button>
+            <button type="button" class="sales-phone-subnav-btn" data-sales-phone-subpage-target="planning">Planung</button>
+            <button type="button" class="sales-phone-subnav-btn" data-sales-phone-subpage-target="detail">Anrufakte</button>
+          </div>
+
+          <div id="sales-phone-subpage-planning" class="sales-phone-subpage hidden">
+            <article class="sales-phone-block">
+            <div class="sales-phone-block-head">
+              <h3>Bereich 1: Anrufplanung</h3>
+              <p>Neuen Telefonkontakt mit Zuständigkeit und Timing erstellen.</p>
+            </div>
+            <div class="sales-phone-create-grid">
+              <label class="sales-phone-field sales-phone-field-provider">
+                <span>Anbieter</span>
+                <select id="sales-phone-provider-select"></select>
+              </label>
+              <label class="sales-phone-field">
+                <span>Mitarbeiter</span>
+                <select id="sales-phone-assignee-select"></select>
+              </label>
+              <label class="sales-phone-field">
+                <span>Plan-Datum</span>
+                <input type="date" id="sales-phone-planned-date" />
+              </label>
+              <label class="sales-phone-field">
+                <span>Zeitslot</span>
+                <select id="sales-phone-plan-slot">
+                  <option value="vormittag">Vormittag</option>
+                  <option value="mittag">Mittag</option>
+                  <option value="nachmittag">Nachmittag</option>
+                  <option value="abend">Abend</option>
+                </select>
+              </label>
+              <label class="sales-phone-field">
+                <span>Reminder</span>
+                <input type="datetime-local" id="sales-phone-reminder-input" />
+              </label>
+              <button type="button" id="sales-phone-create-btn" class="btn btn-success">Anrufplan anlegen</button>
+            </div>
+            <div class="sales-phone-planning-list-wrap">
+              <div class="sales-phone-block-head">
+                <h3>Geplante Anbieter</h3>
+                <p>Alle in der Telefonakquise angelegten Anbieter auf einen Blick.</p>
+              </div>
+              <div id="sales-phone-planning-list" class="sales-phone-planning-list"></div>
+              <p id="sales-phone-planning-meta" class="sales-phone-table-meta"></p>
+            </div>
+            </article>
+          </div>
+
+          <div id="sales-phone-subpage-overview" class="sales-phone-subpage">
+            <article class="sales-phone-block">
+            <div class="sales-phone-block-head">
+              <h3>Bereich 2: Pipeline &amp; Übersicht</h3>
+              <p>Filtern, priorisieren und passende Einträge zur Bearbeitung öffnen.</p>
+            </div>
+            <div class="sales-phone-filters">
+              <label class="sales-phone-field sales-phone-field-search">
+                <span>Suche</span>
+                <input
+                  type="search"
+                  id="sales-phone-search-input"
+                  placeholder="Anbieter, Mitarbeiter, Notiz, Status"
+                  autocomplete="off"
+                />
+              </label>
+              <label class="sales-phone-field">
+                <span>Mitarbeiter</span>
+                <select id="sales-phone-filter-assignee">
+                  <option value="all">Alle Mitarbeiter</option>
+                </select>
+              </label>
+              <label class="sales-phone-field">
+                <span>Status</span>
+                <select id="sales-phone-filter-status">
+                  <option value="all">Alle Status</option>
+                  <option value="neu">Neu</option>
+                  <option value="nicht_erreicht">Nicht erreicht</option>
+                  <option value="mailbox">Mailbox</option>
+                  <option value="rueckruf">Rueckruf noetig</option>
+                  <option value="erreicht">Erreicht</option>
+                  <option value="kein_interesse">Kein Interesse</option>
+                  <option value="interessiert">Interessiert</option>
+                  <option value="angebot_gesendet">Angebot gesendet</option>
+                  <option value="termin_vereinbart">Termin vereinbart</option>
+                  <option value="abschluss">Abschluss</option>
+                </select>
+              </label>
+              <label class="sales-phone-field">
+                <span>Von</span>
+                <input type="date" id="sales-phone-date-from" />
+              </label>
+              <label class="sales-phone-field">
+                <span>Bis</span>
+                <input type="date" id="sales-phone-date-to" />
+              </label>
+            </div>
+
+            <div id="sales-phone-kpis" class="sales-phone-kpis"></div>
+
+            <div class="table-wrap sales-phone-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Anbieter</th>
+                    <th>Status</th>
+                    <th>Planung</th>
+                    <th>Mitarbeiter</th>
+                    <th>Reminder</th>
+                    <th>Aufgaben</th>
+                    <th>Aktion</th>
+                  </tr>
+                </thead>
+                <tbody id="sales-phone-table-body"></tbody>
+              </table>
+            </div>
+            <p id="sales-phone-table-meta" class="sales-phone-table-meta"></p>
+            </article>
+          </div>
+
+          <div id="sales-phone-subpage-detail" class="sales-phone-subpage hidden">
+            <article class="sales-phone-block sales-phone-block-detail">
+            <div class="sales-phone-block-head">
+              <h3>Bereich 3: Anrufakte</h3>
+              <p>Gespräch dokumentieren, Aufgaben zuweisen und Follow-ups sichern.</p>
+            </div>
+            <article id="sales-phone-detail-card" class="sales-phone-detail-card hidden">
+              <div class="sales-phone-detail-head">
+                <div>
+                  <p class="sales-phone-detail-kicker">Anrufakte</p>
+                  <h3 id="sales-phone-detail-title">-</h3>
+                  <p id="sales-phone-detail-meta" class="sales-phone-detail-meta"></p>
+                  <p id="sales-phone-detail-phone" class="sales-phone-detail-phone"></p>
+                </div>
+                <div class="sales-phone-detail-head-actions">
+                  <button type="button" id="sales-phone-open-status-modal-btn" class="btn btn-primary">Status / Reminder</button>
+                  <button type="button" id="sales-phone-open-note-modal-btn" class="btn btn-primary">Notiz erfassen</button>
+                  <button type="button" id="sales-phone-open-task-modal-btn" class="btn btn-primary">Aufgabe anlegen</button>
+                  <button type="button" id="sales-phone-delete-btn" class="btn btn-danger">Eintrag löschen</button>
+                </div>
+              </div>
+
+              <div class="sales-phone-detail-grid">
+                <section class="sales-phone-detail-col">
+                  <h4>Notizen</h4>
+                  <div id="sales-phone-note-list" class="sales-phone-note-list"></div>
+                </section>
+
+                <section class="sales-phone-detail-col">
+                  <h4>Aufgaben &amp; Reminder</h4>
+                  <div id="sales-phone-task-list" class="sales-phone-task-list"></div>
+                </section>
+              </div>
+            </article>
+            </article>
+          </div>
+        </section>
+
+        <section id="incoming-invoices-section" class="panel card role-admin-only-view finance-workspace-section finance-workspace-section-invoices">
+          <div class="section-header">
+            <h2>Eingangsrechnungen</h2>
+            <p>Rechnungen erfassen, freigeben, als bezahlt markieren und Ausgaben transparent verfolgen.</p>
+          </div>
+
+          <div class="incoming-invoices-subnav finance-segmented-tabs" role="tablist" aria-label="Rechnungsansichten">
+            <button
+              type="button"
+              class="incoming-invoices-subnav-btn is-active"
+              data-incoming-invoices-view-target="pending"
+            >
+              Freigabe offen
+            </button>
+            <button type="button" class="incoming-invoices-subnav-btn" data-incoming-invoices-view-target="paid">
+              Bereits bezahlt
+            </button>
+            <button type="button" class="incoming-invoices-subnav-btn" data-incoming-invoices-view-target="all">
+              Alle
+            </button>
+          </div>
+
+          <div class="finance-workspace-tabs finance-mode-tabs" role="tablist" aria-label="Rechnungsthemen">
+            <button
+              type="button"
+              class="incoming-invoices-subnav-btn"
+              data-incoming-invoices-workspace-tab="entry"
+            >
+              Erfassung
+            </button>
+            <button
+              type="button"
+              class="incoming-invoices-subnav-btn is-active"
+              data-incoming-invoices-workspace-tab="overview"
+            >
+              Übersicht
+            </button>
+          </div>
+
+          <article class="incoming-invoices-block finance-panel-card hidden" data-incoming-invoices-workspace-panel="entry">
+            <div class="incoming-invoices-block-head">
+              <h3>Rechnung erfassen / bearbeiten</h3>
+              <p>Mit zentraler Dokumentablage und internem Freigabe-/Zahlungsstatus.</p>
+            </div>
+            <form id="incoming-invoice-form" class="incoming-invoices-create-grid finance-input-grid">
+              <input type="hidden" id="incoming-invoice-id" />
+              <label class="incoming-invoices-field">
+                <span>Rechnungsnummer</span>
+                <input type="text" id="incoming-invoice-number" required />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Lieferant</span>
+                <select id="incoming-invoice-supplier" required></select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Rechnungsdatum</span>
+                <input type="date" id="incoming-invoice-date" required />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Fälligkeitsdatum</span>
+                <input type="date" id="incoming-invoice-due-date" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Betrag brutto (EUR)</span>
+                <input type="number" id="incoming-invoice-total-gross" min="0" step="0.01" required />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Betrag netto (EUR)</span>
+                <input type="number" id="incoming-invoice-total-net" min="0" step="0.01" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Steuer (EUR)</span>
+                <input type="number" id="incoming-invoice-total-tax" min="0" step="0.01" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Kategorie</span>
+                <input type="text" id="incoming-invoice-category" placeholder="z. B. Marketing" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Kostenstelle</span>
+                <input type="text" id="incoming-invoice-cost-center" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Freigabe</span>
+                <select id="incoming-invoice-approval-status">
+                  <option value="freigabe_offen">Freigabe offen</option>
+                  <option value="freigegeben">Freigegeben</option>
+                  <option value="abgelehnt">Abgelehnt</option>
+                  <option value="nicht_noetig">Nicht nötig</option>
+                </select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Zahlung</span>
+                <select id="incoming-invoice-payment-status">
+                  <option value="offen">Offen</option>
+                  <option value="teilbezahlt">Teilbezahlt</option>
+                  <option value="bezahlt">Bezahlt</option>
+                </select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Zahlungsdatum</span>
+                <input type="date" id="incoming-invoice-paid-at" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Zahlungsart</span>
+                <select id="incoming-invoice-payment-method">
+                  <option value="">-</option>
+                  <option value="ueberweisung">Überweisung</option>
+                  <option value="lastschrift">Lastschrift</option>
+                  <option value="kreditkarte">Kreditkarte</option>
+                  <option value="bar">Bar</option>
+                  <option value="sonstiges">Sonstiges</option>
+                </select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Dateiname</span>
+                <input type="text" id="incoming-invoice-file-name" placeholder="wird automatisch gesetzt" readonly />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Belegdatei</span>
+                <input type="file" id="incoming-invoice-file-upload" accept=".pdf,.png,.jpg,.jpeg,.heic,.webp,.xml,.doc,.docx,.xls,.xlsx,.zip" />
+              </label>
+              <input type="hidden" id="incoming-invoice-nas-path" />
+              <label class="incoming-invoices-field incoming-invoices-field-wide">
+                <span>Notiz</span>
+                <textarea id="incoming-invoice-notes" rows="2" placeholder="Interne Notiz"></textarea>
+              </label>
+              <div class="form-actions split incoming-invoices-actions">
+                <button type="submit" id="incoming-invoice-save-btn" class="btn btn-success">Rechnung speichern</button>
+                <button type="button" id="incoming-invoice-reset-btn" class="btn btn-primary">Zurücksetzen</button>
+                <button type="button" id="incoming-invoice-export-btn" class="btn btn-primary">CSV Export</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="incoming-invoices-block finance-panel-card" data-incoming-invoices-workspace-panel="overview">
+            <div class="incoming-invoices-block-head">
+              <h3>Übersicht</h3>
+              <p>Offene Freigaben, bezahlte Rechnungen und überfällige Posten mit Filtern.</p>
+            </div>
+            <div class="incoming-invoices-filters finance-filter-grid">
+              <label class="incoming-invoices-field incoming-invoices-field-search">
+                <span>Suche</span>
+                <input
+                  type="search"
+                  id="incoming-invoices-search-input"
+                  placeholder="Nummer, Lieferant, Kategorie, Notiz"
+                  autocomplete="off"
+                />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Freigabe</span>
+                <select id="incoming-invoices-filter-approval">
+                  <option value="all">Alle</option>
+                  <option value="freigabe_offen">Freigabe offen</option>
+                  <option value="freigegeben">Freigegeben</option>
+                  <option value="abgelehnt">Abgelehnt</option>
+                  <option value="nicht_noetig">Nicht nötig</option>
+                </select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Zahlung</span>
+                <select id="incoming-invoices-filter-payment">
+                  <option value="all">Alle</option>
+                  <option value="offen">Offen</option>
+                  <option value="teilbezahlt">Teilbezahlt</option>
+                  <option value="bezahlt">Bezahlt</option>
+                </select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Von</span>
+                <input type="date" id="incoming-invoices-date-from" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Bis</span>
+                <input type="date" id="incoming-invoices-date-to" />
+              </label>
+            </div>
+
+            <div id="incoming-invoices-kpis" class="incoming-invoices-kpis"></div>
+            <div class="table-wrap incoming-invoices-table-wrap finance-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Rechnung</th>
+                    <th>Lieferant</th>
+                    <th>Rechnungsdatum</th>
+                    <th>Fällig</th>
+                    <th>Betrag</th>
+                    <th>Freigabe</th>
+                    <th>Zahlung</th>
+                    <th>Aktion</th>
+                  </tr>
+                </thead>
+                <tbody id="incoming-invoices-table-body"></tbody>
+              </table>
+            </div>
+            <p id="incoming-invoices-table-meta" class="incoming-invoices-table-meta"></p>
+          </article>
+        </section>
+
+        <section id="incoming-offers-section" class="panel card role-admin-only-view finance-workspace-section finance-workspace-section-offers">
+          <div class="section-header">
+            <h2>Eingangsangebote</h2>
+            <p>Angebote von Lieferanten zentral erfassen, bewerten und Entscheidungen transparent nachverfolgen.</p>
+          </div>
+
+          <div class="incoming-invoices-subnav finance-segmented-tabs" role="tablist" aria-label="Angebotsansichten">
+            <button
+              type="button"
+              class="incoming-invoices-subnav-btn is-active"
+              data-incoming-offers-view-target="open"
+            >
+              Offen &amp; in Prüfung
+            </button>
+            <button type="button" class="incoming-invoices-subnav-btn" data-incoming-offers-view-target="decided">
+              Entschieden
+            </button>
+            <button type="button" class="incoming-invoices-subnav-btn" data-incoming-offers-view-target="all">
+              Alle
+            </button>
+          </div>
+
+          <div class="finance-workspace-tabs finance-mode-tabs" role="tablist" aria-label="Angebotsthemen">
+            <button
+              type="button"
+              class="incoming-invoices-subnav-btn"
+              data-incoming-offers-workspace-tab="entry"
+            >
+              Erfassung
+            </button>
+            <button
+              type="button"
+              class="incoming-invoices-subnav-btn is-active"
+              data-incoming-offers-workspace-tab="overview"
+            >
+              Übersicht
+            </button>
+          </div>
+
+          <article class="incoming-invoices-block finance-panel-card hidden" data-incoming-offers-workspace-panel="entry">
+            <div class="incoming-invoices-block-head">
+              <h3>Angebot erfassen / bearbeiten</h3>
+              <p>Mit zentraler Dokumentablage, Priorität und Entscheidungsstatus.</p>
+            </div>
+            <form id="incoming-offer-form" class="incoming-invoices-create-grid finance-input-grid">
+              <input type="hidden" id="incoming-offer-id" />
+              <label class="incoming-invoices-field">
+                <span>Angebotsnummer</span>
+                <input type="text" id="incoming-offer-number" required />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Lieferant</span>
+                <select id="incoming-offer-supplier" required></select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Eingangsdatum</span>
+                <input type="date" id="incoming-offer-received-date" required />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Gültig bis</span>
+                <input type="date" id="incoming-offer-valid-until-date" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Betrag brutto (EUR)</span>
+                <input type="number" id="incoming-offer-total-gross" min="0" step="0.01" required />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Betrag netto (EUR)</span>
+                <input type="number" id="incoming-offer-total-net" min="0" step="0.01" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Steuer (EUR)</span>
+                <input type="number" id="incoming-offer-total-tax" min="0" step="0.01" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Kategorie</span>
+                <input type="text" id="incoming-offer-category" placeholder="z. B. Einkauf" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Kostenstelle</span>
+                <input type="text" id="incoming-offer-cost-center" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Status</span>
+                <select id="incoming-offer-status">
+                  <option value="offen">Offen</option>
+                  <option value="in_pruefung">In Prüfung</option>
+                  <option value="angenommen">Angenommen</option>
+                  <option value="abgelehnt">Abgelehnt</option>
+                  <option value="abgelaufen">Abgelaufen</option>
+                </select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Priorität</span>
+                <select id="incoming-offer-priority">
+                  <option value="normal">Normal</option>
+                  <option value="hoch">Hoch</option>
+                </select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Entscheidungsdatum</span>
+                <input type="date" id="incoming-offer-decided-at" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Dateiname</span>
+                <input type="text" id="incoming-offer-file-name" placeholder="wird automatisch gesetzt" readonly />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Angebotsdatei</span>
+                <input type="file" id="incoming-offer-file-upload" accept=".pdf,.png,.jpg,.jpeg,.heic,.webp,.xml,.doc,.docx,.xls,.xlsx,.zip" />
+              </label>
+              <input type="hidden" id="incoming-offer-document-path" />
+              <label class="incoming-invoices-field incoming-invoices-field-wide">
+                <span>Notiz</span>
+                <textarea id="incoming-offer-notes" rows="2" placeholder="Interne Notiz"></textarea>
+              </label>
+              <div class="form-actions split incoming-invoices-actions">
+                <button type="submit" id="incoming-offer-save-btn" class="btn btn-success">Angebot speichern</button>
+                <button type="button" id="incoming-offer-reset-btn" class="btn btn-primary">Zurücksetzen</button>
+                <button type="button" id="incoming-offer-export-btn" class="btn btn-primary">CSV Export</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="incoming-invoices-block finance-panel-card" data-incoming-offers-workspace-panel="overview">
+            <div class="incoming-invoices-block-head">
+              <h3>Übersicht</h3>
+              <p>Offene Angebote, Entscheidungen und ablaufende Fristen mit Filtern.</p>
+            </div>
+            <div class="incoming-invoices-filters finance-filter-grid">
+              <label class="incoming-invoices-field incoming-invoices-field-search">
+                <span>Suche</span>
+                <input
+                  type="search"
+                  id="incoming-offers-search-input"
+                  placeholder="Nummer, Lieferant, Kategorie, Notiz"
+                  autocomplete="off"
+                />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Status</span>
+                <select id="incoming-offers-filter-status">
+                  <option value="all">Alle</option>
+                  <option value="offen">Offen</option>
+                  <option value="in_pruefung">In Prüfung</option>
+                  <option value="angenommen">Angenommen</option>
+                  <option value="abgelehnt">Abgelehnt</option>
+                  <option value="abgelaufen">Abgelaufen</option>
+                </select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Priorität</span>
+                <select id="incoming-offers-filter-priority">
+                  <option value="all">Alle</option>
+                  <option value="hoch">Hoch</option>
+                  <option value="normal">Normal</option>
+                </select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Von</span>
+                <input type="date" id="incoming-offers-date-from" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Bis</span>
+                <input type="date" id="incoming-offers-date-to" />
+              </label>
+            </div>
+
+            <div id="incoming-offers-kpis" class="incoming-invoices-kpis"></div>
+            <div class="table-wrap incoming-invoices-table-wrap finance-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Angebot</th>
+                    <th>Lieferant</th>
+                    <th>Eingang</th>
+                    <th>Gültig bis</th>
+                    <th>Betrag</th>
+                    <th>Status</th>
+                    <th>Priorität</th>
+                    <th>Aktion</th>
+                  </tr>
+                </thead>
+                <tbody id="incoming-offers-table-body"></tbody>
+              </table>
+            </div>
+            <p id="incoming-offers-table-meta" class="incoming-invoices-table-meta"></p>
+          </article>
+        </section>
+
+        <section id="contract-manager-section" class="panel card superadmin-only-view finance-workspace-section finance-workspace-section-contracts">
+          <div class="section-header">
+            <h2>Verträge &amp; Fristen</h2>
+            <p>Verträge, Kündigungsfristen und Kosten zentral steuern inklusive Reminder-Überblick.</p>
+          </div>
+
+          <div class="incoming-invoices-subnav finance-segmented-tabs" role="tablist" aria-label="Vertragsansichten">
+            <button type="button" class="incoming-invoices-subnav-btn is-active" data-contract-manager-view-target="due">
+              Bald fällig
+            </button>
+            <button type="button" class="incoming-invoices-subnav-btn" data-contract-manager-view-target="active">
+              Aktiv
+            </button>
+            <button type="button" class="incoming-invoices-subnav-btn" data-contract-manager-view-target="all">
+              Alle
+            </button>
+          </div>
+
+          <div class="finance-workspace-tabs finance-mode-tabs" role="tablist" aria-label="Vertragsbereiche">
+            <button type="button" class="incoming-invoices-subnav-btn" data-contract-manager-workspace-tab="entry">
+              Erfassung
+            </button>
+            <button type="button" class="incoming-invoices-subnav-btn is-active" data-contract-manager-workspace-tab="overview">
+              Übersicht
+            </button>
+          </div>
+
+          <article class="incoming-invoices-block finance-panel-card hidden" data-contract-manager-workspace-panel="entry">
+            <div class="incoming-invoices-block-head">
+              <h3>Vertrag erfassen / bearbeiten</h3>
+              <p>Laufzeit, Kündigungsfrist, Kosten und Verantwortliche professionell dokumentieren.</p>
+            </div>
+            <form id="contract-manager-form" class="incoming-invoices-create-grid finance-input-grid">
+              <input type="hidden" id="contract-manager-id" />
+              <label class="incoming-invoices-field">
+                <span>Vertragsname</span>
+                <input type="text" id="contract-manager-title" required />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Firma</span>
+                <select id="contract-manager-company" required></select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Vertragstyp</span>
+                <select id="contract-manager-type">
+                  <option value="dienstleistung">Dienstleistung</option>
+                  <option value="software">Software</option>
+                  <option value="leasing">Leasing</option>
+                  <option value="miete">Miete</option>
+                  <option value="telekom">Telekom</option>
+                  <option value="sonstiges">Sonstiges</option>
+                </select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Status</span>
+                <select id="contract-manager-status">
+                  <option value="aktiv">Aktiv</option>
+                  <option value="entwurf">Entwurf</option>
+                  <option value="gekundigt">Gekündigt</option>
+                  <option value="beendet">Beendet</option>
+                </select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Startdatum</span>
+                <input type="date" id="contract-manager-start-date" required />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Laufzeitende</span>
+                <input type="date" id="contract-manager-end-date" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Kündigungsfrist (Tage)</span>
+                <input type="number" id="contract-manager-notice-days" min="0" step="1" value="30" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Reminder vorher (Tage)</span>
+                <input type="number" id="contract-manager-reminder-days" min="0" step="1" value="45" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Kosten (EUR)</span>
+                <input type="number" id="contract-manager-amount" min="0" step="0.01" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Abrechnungszyklus</span>
+                <select id="contract-manager-billing-cycle">
+                  <option value="monatlich">Monatlich</option>
+                  <option value="quartal">Quartal</option>
+                  <option value="jahrlich">Jährlich</option>
+                  <option value="einmalig">Einmalig</option>
+                </select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Verantwortlich</span>
+                <select id="contract-manager-owner"></select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Dokumentpfad</span>
+                <input type="text" id="contract-manager-document-ref" placeholder="/nas/contracts/..." />
+              </label>
+              <label class="incoming-invoices-field incoming-invoices-field-wide">
+                <span>Notiz</span>
+                <textarea id="contract-manager-notes" rows="2" placeholder="Interne Hinweise"></textarea>
+              </label>
+              <div class="form-actions split incoming-invoices-actions">
+                <button type="submit" id="contract-manager-save-btn" class="btn btn-success">Vertrag speichern</button>
+                <button type="button" id="contract-manager-reset-btn" class="btn btn-primary">Zurücksetzen</button>
+                <button type="button" id="contract-manager-export-btn" class="btn btn-primary">CSV Export</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="incoming-invoices-block finance-panel-card" data-contract-manager-workspace-panel="overview">
+            <div class="incoming-invoices-block-head">
+              <h3>Übersicht</h3>
+              <p>Fristen, Kündigungsfenster und laufende Kosten mit klaren Warnstufen.</p>
+            </div>
+            <div class="incoming-invoices-filters finance-filter-grid">
+              <label class="incoming-invoices-field incoming-invoices-field-search">
+                <span>Suche</span>
+                <input type="search" id="contract-manager-search-input" placeholder="Vertrag, Firma, Typ, Notiz" autocomplete="off" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Status</span>
+                <select id="contract-manager-filter-status">
+                  <option value="all">Alle</option>
+                  <option value="aktiv">Aktiv</option>
+                  <option value="entwurf">Entwurf</option>
+                  <option value="gekundigt">Gekündigt</option>
+                  <option value="beendet">Beendet</option>
+                </select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Typ</span>
+                <select id="contract-manager-filter-type">
+                  <option value="all">Alle</option>
+                  <option value="dienstleistung">Dienstleistung</option>
+                  <option value="software">Software</option>
+                  <option value="leasing">Leasing</option>
+                  <option value="miete">Miete</option>
+                  <option value="telekom">Telekom</option>
+                  <option value="sonstiges">Sonstiges</option>
+                </select>
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Laufzeitende von</span>
+                <input type="date" id="contract-manager-date-from" />
+              </label>
+              <label class="incoming-invoices-field">
+                <span>Laufzeitende bis</span>
+                <input type="date" id="contract-manager-date-to" />
+              </label>
+            </div>
+
+            <div id="contract-manager-kpis" class="incoming-invoices-kpis"></div>
+            <div class="table-wrap incoming-invoices-table-wrap finance-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Vertrag</th>
+                    <th>Firma</th>
+                    <th>Laufzeitende</th>
+                    <th>Kündigen bis</th>
+                    <th>Kosten/Jahr</th>
+                    <th>Status</th>
+                    <th>Reminder</th>
+                    <th>Aktion</th>
+                  </tr>
+                </thead>
+                <tbody id="contract-manager-table-body"></tbody>
+              </table>
+            </div>
+            <p id="contract-manager-table-meta" class="incoming-invoices-table-meta"></p>
+          </article>
         </section>
 
         <section id="management-section" class="panel card">
@@ -964,6 +3415,10 @@
         <p id="live-confirm-text" class="matrix-info">
           Wurde der Anbieter auf my-waycard.com wirklich angemeldet?
         </p>
+        <label id="live-confirm-provision-user-field" class="live-confirm-assignee-field">
+          Provision zuordnen an
+          <select id="live-confirm-provision-user"></select>
+        </label>
         <div class="auth-actions">
           <button type="button" id="live-confirm-no" class="btn btn-primary">Abbrechen</button>
           <button type="button" id="live-confirm-yes" class="btn btn-success btn-action">JA - Live schalten</button>
@@ -997,8 +3452,153 @@
       </div>
     </div>
 
+    <div
+      id="provider-open-notes-panel"
+      class="employee-detail-panel hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="provider-open-notes-title"
+    >
+      <div class="employee-detail-dialog live-confirm-dialog provider-open-notes-dialog">
+        <div class="employee-detail-head">
+          <h4 id="provider-open-notes-title">Offene Notizen</h4>
+          <button
+            type="button"
+            id="provider-open-notes-close"
+            class="mini-btn"
+            title="Schließen"
+            aria-label="Schließen"
+          >✕</button>
+        </div>
+        <p id="provider-open-notes-subtitle" class="matrix-info"></p>
+        <div id="provider-open-notes-list" class="provider-open-notes-list"></div>
+      </div>
+    </div>
+
+    <div
+      id="topic-move-panel"
+      class="employee-detail-panel hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="topic-move-title"
+    >
+      <div class="employee-detail-dialog live-confirm-dialog">
+        <div class="employee-detail-head">
+          <h4 id="topic-move-title">Thema neu zuordnen</h4>
+          <button
+            type="button"
+            id="topic-move-close"
+            class="mini-btn"
+            title="Schließen"
+            aria-label="Schließen"
+          >✕</button>
+        </div>
+        <p id="topic-move-text" class="matrix-info">Bitte neuen Themenbereich auswählen.</p>
+        <label for="topic-move-target-select" class="topic-move-field">
+          Neuer Themenbereich
+          <select id="topic-move-target-select"></select>
+        </label>
+        <div class="auth-actions">
+          <button type="button" id="topic-move-no" class="btn btn-primary">Abbrechen</button>
+          <button type="button" id="topic-move-yes" class="btn btn-success btn-action">Übernehmen</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="sales-phone-status-modal" class="modal-overlay-page hidden" data-sales-phone-modal="status">
+      <div class="modal-dialog-panel sales-phone-modal-panel">
+        <div class="modal-dialog-head">
+          <h3>Status &amp; Reminder</h3>
+          <button type="button" class="mini-btn" data-sales-phone-modal-close="status" aria-label="Popup schließen">✕</button>
+        </div>
+        <div class="sales-phone-detail-tools">
+          <label class="sales-phone-field">
+            <span>Status</span>
+            <select id="sales-phone-detail-status">
+              <option value="neu">Neu</option>
+              <option value="nicht_erreicht">Nicht erreicht</option>
+              <option value="mailbox">Mailbox</option>
+              <option value="rueckruf">Rueckruf noetig</option>
+              <option value="erreicht">Erreicht</option>
+              <option value="kein_interesse">Kein Interesse</option>
+              <option value="interessiert">Interessiert</option>
+              <option value="angebot_gesendet">Angebot gesendet</option>
+              <option value="termin_vereinbart">Termin vereinbart</option>
+              <option value="abschluss">Abschluss</option>
+            </select>
+          </label>
+          <label class="sales-phone-field">
+            <span>Reminder</span>
+            <input type="datetime-local" id="sales-phone-detail-reminder" />
+          </label>
+          <button type="button" id="sales-phone-detail-save-btn" class="btn btn-success">Speichern</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="sales-phone-note-modal" class="modal-overlay-page hidden" data-sales-phone-modal="note">
+      <div class="modal-dialog-panel sales-phone-modal-panel">
+        <div class="modal-dialog-head">
+          <h3>Neue Notiz</h3>
+          <button type="button" class="mini-btn" data-sales-phone-modal-close="note" aria-label="Popup schließen">✕</button>
+        </div>
+        <div class="sales-phone-detail-col">
+          <textarea
+            id="sales-phone-note-input"
+            rows="4"
+            placeholder="Gesprächsnotiz mit Ergebnis, Einwänden und nächsten Schritten"
+          ></textarea>
+          <button type="button" id="sales-phone-note-add-btn" class="btn btn-success">Notiz speichern</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="sales-phone-task-modal" class="modal-overlay-page hidden" data-sales-phone-modal="task">
+      <div class="modal-dialog-panel sales-phone-modal-panel">
+        <div class="modal-dialog-head">
+          <h3>Neue Aufgabe</h3>
+          <button type="button" class="mini-btn" data-sales-phone-modal-close="task" aria-label="Popup schließen">✕</button>
+        </div>
+        <div class="sales-phone-task-create">
+          <input type="text" id="sales-phone-task-title" placeholder="Aufgabe..." />
+          <select id="sales-phone-task-assignee"></select>
+          <input type="date" id="sales-phone-task-due" />
+          <button type="button" id="sales-phone-task-add-btn" class="btn btn-success">Aufgabe anlegen</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="command-palette-modal" class="modal-overlay-page hidden">
+      <div class="modal-dialog-panel command-palette-panel">
+        <div class="modal-dialog-head">
+          <div class="command-palette-headline">
+            <h3>Schnellsuche</h3>
+            <p>Springe direkt zu Firmen, Finanzen, Verträgen, Mitarbeitern und Touren.</p>
+          </div>
+          <div class="command-palette-head-actions">
+            <span class="command-palette-kbd">Ctrl/⌘ K</span>
+            <button type="button" id="command-palette-close-btn" class="mini-btn" aria-label="Popup schließen">✕</button>
+          </div>
+        </div>
+        <label class="command-palette-search">
+          <span class="command-palette-search-title">Suchbegriff</span>
+          <input
+            type="search"
+            id="command-palette-input"
+            autocomplete="off"
+            placeholder="z. B. Muster GmbH, RE-2026-014, Tour Wien Süd"
+          />
+        </label>
+        <p class="command-palette-hint">Enter öffnet den ersten Treffer. Klicke auf einen Eintrag für den direkten Sprung.</p>
+        <div id="command-palette-list" class="command-palette-list"></div>
+      </div>
+    </div>
+
+    <div id="action-feedback-status" class="action-feedback-status hidden" aria-live="polite"></div>
+    <div id="action-toast-stack" class="action-toast-stack" aria-live="polite" aria-atomic="true"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js?v=20260330-0845"></script>
-    <script src="app.js?v=20260331-2497"></script>
+    <script src="app.js?v=20260430-33"></script>
   </body>
 </html>
