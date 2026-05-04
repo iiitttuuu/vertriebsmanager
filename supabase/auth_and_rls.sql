@@ -7,24 +7,58 @@ create table if not exists public.profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   email text not null unique,
   full_name text not null default '',
-  role text not null default 'mitarbeiter' check (role in ('admin', 'mitarbeiter')),
+  role text not null default 'mitarbeiter' check (role in ('admin', 'superadmin', 'supaadmin', 'mitarbeiter', 'vertriebsmitarbeiter')),
   phone text not null default '',
   address text not null default '',
-  status text not null default 'active' check (status in ('active', 'inactive')),
+  status text not null default 'active' check (status in ('active', 'pending', 'inactive')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+update public.profiles
+set role = 'superadmin'
+where role = 'supaadmin';
+
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles
+  add constraint profiles_role_check
+  check (role in ('admin', 'superadmin', 'supaadmin', 'mitarbeiter', 'vertriebsmitarbeiter'));
+
+alter table public.profiles drop constraint if exists profiles_status_check;
+alter table public.profiles
+  add constraint profiles_status_check
+  check (status in ('active', 'pending', 'inactive'));
 
 create table if not exists public.employee_invites (
   id uuid primary key default gen_random_uuid(),
   email text not null unique,
   full_name text not null,
-  role text not null default 'mitarbeiter' check (role in ('admin', 'mitarbeiter')),
+  role text not null default 'mitarbeiter' check (role in ('admin', 'superadmin', 'supaadmin', 'mitarbeiter', 'vertriebsmitarbeiter')),
   phone text not null default '',
   address text not null default '',
   status text not null default 'pending' check (status in ('pending', 'accepted', 'revoked')),
   invited_by uuid references auth.users(id) on delete set null,
   accepted_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+update public.employee_invites
+set role = 'superadmin'
+where role = 'supaadmin';
+
+alter table public.employee_invites drop constraint if exists employee_invites_role_check;
+alter table public.employee_invites
+  add constraint employee_invites_role_check
+  check (role in ('admin', 'superadmin', 'supaadmin', 'mitarbeiter', 'vertriebsmitarbeiter'));
+
+create table if not exists public.provider_registry (
+  provider_id text primary key,
+  unique_key text not null unique,
+  provider_name text not null default '',
+  coverage_mode text not null default 'locations',
+  country text not null default '',
+  claimed_by_user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -49,6 +83,11 @@ create trigger trg_employee_invites_updated_at
 before update on public.employee_invites
 for each row execute procedure public.set_updated_at();
 
+drop trigger if exists trg_provider_registry_updated_at on public.provider_registry;
+create trigger trg_provider_registry_updated_at
+before update on public.provider_registry
+for each row execute procedure public.set_updated_at();
+
 create or replace function public.current_user_role()
 returns text
 language sql
@@ -58,7 +97,7 @@ set search_path = public
 as $$
   select p.role
   from public.profiles p
-  where p.user_id = auth.uid()
+  where p.user_id::text = auth.uid()::text
     and p.status = 'active'
   limit 1;
 $$;
@@ -70,7 +109,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select coalesce(public.current_user_role() = 'admin', false);
+  select coalesce(public.current_user_role() in ('admin', 'superadmin', 'supaadmin'), false);
 $$;
 
 create or replace function public.handle_new_auth_user()
@@ -96,7 +135,7 @@ begin
   select exists(
     select 1
     from public.profiles p
-    where p.role = 'admin'
+    where p.role in ('admin', 'superadmin', 'supaadmin')
       and p.status = 'active'
   ) into has_admin;
 
@@ -111,53 +150,36 @@ begin
   if invite_row.id is not null then
     assigned_role := coalesce(invite_row.role, 'mitarbeiter');
   else
-    if has_admin then
-      raise exception 'Nur eingeladene Mitarbeiter duerfen sich registrieren.';
-    end if;
     assigned_role := case when has_admin then 'mitarbeiter' else 'admin' end;
   end if;
 
-  if invite_row.id is not null then
-    insert into public.profiles (
-      user_id, email, full_name, role, phone, address, status
-    )
-    values (
-      new.id,
-      normalized_email,
-      coalesce(invite_row.full_name, fallback_name),
-      assigned_role,
-      coalesce(invite_row.phone, ''),
-      coalesce(invite_row.address, ''),
-      'active'
-    )
-    on conflict (user_id) do update
-      set email = excluded.email,
-          full_name = excluded.full_name,
-          role = excluded.role,
-          phone = excluded.phone,
-          address = excluded.address,
-          status = 'active',
-          updated_at = now();
+  insert into public.profiles (
+    user_id, email, full_name, role, phone, address, status
+  )
+  values (
+    new.id,
+    normalized_email,
+    coalesce(invite_row.full_name, fallback_name),
+    assigned_role,
+    coalesce(invite_row.phone, ''),
+    coalesce(invite_row.address, ''),
+    case when assigned_role in ('admin', 'superadmin', 'supaadmin') then 'active' else 'pending' end
+  )
+  on conflict (user_id) do update
+    set email = excluded.email,
+        full_name = excluded.full_name,
+        role = excluded.role,
+        phone = excluded.phone,
+        address = excluded.address,
+        status = case when excluded.role in ('admin', 'superadmin', 'supaadmin') then 'active' else 'pending' end,
+        updated_at = now();
 
+  if invite_row.id is not null then
     update public.employee_invites
     set status = 'accepted',
         accepted_by = new.id,
         updated_at = now()
     where id = invite_row.id;
-  else
-    insert into public.profiles (
-      user_id, email, full_name, role, phone, address, status
-    )
-    values (
-      new.id,
-      normalized_email,
-      fallback_name,
-      assigned_role,
-      '',
-      '',
-      'active'
-    )
-    on conflict (user_id) do nothing;
   end if;
 
   return new;
@@ -171,6 +193,7 @@ for each row execute procedure public.handle_new_auth_user();
 
 alter table public.profiles enable row level security;
 alter table public.employee_invites enable row level security;
+alter table public.provider_registry enable row level security;
 alter table public.app_state enable row level security;
 
 drop policy if exists "app_state_anon_all" on public.app_state;
@@ -181,22 +204,22 @@ create policy "profiles_select_self_or_admin"
 on public.profiles
 for select
 to authenticated
-using (user_id = auth.uid() or public.is_admin());
+using (user_id::text = auth.uid()::text or public.is_admin());
 
 drop policy if exists "profiles_insert_self" on public.profiles;
 create policy "profiles_insert_self"
 on public.profiles
 for insert
 to authenticated
-with check (user_id = auth.uid());
+with check (user_id::text = auth.uid()::text);
 
 drop policy if exists "profiles_update_self_or_admin" on public.profiles;
 create policy "profiles_update_self_or_admin"
 on public.profiles
 for update
 to authenticated
-using (user_id = auth.uid() or public.is_admin())
-with check (user_id = auth.uid() or public.is_admin());
+using (user_id::text = auth.uid()::text or public.is_admin())
+with check (user_id::text = auth.uid()::text or public.is_admin());
 
 drop policy if exists "profiles_admin_delete" on public.profiles;
 create policy "profiles_admin_delete"
@@ -234,6 +257,70 @@ for delete
 to authenticated
 using (public.is_admin());
 
+drop policy if exists "provider_registry_auth_select" on public.provider_registry;
+create policy "provider_registry_auth_select"
+on public.provider_registry
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profiles p
+    where p.user_id::text = auth.uid()::text
+      and p.status = 'active'
+  )
+);
+
+drop policy if exists "provider_registry_auth_insert" on public.provider_registry;
+create policy "provider_registry_auth_insert"
+on public.provider_registry
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.profiles p
+    where p.user_id::text = auth.uid()::text
+      and p.status = 'active'
+  )
+);
+
+drop policy if exists "provider_registry_auth_update" on public.provider_registry;
+create policy "provider_registry_auth_update"
+on public.provider_registry
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profiles p
+    where p.user_id::text = auth.uid()::text
+      and p.status = 'active'
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.profiles p
+    where p.user_id::text = auth.uid()::text
+      and p.status = 'active'
+  )
+);
+
+drop policy if exists "provider_registry_auth_delete" on public.provider_registry;
+create policy "provider_registry_auth_delete"
+on public.provider_registry
+for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profiles p
+    where p.user_id::text = auth.uid()::text
+      and p.status = 'active'
+  )
+);
+
 drop policy if exists "app_state_auth_read" on public.app_state;
 create policy "app_state_auth_read"
 on public.app_state
@@ -243,25 +330,48 @@ using (
   exists (
     select 1
     from public.profiles p
-    where p.user_id = auth.uid()
+    where p.user_id::text = auth.uid()::text
       and p.status = 'active'
   )
 );
 
 drop policy if exists "app_state_admin_insert" on public.app_state;
-create policy "app_state_admin_insert"
+drop policy if exists "app_state_active_insert" on public.app_state;
+create policy "app_state_active_insert"
 on public.app_state
 for insert
 to authenticated
-with check (public.is_admin());
+with check (
+  exists (
+    select 1
+    from public.profiles p
+    where p.user_id::text = auth.uid()::text
+      and p.status = 'active'
+  )
+);
 
 drop policy if exists "app_state_admin_update" on public.app_state;
-create policy "app_state_admin_update"
+drop policy if exists "app_state_active_update" on public.app_state;
+create policy "app_state_active_update"
 on public.app_state
 for update
 to authenticated
-using (public.is_admin())
-with check (public.is_admin());
+using (
+  exists (
+    select 1
+    from public.profiles p
+    where p.user_id::text = auth.uid()::text
+      and p.status = 'active'
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.profiles p
+    where p.user_id::text = auth.uid()::text
+      and p.status = 'active'
+  )
+);
 
 drop policy if exists "app_state_admin_delete" on public.app_state;
 create policy "app_state_admin_delete"
@@ -271,4 +381,4 @@ to authenticated
 using (public.is_admin());
 
 -- Einmalig ersten Admin setzen (E-Mail anpassen):
--- update public.profiles set role = 'admin' where email = 'deine-admin-mail@firma.at';
+-- update public.profiles set role = 'superadmin' where email = 'deine-superadmin-mail@firma.at';
