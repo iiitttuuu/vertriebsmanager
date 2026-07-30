@@ -1,9 +1,1584 @@
 {
   "version": 2,
   "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/styles-provider-workflow-v66",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v66",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/vertrieb",
+      "destination": "/vertrieb.html"
+    },
+    {
+      "source": "/styles-provider-workflow-v65",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v57",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v65",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v64",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v56",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v63",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v55",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v62",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v54",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v61",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v53",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v60",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v52",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v59",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v51",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v58",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v50",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v57",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v49",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v56",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v48",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v55",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v47",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v54",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v46",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v45",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v53",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v52",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v51",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v50",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v49",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v48",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v47",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v46",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v45",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v44",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v43",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v42",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v41",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v40",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v39",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v38",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v37",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v36",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v35",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v34",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v33",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v32",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v31",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v30",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v29",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v28",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v27",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v44",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v43",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v42",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v41",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v40",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v39",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v38",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v37",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v36",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v35",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v19",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v20",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v21",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v22",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v23",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v24",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v25",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v26",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v32",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v33",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v34",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v31",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v30",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v29",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v28",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v27",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v26",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v18",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v25",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v24",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v16",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v17",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v23",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v22",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v13",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v14",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v15",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v21",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v12",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v20",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v11",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v19",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v10",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v18",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v17",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v16",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v9",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v15",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v14",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v13",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v12",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v11",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v10",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v9",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v8",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v7",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v6",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v5",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v4",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v3",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/app-provider-workflow-v2",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v2",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v3",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v4",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v5",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v6",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v8",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-provider-workflow-v7",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/styles-invitation-dashboard-open-v1",
+      "destination": "/styles.css"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v57",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v65",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v64",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v56",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v63",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v55",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v62",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v54",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v61",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v53",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v60",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v52",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v59",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v51",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v58",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v50",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v57",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v49",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v56",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v48",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v55",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v47",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v54",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v46",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v45",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v53",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v44",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v52",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v43",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v51",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v42",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v50",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v41",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v49",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v40",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v48",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v47",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v39",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v38",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v46",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v37",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v45",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v36",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v44",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v35",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v43",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v30",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v39",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v38",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v37",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v36",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v35",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v34",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v33",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v32",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v31",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v29",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v28",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v27",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v26",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v25",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v24",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v16",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v19",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v20",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v21",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v22",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v23",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v24",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v25",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v26",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v32",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v31",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v30",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v29",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v28",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v27",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v18",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v17",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v23",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v22",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v13",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v14",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v15",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v21",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v12",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v20",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v19",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v11",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v10",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v18",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v17",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v16",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v9",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v7",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v8",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v9",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v15",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v14",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v13",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v12",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v11",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v10",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v6",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v6",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v8",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v7",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v5",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v5",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v4",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v4",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v3",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v3",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v2",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v2",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-invitation-dashboard-open-v1",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

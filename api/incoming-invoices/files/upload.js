@@ -47,6 +47,17 @@ function formatMonthSegment(date = new Date()) {
   return `${year}-${month}`;
 }
 
+function isUuid(value = "") {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || "").trim()
+  );
+}
+
+function isPrivilegedRole(role = "") {
+  const normalized = String(role || "").trim().toLowerCase();
+  return normalized === "admin" || normalized === "superadmin" || normalized === "supaadmin";
+}
+
 function getExtensionFromFileName(fileName = "") {
   const safeName = sanitizeFileName(fileName);
   const dotIndex = safeName.lastIndexOf(".");
@@ -87,7 +98,38 @@ async function authenticateUserWithSupabase(userAuthorizationHeader, supabaseUrl
   if (!response.ok) {
     return { ok: false, status: 401, error: "Login-Token ist abgelaufen oder ungültig." };
   }
-  return { ok: true };
+  const payload = await response.json().catch(() => null);
+  const userId = String(payload?.id || "").trim();
+  if (!isUuid(userId)) {
+    return { ok: false, status: 401, error: "Ungültiger Benutzerkontext." };
+  }
+  return { ok: true, userId };
+}
+
+async function readAuthorizedProfile(userId, supabaseUrl, serviceRoleKey) {
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/profiles?select=user_id,role,status&user_id=eq.${encodeURIComponent(userId)}&limit=1`,
+    {
+      method: "GET",
+      headers: {
+        apikey: serviceRoleKey,
+        authorization: `Bearer ${serviceRoleKey}`,
+        Accept: "application/json",
+      },
+    }
+  );
+  if (!response.ok) {
+    return { ok: false, status: 502, error: "Benutzerprofil konnte serverseitig nicht geprüft werden." };
+  }
+
+  const rows = await response.json().catch(() => []);
+  const profile = Array.isArray(rows) ? rows[0] || null : null;
+  const status = String(profile?.status || "").trim().toLowerCase();
+  const role = String(profile?.role || "").trim().toLowerCase();
+  if (!profile || status !== "active" || !isPrivilegedRole(role)) {
+    return { ok: false, status: 403, error: "Dokument-Upload ist nur für aktive Admins freigegeben." };
+  }
+  return { ok: true, profile };
 }
 
 async function readRequestFormData(req) {
@@ -116,6 +158,11 @@ export default async function handler(req, res) {
     const authResult = await authenticateUserWithSupabase(req.headers.authorization, supabaseUrl, serviceRoleKey);
     if (!authResult.ok) {
       res.status(authResult.status).json({ error: authResult.error });
+      return;
+    }
+    const profileResult = await readAuthorizedProfile(authResult.userId, supabaseUrl, serviceRoleKey);
+    if (!profileResult.ok) {
+      res.status(profileResult.status).json({ error: profileResult.error });
       return;
     }
 

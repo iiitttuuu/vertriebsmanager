@@ -72,7 +72,7 @@ with check (
   )
 );
 
--- Update/Delete nur fuer eigene Notizen
+-- Update nur fuer eigene Notizen
 drop policy if exists "provider_notes_active_update_own" on public.provider_notes;
 create policy "provider_notes_active_update_own"
 on public.provider_notes
@@ -98,12 +98,16 @@ with check (
 );
 
 drop policy if exists "provider_notes_active_delete_own" on public.provider_notes;
-create policy "provider_notes_active_delete_own"
+drop policy if exists "provider_notes_active_delete_any" on public.provider_notes;
+create policy "provider_notes_active_delete_any"
 on public.provider_notes
 for delete
 to authenticated
 using (
-  created_by_user_id::text = auth.uid()::text
+  (
+    created_by_user_id::text = auth.uid()::text
+    or public.is_admin()
+  )
   and exists (
     select 1
     from public.profiles p

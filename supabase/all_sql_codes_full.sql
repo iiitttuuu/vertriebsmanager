@@ -1,7 +1,7 @@
 -- =============================================================
 -- BusinessOS / Vertriebsmanager - Vollständige SQL-Codes
 -- Direkt im Supabase SQL Editor ausführbar (blockweise empfohlen)
--- Generiert: 2026-05-03
+-- Generiert: 2026-07-03
 -- =============================================================
 
 
@@ -88,12 +88,32 @@ create table if not exists public.provider_registry (
   provider_id text primary key,
   unique_key text not null unique,
   provider_name text not null default '',
+  contact_salutation text not null default '',
+  contact_title text not null default '',
+  contact_first_name text not null default '',
+  contact_last_name text not null default '',
+  contact_person text not null default '',
+  contact_person_phone text not null default '',
+  contact_person_email text not null default '',
+  partner_request_redemption_method text not null default '',
+  partner_request_message text not null default '',
   coverage_mode text not null default 'locations',
   country text not null default '',
   claimed_by_user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.provider_registry
+  add column if not exists contact_salutation text not null default '',
+  add column if not exists contact_title text not null default '',
+  add column if not exists contact_first_name text not null default '',
+  add column if not exists contact_last_name text not null default '',
+  add column if not exists contact_person text not null default '',
+  add column if not exists contact_person_phone text not null default '',
+  add column if not exists contact_person_email text not null default '',
+  add column if not exists partner_request_redemption_method text not null default '',
+  add column if not exists partner_request_message text not null default '';
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -584,6 +604,603 @@ with check (
 
 
 -- -------------------------------------------------------------
+-- BEGIN FILE: supabase/patch_providers_table.sql
+-- -------------------------------------------------------------
+-- Dedizierte Tabelle fuer Anbieter-Stammdaten.
+-- Migriert bestehende Anbieter aus public.app_state.payload.providers.
+
+create extension if not exists pgcrypto;
+
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create table if not exists public.providers (
+  id text primary key,
+  payload jsonb not null default '{}'::jsonb,
+  name text not null default '',
+  status text not null default '',
+  address text not null default '',
+  postal_code text not null default '',
+  city text not null default '',
+  state text not null default '',
+  country text not null default '',
+  website text not null default '',
+  email text not null default '',
+  phone text not null default '',
+  contact_salutation text not null default '',
+  contact_title text not null default '',
+  contact_first_name text not null default '',
+  contact_last_name text not null default '',
+  contact_person text not null default '',
+  contact_person_phone text not null default '',
+  contact_person_email text not null default '',
+  admin_only boolean not null default false,
+  early_partner boolean not null default false,
+  online_only boolean not null default false,
+  topic_ids jsonb not null default '[]'::jsonb,
+  locations jsonb not null default '[]'::jsonb,
+  coverage_mode text not null default 'locations',
+  coverage_country text not null default '',
+  coverage_states jsonb not null default '[]'::jsonb,
+  partner_request_redemption_method text not null default '',
+  partner_request_message text not null default '',
+  notes jsonb not null default '[]'::jsonb,
+  status_history jsonb not null default '[]'::jsonb,
+  latitude double precision,
+  longitude double precision,
+  source_created_at text not null default '',
+  created_by_name text not null default '',
+  created_by_role text not null default '',
+  created_by_user_id text not null default '',
+  source_updated_at text not null default '',
+  updated_by_name text not null default '',
+  updated_by_role text not null default '',
+  updated_by_user_id text not null default '',
+  responsible_user_id text not null default '',
+  responsible_name text not null default '',
+  responsible_role text not null default '',
+  responsibility_source text not null default '',
+  responsibility_updated_at text not null default '',
+  responsibility_acceptance_status text not null default '',
+  responsibility_transferred_by_user_id text not null default '',
+  responsibility_transferred_by_name text not null default '',
+  responsibility_transferred_by_role text not null default '',
+  responsibility_previous_user_id text not null default '',
+  responsibility_previous_name text not null default '',
+  responsibility_previous_role text not null default '',
+  responsibility_previous_source text not null default '',
+  responsibility_previous_updated_at text not null default '',
+  responsibility_transfer_request_id text not null default '',
+  responsibility_transfer_request_persisted_id text not null default '',
+  responsibility_transfer_notification_id text not null default '',
+  responsibility_accepted_at text not null default '',
+  responsibility_rejected_at text not null default '',
+  responsibility_rejection_reason text not null default '',
+  responsibility_rejected_by_user_id text not null default '',
+  responsibility_rejected_by_name text not null default '',
+  responsibility_rejected_by_role text not null default '',
+  in_progress_by_user_id text not null default '',
+  in_progress_by_name text not null default '',
+  in_progress_by_role text not null default '',
+  in_progress_at text not null default '',
+  live_at text not null default '',
+  live_requested_at text not null default '',
+  live_requested_by_user_id text not null default '',
+  live_requested_by_name text not null default '',
+  live_requested_by_role text not null default '',
+  live_by_name text not null default '',
+  live_by_role text not null default '',
+  live_by_user_id text not null default '',
+  provision_user_id text not null default '',
+  provision_user_name text not null default '',
+  provision_user_role text not null default '',
+  provision_assigned_at text not null default '',
+  current_provision_credit_entry_id text not null default '',
+  current_provision_booked_at text not null default '',
+  current_provision_amount_eur numeric(12,2) not null default 0,
+  source_partner_request_id text not null default '',
+  source_partner_request_persisted_id text not null default '',
+  source_partner_request_notification_id text not null default '',
+  linked_partner_request_ids jsonb not null default '[]'::jsonb,
+  linked_partner_request_persisted_ids jsonb not null default '[]'::jsonb,
+  linked_partner_request_notification_ids jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.providers
+  add column if not exists name text not null default '',
+  add column if not exists status text not null default '',
+  add column if not exists address text not null default '',
+  add column if not exists postal_code text not null default '',
+  add column if not exists city text not null default '',
+  add column if not exists state text not null default '',
+  add column if not exists country text not null default '',
+  add column if not exists website text not null default '',
+  add column if not exists email text not null default '',
+  add column if not exists phone text not null default '',
+  add column if not exists contact_salutation text not null default '',
+  add column if not exists contact_title text not null default '',
+  add column if not exists contact_first_name text not null default '',
+  add column if not exists contact_last_name text not null default '',
+  add column if not exists contact_person text not null default '',
+  add column if not exists contact_person_phone text not null default '',
+  add column if not exists contact_person_email text not null default '',
+  add column if not exists admin_only boolean not null default false,
+  add column if not exists early_partner boolean not null default false,
+  add column if not exists online_only boolean not null default false,
+  add column if not exists topic_ids jsonb not null default '[]'::jsonb,
+  add column if not exists locations jsonb not null default '[]'::jsonb,
+  add column if not exists coverage_mode text not null default 'locations',
+  add column if not exists coverage_country text not null default '',
+  add column if not exists coverage_states jsonb not null default '[]'::jsonb,
+  add column if not exists partner_request_redemption_method text not null default '',
+  add column if not exists partner_request_message text not null default '',
+  add column if not exists notes jsonb not null default '[]'::jsonb,
+  add column if not exists status_history jsonb not null default '[]'::jsonb,
+  add column if not exists latitude double precision,
+  add column if not exists longitude double precision,
+  add column if not exists source_created_at text not null default '',
+  add column if not exists created_by_name text not null default '',
+  add column if not exists created_by_role text not null default '',
+  add column if not exists created_by_user_id text not null default '',
+  add column if not exists source_updated_at text not null default '',
+  add column if not exists updated_by_name text not null default '',
+  add column if not exists updated_by_role text not null default '',
+  add column if not exists updated_by_user_id text not null default '',
+  add column if not exists responsible_user_id text not null default '',
+  add column if not exists responsible_name text not null default '',
+  add column if not exists responsible_role text not null default '',
+  add column if not exists responsibility_source text not null default '',
+  add column if not exists responsibility_updated_at text not null default '',
+  add column if not exists responsibility_acceptance_status text not null default '',
+  add column if not exists responsibility_transferred_by_user_id text not null default '',
+  add column if not exists responsibility_transferred_by_name text not null default '',
+  add column if not exists responsibility_transferred_by_role text not null default '',
+  add column if not exists responsibility_previous_user_id text not null default '',
+  add column if not exists responsibility_previous_name text not null default '',
+  add column if not exists responsibility_previous_role text not null default '',
+  add column if not exists responsibility_previous_source text not null default '',
+  add column if not exists responsibility_previous_updated_at text not null default '',
+  add column if not exists responsibility_transfer_request_id text not null default '',
+  add column if not exists responsibility_transfer_request_persisted_id text not null default '',
+  add column if not exists responsibility_transfer_notification_id text not null default '',
+  add column if not exists responsibility_accepted_at text not null default '',
+  add column if not exists responsibility_rejected_at text not null default '',
+  add column if not exists responsibility_rejection_reason text not null default '',
+  add column if not exists responsibility_rejected_by_user_id text not null default '',
+  add column if not exists responsibility_rejected_by_name text not null default '',
+  add column if not exists responsibility_rejected_by_role text not null default '',
+  add column if not exists in_progress_by_user_id text not null default '',
+  add column if not exists in_progress_by_name text not null default '',
+  add column if not exists in_progress_by_role text not null default '',
+  add column if not exists in_progress_at text not null default '',
+  add column if not exists live_at text not null default '',
+  add column if not exists live_requested_at text not null default '',
+  add column if not exists live_requested_by_user_id text not null default '',
+  add column if not exists live_requested_by_name text not null default '',
+  add column if not exists live_requested_by_role text not null default '',
+  add column if not exists live_by_name text not null default '',
+  add column if not exists live_by_role text not null default '',
+  add column if not exists live_by_user_id text not null default '',
+  add column if not exists provision_user_id text not null default '',
+  add column if not exists provision_user_name text not null default '',
+  add column if not exists provision_user_role text not null default '',
+  add column if not exists provision_assigned_at text not null default '',
+  add column if not exists current_provision_credit_entry_id text not null default '',
+  add column if not exists current_provision_booked_at text not null default '',
+  add column if not exists current_provision_amount_eur numeric(12,2) not null default 0,
+  add column if not exists source_partner_request_id text not null default '',
+  add column if not exists source_partner_request_persisted_id text not null default '',
+  add column if not exists source_partner_request_notification_id text not null default '',
+  add column if not exists linked_partner_request_ids jsonb not null default '[]'::jsonb,
+  add column if not exists linked_partner_request_persisted_ids jsonb not null default '[]'::jsonb,
+  add column if not exists linked_partner_request_notification_ids jsonb not null default '[]'::jsonb;
+
+create index if not exists idx_providers_updated_at on public.providers (updated_at desc);
+create index if not exists idx_providers_status on public.providers (status);
+create index if not exists idx_providers_country on public.providers (country);
+create index if not exists idx_providers_responsible_user_id on public.providers (responsible_user_id);
+
+drop trigger if exists trg_providers_updated_at on public.providers;
+create trigger trg_providers_updated_at
+before update on public.providers
+for each row execute procedure public.set_updated_at();
+
+alter table public.providers enable row level security;
+
+drop policy if exists "providers_auth_select" on public.providers;
+create policy "providers_auth_select"
+on public.providers
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profiles p
+    where p.user_id::text = auth.uid()::text
+      and p.status = 'active'
+  )
+);
+
+drop policy if exists "providers_auth_insert" on public.providers;
+create policy "providers_auth_insert"
+on public.providers
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.profiles p
+    where p.user_id::text = auth.uid()::text
+      and p.status = 'active'
+  )
+);
+
+drop policy if exists "providers_auth_update" on public.providers;
+create policy "providers_auth_update"
+on public.providers
+for update
+to authenticated
+using (
+  public.is_admin()
+  or responsible_user_id = auth.uid()::text
+  or created_by_user_id = auth.uid()::text
+  or exists (
+      select 1
+      from public.profiles p
+      where p.user_id::text = auth.uid()::text
+        and p.status = 'active'
+        and p.role in ('mitarbeiter', 'vertriebsmitarbeiter')
+    )
+)
+with check (
+  public.is_admin()
+  or responsible_user_id = auth.uid()::text
+  or created_by_user_id = auth.uid()::text
+  or exists (
+      select 1
+      from public.profiles p
+      where p.user_id::text = auth.uid()::text
+        and p.status = 'active'
+        and p.role in ('mitarbeiter', 'vertriebsmitarbeiter')
+    )
+);
+
+drop policy if exists "providers_auth_delete" on public.providers;
+create policy "providers_auth_delete"
+on public.providers
+for delete
+to authenticated
+using (
+  public.is_admin()
+  or (
+    created_by_user_id = auth.uid()::text
+    and exists (
+      select 1
+      from public.profiles p
+      where p.user_id::text = auth.uid()::text
+        and p.status = 'active'
+    )
+  )
+);
+
+insert into public.providers (id, payload, created_at, updated_at)
+select
+  provider_entry.provider ->> 'id' as id,
+  provider_entry.provider as payload,
+  coalesce(nullif(provider_entry.provider ->> 'createdAt', '')::timestamptz, now()) as created_at,
+  coalesce(nullif(provider_entry.provider ->> 'updatedAt', '')::timestamptz, now()) as updated_at
+from public.app_state state_row
+cross join lateral jsonb_array_elements(coalesce(state_row.payload -> 'providers', '[]'::jsonb)) as provider_entry(provider)
+where state_row.id = 'main'
+  and coalesce(provider_entry.provider ->> 'id', '') <> ''
+on conflict (id) do nothing;
+
+update public.providers
+set
+  name = coalesce(payload ->> 'name', name, ''),
+  status = coalesce(payload ->> 'status', status, ''),
+  address = coalesce(payload ->> 'address', address, ''),
+  postal_code = coalesce(payload ->> 'postalCode', payload ->> 'postal_code', postal_code, ''),
+  city = coalesce(payload ->> 'city', city, ''),
+  state = coalesce(payload ->> 'state', state, ''),
+  country = coalesce(payload ->> 'country', country, ''),
+  website = coalesce(payload ->> 'website', website, ''),
+  email = coalesce(payload ->> 'email', email, ''),
+  phone = coalesce(payload ->> 'phone', phone, ''),
+  contact_salutation = coalesce(payload ->> 'contactSalutation', payload ->> 'contact_salutation', contact_salutation, ''),
+  contact_title = coalesce(payload ->> 'contactTitle', payload ->> 'contact_title', contact_title, ''),
+  contact_first_name = coalesce(payload ->> 'contactFirstName', payload ->> 'contact_first_name', contact_first_name, ''),
+  contact_last_name = coalesce(payload ->> 'contactLastName', payload ->> 'contact_last_name', contact_last_name, ''),
+  contact_person = coalesce(payload ->> 'contactPerson', payload ->> 'contact_person', contact_person, ''),
+  contact_person_phone = coalesce(payload ->> 'contactPersonPhone', payload ->> 'contact_person_phone', contact_person_phone, ''),
+  contact_person_email = coalesce(payload ->> 'contactPersonEmail', payload ->> 'contact_person_email', contact_person_email, ''),
+  admin_only = lower(coalesce(payload ->> 'adminOnly', payload ->> 'admin_only', 'false')) in ('true', 't', '1', 'yes'),
+  early_partner = lower(coalesce(payload ->> 'earlyPartner', payload ->> 'early_partner', 'false')) in ('true', 't', '1', 'yes'),
+  online_only = lower(coalesce(payload ->> 'onlineOnly', payload ->> 'online_only', 'false')) in ('true', 't', '1', 'yes'),
+  topic_ids = case
+    when jsonb_typeof(payload -> 'topicIds') = 'array' then payload -> 'topicIds'
+    else '[]'::jsonb
+  end,
+  locations = case
+    when jsonb_typeof(payload -> 'locations') = 'array' then payload -> 'locations'
+    else '[]'::jsonb
+  end,
+  coverage_mode = coalesce(payload ->> 'coverageMode', payload ->> 'coverage_mode', coverage_mode, 'locations'),
+  coverage_country = coalesce(payload ->> 'coverageCountry', payload ->> 'coverage_country', coverage_country, ''),
+  coverage_states = case
+    when jsonb_typeof(payload -> 'coverageStates') = 'array' then payload -> 'coverageStates'
+    when jsonb_typeof(payload -> 'coverage_states') = 'array' then payload -> 'coverage_states'
+    else '[]'::jsonb
+  end,
+  partner_request_redemption_method = coalesce(
+    payload ->> 'partnerRequestRedemptionMethod',
+    payload ->> 'partner_request_redemption_method',
+    partner_request_redemption_method,
+    ''
+  ),
+  partner_request_message = coalesce(
+    payload ->> 'partnerRequestMessage',
+    payload ->> 'partner_request_message',
+    partner_request_message,
+    ''
+  ),
+  notes = case
+    when jsonb_typeof(payload -> 'notes') = 'array' then payload -> 'notes'
+    else '[]'::jsonb
+  end,
+  status_history = case
+    when jsonb_typeof(payload -> 'statusHistory') = 'array' then payload -> 'statusHistory'
+    when jsonb_typeof(payload -> 'status_history') = 'array' then payload -> 'status_history'
+    else '[]'::jsonb
+  end,
+  latitude = case
+    when coalesce(payload ->> 'latitude', '') ~ '^-?[0-9]+(\.[0-9]+)?$'
+      then (payload ->> 'latitude')::double precision
+    else null
+  end,
+  longitude = case
+    when coalesce(payload ->> 'longitude', '') ~ '^-?[0-9]+(\.[0-9]+)?$'
+      then (payload ->> 'longitude')::double precision
+    else null
+  end,
+  source_created_at = coalesce(payload ->> 'createdAt', source_created_at, ''),
+  created_by_name = coalesce(payload ->> 'createdByName', created_by_name, ''),
+  created_by_role = coalesce(payload ->> 'createdByRole', created_by_role, ''),
+  created_by_user_id = coalesce(payload ->> 'createdByUserId', created_by_user_id, ''),
+  source_updated_at = coalesce(payload ->> 'updatedAt', source_updated_at, ''),
+  updated_by_name = coalesce(payload ->> 'updatedByName', updated_by_name, ''),
+  updated_by_role = coalesce(payload ->> 'updatedByRole', updated_by_role, ''),
+  updated_by_user_id = coalesce(payload ->> 'updatedByUserId', updated_by_user_id, ''),
+  responsible_user_id = coalesce(payload ->> 'responsibleUserId', payload ->> 'responsible_user_id', responsible_user_id, ''),
+  responsible_name = coalesce(payload ->> 'responsibleName', payload ->> 'responsible_name', responsible_name, ''),
+  responsible_role = coalesce(payload ->> 'responsibleRole', payload ->> 'responsible_role', responsible_role, ''),
+  responsibility_source = coalesce(payload ->> 'responsibilitySource', payload ->> 'responsibility_source', responsibility_source, ''),
+  responsibility_updated_at = coalesce(
+    payload ->> 'responsibilityUpdatedAt',
+    payload ->> 'responsibility_updated_at',
+    responsibility_updated_at,
+    ''
+  ),
+  responsibility_acceptance_status = coalesce(
+    payload ->> 'responsibilityAcceptanceStatus',
+    payload ->> 'responsibility_acceptance_status',
+    responsibility_acceptance_status,
+    ''
+  ),
+  responsibility_transferred_by_user_id = coalesce(
+    payload ->> 'responsibilityTransferredByUserId',
+    payload ->> 'responsibility_transferred_by_user_id',
+    responsibility_transferred_by_user_id,
+    ''
+  ),
+  responsibility_transferred_by_name = coalesce(
+    payload ->> 'responsibilityTransferredByName',
+    payload ->> 'responsibility_transferred_by_name',
+    responsibility_transferred_by_name,
+    ''
+  ),
+  responsibility_transferred_by_role = coalesce(
+    payload ->> 'responsibilityTransferredByRole',
+    payload ->> 'responsibility_transferred_by_role',
+    responsibility_transferred_by_role,
+    ''
+  ),
+  responsibility_previous_user_id = coalesce(
+    payload ->> 'responsibilityPreviousUserId',
+    payload ->> 'responsibility_previous_user_id',
+    responsibility_previous_user_id,
+    ''
+  ),
+  responsibility_previous_name = coalesce(
+    payload ->> 'responsibilityPreviousName',
+    payload ->> 'responsibility_previous_name',
+    responsibility_previous_name,
+    ''
+  ),
+  responsibility_previous_role = coalesce(
+    payload ->> 'responsibilityPreviousRole',
+    payload ->> 'responsibility_previous_role',
+    responsibility_previous_role,
+    ''
+  ),
+  responsibility_previous_source = coalesce(
+    payload ->> 'responsibilityPreviousSource',
+    payload ->> 'responsibility_previous_source',
+    responsibility_previous_source,
+    ''
+  ),
+  responsibility_previous_updated_at = coalesce(
+    payload ->> 'responsibilityPreviousUpdatedAt',
+    payload ->> 'responsibility_previous_updated_at',
+    responsibility_previous_updated_at,
+    ''
+  ),
+  responsibility_transfer_request_id = coalesce(
+    payload ->> 'responsibilityTransferRequestId',
+    payload ->> 'responsibility_transfer_request_id',
+    responsibility_transfer_request_id,
+    ''
+  ),
+  responsibility_transfer_request_persisted_id = coalesce(
+    payload ->> 'responsibilityTransferRequestPersistedId',
+    payload ->> 'responsibility_transfer_request_persisted_id',
+    responsibility_transfer_request_persisted_id,
+    ''
+  ),
+  responsibility_transfer_notification_id = coalesce(
+    payload ->> 'responsibilityTransferNotificationId',
+    payload ->> 'responsibility_transfer_notification_id',
+    responsibility_transfer_notification_id,
+    ''
+  ),
+  responsibility_accepted_at = coalesce(
+    payload ->> 'responsibilityAcceptedAt',
+    payload ->> 'responsibility_accepted_at',
+    responsibility_accepted_at,
+    ''
+  ),
+  responsibility_rejected_at = coalesce(
+    payload ->> 'responsibilityRejectedAt',
+    payload ->> 'responsibility_rejected_at',
+    responsibility_rejected_at,
+    ''
+  ),
+  responsibility_rejection_reason = coalesce(
+    payload ->> 'responsibilityRejectionReason',
+    payload ->> 'responsibility_rejection_reason',
+    responsibility_rejection_reason,
+    ''
+  ),
+  responsibility_rejected_by_user_id = coalesce(
+    payload ->> 'responsibilityRejectedByUserId',
+    payload ->> 'responsibility_rejected_by_user_id',
+    responsibility_rejected_by_user_id,
+    ''
+  ),
+  responsibility_rejected_by_name = coalesce(
+    payload ->> 'responsibilityRejectedByName',
+    payload ->> 'responsibility_rejected_by_name',
+    responsibility_rejected_by_name,
+    ''
+  ),
+  responsibility_rejected_by_role = coalesce(
+    payload ->> 'responsibilityRejectedByRole',
+    payload ->> 'responsibility_rejected_by_role',
+    responsibility_rejected_by_role,
+    ''
+  ),
+  in_progress_by_user_id = coalesce(payload ->> 'inProgressByUserId', payload ->> 'in_progress_by_user_id', in_progress_by_user_id, ''),
+  in_progress_by_name = coalesce(payload ->> 'inProgressByName', payload ->> 'in_progress_by_name', in_progress_by_name, ''),
+  in_progress_by_role = coalesce(payload ->> 'inProgressByRole', payload ->> 'in_progress_by_role', in_progress_by_role, ''),
+  in_progress_at = coalesce(payload ->> 'inProgressAt', payload ->> 'in_progress_at', in_progress_at, ''),
+  live_at = coalesce(payload ->> 'liveAt', live_at, ''),
+  live_requested_at = coalesce(payload ->> 'liveRequestedAt', payload ->> 'live_requested_at', live_requested_at, ''),
+  live_requested_by_user_id = coalesce(
+    payload ->> 'liveRequestedByUserId',
+    payload ->> 'live_requested_by_user_id',
+    live_requested_by_user_id,
+    ''
+  ),
+  live_requested_by_name = coalesce(
+    payload ->> 'liveRequestedByName',
+    payload ->> 'live_requested_by_name',
+    live_requested_by_name,
+    ''
+  ),
+  live_requested_by_role = coalesce(
+    payload ->> 'liveRequestedByRole',
+    payload ->> 'live_requested_by_role',
+    live_requested_by_role,
+    ''
+  ),
+  live_by_name = coalesce(payload ->> 'liveByName', live_by_name, ''),
+  live_by_role = coalesce(payload ->> 'liveByRole', live_by_role, ''),
+  live_by_user_id = coalesce(payload ->> 'liveByUserId', live_by_user_id, ''),
+  provision_user_id = coalesce(payload ->> 'provisionUserId', payload ->> 'provision_user_id', provision_user_id, ''),
+  provision_user_name = coalesce(payload ->> 'provisionUserName', payload ->> 'provision_user_name', provision_user_name, ''),
+  provision_user_role = coalesce(payload ->> 'provisionUserRole', payload ->> 'provision_user_role', provision_user_role, ''),
+  provision_assigned_at = coalesce(
+    payload ->> 'provisionAssignedAt',
+    payload ->> 'provision_assigned_at',
+    provision_assigned_at,
+    ''
+  ),
+  current_provision_credit_entry_id = coalesce(
+    payload ->> 'currentProvisionCreditEntryId',
+    payload ->> 'current_provision_credit_entry_id',
+    current_provision_credit_entry_id,
+    ''
+  ),
+  current_provision_booked_at = coalesce(
+    payload ->> 'currentProvisionBookedAt',
+    payload ->> 'current_provision_booked_at',
+    current_provision_booked_at,
+    ''
+  ),
+  current_provision_amount_eur = case
+    when replace(
+      coalesce(payload ->> 'currentProvisionAmountEur', payload ->> 'current_provision_amount_eur', ''),
+      ',',
+      '.'
+    ) ~ '^-?[0-9]+(\.[0-9]+)?$'
+      then replace(
+        coalesce(payload ->> 'currentProvisionAmountEur', payload ->> 'current_provision_amount_eur', ''),
+        ',',
+        '.'
+      )::numeric(12,2)
+    else 0
+  end,
+  source_partner_request_id = coalesce(
+    payload ->> 'sourcePartnerRequestId',
+    payload ->> 'source_partner_request_id',
+    source_partner_request_id,
+    ''
+  ),
+  source_partner_request_persisted_id = coalesce(
+    payload ->> 'sourcePartnerRequestPersistedId',
+    payload ->> 'source_partner_request_persisted_id',
+    source_partner_request_persisted_id,
+    ''
+  ),
+  source_partner_request_notification_id = coalesce(
+    payload ->> 'sourcePartnerRequestNotificationId',
+    payload ->> 'source_partner_request_notification_id',
+    source_partner_request_notification_id,
+    ''
+  ),
+  linked_partner_request_ids = case
+    when jsonb_typeof(payload -> 'linkedPartnerRequestIds') = 'array' then payload -> 'linkedPartnerRequestIds'
+    when jsonb_typeof(payload -> 'linked_partner_request_ids') = 'array' then payload -> 'linked_partner_request_ids'
+    else '[]'::jsonb
+  end,
+  linked_partner_request_persisted_ids = case
+    when jsonb_typeof(payload -> 'linkedPartnerRequestPersistedIds') = 'array' then payload -> 'linkedPartnerRequestPersistedIds'
+    when jsonb_typeof(payload -> 'linked_partner_request_persisted_ids') = 'array' then payload -> 'linked_partner_request_persisted_ids'
+    else '[]'::jsonb
+  end,
+  linked_partner_request_notification_ids = case
+    when jsonb_typeof(payload -> 'linkedPartnerRequestNotificationIds') = 'array' then payload -> 'linkedPartnerRequestNotificationIds'
+    when jsonb_typeof(payload -> 'linked_partner_request_notification_ids') = 'array' then payload -> 'linked_partner_request_notification_ids'
+    else '[]'::jsonb
+  end
+where payload is not null
+  and jsonb_typeof(payload) = 'object';
+
+-- -------------------------------------------------------------
+-- END FILE: supabase/patch_providers_table.sql
+-- -------------------------------------------------------------
+
+
+-- -------------------------------------------------------------
 -- BEGIN FILE: supabase/patch_provider_registry.sql
 -- -------------------------------------------------------------
 -- Harte Duplikat-Sperre fuer Anbieter (provider_registry)
@@ -605,12 +1222,32 @@ create table if not exists public.provider_registry (
   provider_id text primary key,
   unique_key text not null unique,
   provider_name text not null default '',
+  contact_salutation text not null default '',
+  contact_title text not null default '',
+  contact_first_name text not null default '',
+  contact_last_name text not null default '',
+  contact_person text not null default '',
+  contact_person_phone text not null default '',
+  contact_person_email text not null default '',
+  partner_request_redemption_method text not null default '',
+  partner_request_message text not null default '',
   coverage_mode text not null default 'locations',
   country text not null default '',
   claimed_by_user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.provider_registry
+  add column if not exists contact_salutation text not null default '',
+  add column if not exists contact_title text not null default '',
+  add column if not exists contact_first_name text not null default '',
+  add column if not exists contact_last_name text not null default '',
+  add column if not exists contact_person text not null default '',
+  add column if not exists contact_person_phone text not null default '',
+  add column if not exists contact_person_email text not null default '',
+  add column if not exists partner_request_redemption_method text not null default '',
+  add column if not exists partner_request_message text not null default '';
 
 drop trigger if exists trg_provider_registry_updated_at on public.provider_registry;
 create trigger trg_provider_registry_updated_at
@@ -765,7 +1402,7 @@ with check (
   )
 );
 
--- Update/Delete nur fuer eigene Notizen
+-- Update nur fuer eigene Notizen
 drop policy if exists "provider_notes_active_update_own" on public.provider_notes;
 create policy "provider_notes_active_update_own"
 on public.provider_notes
@@ -791,12 +1428,16 @@ with check (
 );
 
 drop policy if exists "provider_notes_active_delete_own" on public.provider_notes;
-create policy "provider_notes_active_delete_own"
+drop policy if exists "provider_notes_active_delete_any" on public.provider_notes;
+create policy "provider_notes_active_delete_any"
 on public.provider_notes
 for delete
 to authenticated
 using (
-  created_by_user_id::text = auth.uid()::text
+  (
+    created_by_user_id::text = auth.uid()::text
+    or public.is_admin()
+  )
   and exists (
     select 1
     from public.profiles p
@@ -4686,3 +5327,932 @@ where id = 'main';
 -- END FILE: supabase/seed_categories.sql
 -- -------------------------------------------------------------
 
+
+-- -------------------------------------------------------------
+-- BEGIN FILE: supabase/patch_partner_requests_responsibility.sql
+-- -------------------------------------------------------------
+-- Partner-Requests: direkte Zuständigkeit fuer nicht zugeordnete Formulareinreichungen.
+-- Im Supabase SQL Editor ausfuehren, wenn in "Formulareinreichungen" die Uebergabe/Zustaendigkeit fehlt.
+
+create extension if not exists pgcrypto;
+
+create table if not exists public.partner_requests (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  company_name text not null default '',
+  contact_name text not null default '',
+  email text not null default '',
+  phone text not null default '',
+  website text not null default '',
+  address text not null default '',
+  postal_code text not null default '',
+  city text not null default '',
+  state text not null default '',
+  country text not null default '',
+  redemption_method text not null default '',
+  message text not null default '',
+  status text not null default 'offen',
+  linked_provider_id text not null default '',
+  responsible_user_id uuid references auth.users(id) on delete set null,
+  responsible_name text not null default '',
+  responsible_role text not null default '',
+  responsibility_source text not null default '',
+  responsibility_updated_at timestamptz
+);
+
+alter table public.partner_requests
+  add column if not exists responsible_user_id uuid references auth.users(id) on delete set null,
+  add column if not exists responsible_name text not null default '',
+  add column if not exists responsible_role text not null default '',
+  add column if not exists responsibility_source text not null default '',
+  add column if not exists responsibility_updated_at timestamptz;
+
+alter table public.partner_requests enable row level security;
+
+grant select on table public.partner_requests to authenticated;
+grant update (
+  status,
+  responsible_user_id,
+  responsible_name,
+  responsible_role,
+  responsibility_source,
+  responsibility_updated_at
+) on table public.partner_requests to authenticated;
+
+drop policy if exists "partner_requests_admin_select" on public.partner_requests;
+create policy "partner_requests_admin_select"
+on public.partner_requests
+for select
+to authenticated
+using (public.is_admin() or responsible_user_id = auth.uid());
+
+drop policy if exists "partner_requests_admin_update_status" on public.partner_requests;
+drop policy if exists "partner_requests_admin_update" on public.partner_requests;
+create policy "partner_requests_admin_update"
+on public.partner_requests
+for update
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "partner_requests_responsible_update_status" on public.partner_requests;
+create policy "partner_requests_responsible_update_status"
+on public.partner_requests
+for update
+to authenticated
+using (responsible_user_id = auth.uid())
+with check (responsible_user_id = auth.uid());
+
+create index if not exists idx_partner_requests_responsible_user_id
+on public.partner_requests (responsible_user_id);
+
+create index if not exists idx_partner_requests_linked_provider_id
+on public.partner_requests (linked_provider_id);
+
+-- -------------------------------------------------------------
+-- END FILE: supabase/patch_partner_requests_responsibility.sql
+-- -------------------------------------------------------------
+
+
+-- -------------------------------------------------------------
+-- BEGIN FILE: supabase/patch_ceo_secretary.sql
+-- -------------------------------------------------------------
+-- CEO Office / digitales Sekretariat
+-- Privates Arbeitsgedaechtnis pro Superadmin: Notizen, Aufgaben,
+-- Wiedervorlagen und Entscheidungen. Idempotent ausfuehrbar.
+
+create extension if not exists pgcrypto;
+
+create or replace function public.is_superadmin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(public.current_user_role() in ('superadmin', 'supaadmin'), false);
+$$;
+
+create table if not exists public.ceo_secretary_entries (
+  id uuid primary key default gen_random_uuid(),
+  entry_type text not null default 'note' check (entry_type in ('note', 'task', 'followup', 'decision')),
+  title text not null default '',
+  body text not null default '',
+  context_label text not null default '',
+  due_date date,
+  is_completed boolean not null default false,
+  completed_at timestamptz,
+  created_by_user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  created_by_name text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.ceo_secretary_entries
+  add column if not exists entry_type text not null default 'note',
+  add column if not exists title text not null default '',
+  add column if not exists body text not null default '',
+  add column if not exists context_label text not null default '',
+  add column if not exists due_date date,
+  add column if not exists is_completed boolean not null default false,
+  add column if not exists completed_at timestamptz,
+  add column if not exists created_by_user_id uuid references auth.users(id) on delete cascade,
+  add column if not exists created_by_name text not null default '',
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
+alter table public.ceo_secretary_entries
+  drop constraint if exists ceo_secretary_entries_entry_type_check;
+alter table public.ceo_secretary_entries
+  add constraint ceo_secretary_entries_entry_type_check
+  check (entry_type in ('note', 'task', 'followup', 'decision'));
+
+create index if not exists idx_ceo_secretary_entries_owner_updated
+  on public.ceo_secretary_entries (created_by_user_id, updated_at desc);
+
+create index if not exists idx_ceo_secretary_entries_owner_open_due
+  on public.ceo_secretary_entries (created_by_user_id, due_date)
+  where is_completed = false;
+
+drop trigger if exists trg_ceo_secretary_entries_updated_at on public.ceo_secretary_entries;
+create trigger trg_ceo_secretary_entries_updated_at
+before update on public.ceo_secretary_entries
+for each row execute procedure public.set_updated_at();
+
+alter table public.ceo_secretary_entries enable row level security;
+
+grant select, insert, update, delete on public.ceo_secretary_entries to authenticated;
+
+drop policy if exists "ceo_secretary_entries_owner_select" on public.ceo_secretary_entries;
+create policy "ceo_secretary_entries_owner_select"
+on public.ceo_secretary_entries
+for select
+to authenticated
+using (public.is_superadmin() and created_by_user_id = auth.uid());
+
+drop policy if exists "ceo_secretary_entries_owner_insert" on public.ceo_secretary_entries;
+create policy "ceo_secretary_entries_owner_insert"
+on public.ceo_secretary_entries
+for insert
+to authenticated
+with check (public.is_superadmin() and created_by_user_id = auth.uid());
+
+drop policy if exists "ceo_secretary_entries_owner_update" on public.ceo_secretary_entries;
+create policy "ceo_secretary_entries_owner_update"
+on public.ceo_secretary_entries
+for update
+to authenticated
+using (public.is_superadmin() and created_by_user_id = auth.uid())
+with check (public.is_superadmin() and created_by_user_id = auth.uid());
+
+drop policy if exists "ceo_secretary_entries_owner_delete" on public.ceo_secretary_entries;
+create policy "ceo_secretary_entries_owner_delete"
+on public.ceo_secretary_entries
+for delete
+to authenticated
+using (public.is_superadmin() and created_by_user_id = auth.uid());
+
+-- -------------------------------------------------------------
+-- END FILE: supabase/patch_ceo_secretary.sql
+-- -------------------------------------------------------------
+
+
+-- -------------------------------------------------------------
+-- BEGIN FILE: supabase/patch_ceo_secretary_ai.sql
+-- -------------------------------------------------------------
+-- CEO Office – intelligenter Sekretär
+-- Erweitert das private CEO Office um Prioritäten und einen
+-- persistenten, pro Superadmin getrennten Lernspeicher.
+
+alter table public.ceo_secretary_entries
+  add column if not exists priority text not null default 'normal';
+
+alter table public.ceo_secretary_entries
+  drop constraint if exists ceo_secretary_entries_priority_check;
+alter table public.ceo_secretary_entries
+  add constraint ceo_secretary_entries_priority_check
+  check (priority in ('low', 'normal', 'high', 'critical'));
+
+create index if not exists idx_ceo_secretary_entries_owner_priority_due
+  on public.ceo_secretary_entries (created_by_user_id, priority, due_date)
+  where is_completed = false;
+
+create table if not exists public.ceo_secretary_preferences (
+  owner_user_id uuid primary key default auth.uid() references auth.users(id) on delete cascade,
+  assistant_name text not null default '',
+  memory jsonb not null default '[]'::jsonb,
+  last_briefing_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.ceo_secretary_preferences
+  add column if not exists assistant_name text not null default '',
+  add column if not exists memory jsonb not null default '[]'::jsonb,
+  add column if not exists last_briefing_at timestamptz,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
+drop trigger if exists trg_ceo_secretary_preferences_updated_at on public.ceo_secretary_preferences;
+create trigger trg_ceo_secretary_preferences_updated_at
+before update on public.ceo_secretary_preferences
+for each row execute procedure public.set_updated_at();
+
+alter table public.ceo_secretary_preferences enable row level security;
+grant select, insert, update, delete on public.ceo_secretary_preferences to authenticated;
+
+drop policy if exists "ceo_secretary_preferences_owner_select" on public.ceo_secretary_preferences;
+create policy "ceo_secretary_preferences_owner_select"
+on public.ceo_secretary_preferences for select to authenticated
+using (public.is_superadmin() and owner_user_id = auth.uid());
+
+drop policy if exists "ceo_secretary_preferences_owner_insert" on public.ceo_secretary_preferences;
+create policy "ceo_secretary_preferences_owner_insert"
+on public.ceo_secretary_preferences for insert to authenticated
+with check (public.is_superadmin() and owner_user_id = auth.uid());
+
+drop policy if exists "ceo_secretary_preferences_owner_update" on public.ceo_secretary_preferences;
+create policy "ceo_secretary_preferences_owner_update"
+on public.ceo_secretary_preferences for update to authenticated
+using (public.is_superadmin() and owner_user_id = auth.uid())
+with check (public.is_superadmin() and owner_user_id = auth.uid());
+
+drop policy if exists "ceo_secretary_preferences_owner_delete" on public.ceo_secretary_preferences;
+create policy "ceo_secretary_preferences_owner_delete"
+on public.ceo_secretary_preferences for delete to authenticated
+using (public.is_superadmin() and owner_user_id = auth.uid());
+
+-- -------------------------------------------------------------
+-- END FILE: supabase/patch_ceo_secretary_ai.sql
+-- -------------------------------------------------------------
+
+
+-- -------------------------------------------------------------
+-- BEGIN FILE: supabase/patch_ceo_secretary_crm_links.sql
+-- -------------------------------------------------------------
+-- CEO Office / CRM-Verknüpfungen
+-- Verbindet private CEO-Notizen nur mit CRM-Referenzen (ohne
+-- CRM-Inhalte zu kopieren). Idempotent ausfuehrbar.
+
+create table if not exists public.ceo_secretary_entry_links (
+  id uuid primary key default gen_random_uuid(),
+  entry_id uuid not null references public.ceo_secretary_entries(id) on delete cascade,
+  owner_user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  entity_type text not null check (entity_type in ('employee', 'company', 'provider')),
+  entity_id text not null,
+  entity_label text not null default '',
+  created_at timestamptz not null default now(),
+  unique (entry_id, entity_type, entity_id)
+);
+
+create index if not exists idx_ceo_secretary_entry_links_owner_entity
+  on public.ceo_secretary_entry_links (owner_user_id, entity_type, entity_id);
+
+create index if not exists idx_ceo_secretary_entry_links_entry
+  on public.ceo_secretary_entry_links (entry_id);
+
+alter table public.ceo_secretary_entry_links enable row level security;
+grant select, insert, update, delete on public.ceo_secretary_entry_links to authenticated;
+
+drop policy if exists "ceo_secretary_entry_links_owner_select" on public.ceo_secretary_entry_links;
+create policy "ceo_secretary_entry_links_owner_select"
+on public.ceo_secretary_entry_links for select to authenticated
+using (public.is_superadmin() and owner_user_id = auth.uid());
+
+drop policy if exists "ceo_secretary_entry_links_owner_insert" on public.ceo_secretary_entry_links;
+create policy "ceo_secretary_entry_links_owner_insert"
+on public.ceo_secretary_entry_links for insert to authenticated
+with check (
+  public.is_superadmin()
+  and owner_user_id = auth.uid()
+  and exists (
+    select 1
+    from public.ceo_secretary_entries entry
+    where entry.id = entry_id
+      and entry.created_by_user_id = auth.uid()
+  )
+);
+
+drop policy if exists "ceo_secretary_entry_links_owner_update" on public.ceo_secretary_entry_links;
+create policy "ceo_secretary_entry_links_owner_update"
+on public.ceo_secretary_entry_links for update to authenticated
+using (public.is_superadmin() and owner_user_id = auth.uid())
+with check (
+  public.is_superadmin()
+  and owner_user_id = auth.uid()
+  and exists (
+    select 1
+    from public.ceo_secretary_entries entry
+    where entry.id = entry_id
+      and entry.created_by_user_id = auth.uid()
+  )
+);
+
+drop policy if exists "ceo_secretary_entry_links_owner_delete" on public.ceo_secretary_entry_links;
+create policy "ceo_secretary_entry_links_owner_delete"
+on public.ceo_secretary_entry_links for delete to authenticated
+using (public.is_superadmin() and owner_user_id = auth.uid());
+
+-- -------------------------------------------------------------
+-- END FILE: supabase/patch_ceo_secretary_crm_links.sql
+-- -------------------------------------------------------------
+
+-- -------------------------------------------------------------
+-- BEGIN FILE: supabase/patch_ceo_secretary_security.sql
+-- -------------------------------------------------------------
+
+create extension if not exists pgcrypto;
+
+create table if not exists public.ceo_secretary_audit_events (
+  id uuid primary key default gen_random_uuid(),
+  owner_user_id uuid not null references auth.users(id) on delete cascade,
+  actor_user_id uuid references auth.users(id) on delete set null,
+  event_type text not null,
+  source text not null default 'ceo_secretary',
+  entity_type text not null,
+  entity_id text not null default '',
+  entity_label text not null default '',
+  before_state jsonb,
+  after_state jsonb,
+  details jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table public.ceo_secretary_audit_events
+  add column if not exists owner_user_id uuid references auth.users(id) on delete cascade,
+  add column if not exists actor_user_id uuid references auth.users(id) on delete set null,
+  add column if not exists event_type text not null default 'entry_updated',
+  add column if not exists source text not null default 'ceo_secretary',
+  add column if not exists entity_type text not null default 'ceo_entry',
+  add column if not exists entity_id text not null default '',
+  add column if not exists entity_label text not null default '',
+  add column if not exists before_state jsonb,
+  add column if not exists after_state jsonb,
+  add column if not exists details jsonb not null default '{}'::jsonb,
+  add column if not exists created_at timestamptz not null default now();
+
+alter table public.ceo_secretary_audit_events
+  drop constraint if exists ceo_secretary_audit_events_event_type_check;
+alter table public.ceo_secretary_audit_events
+  add constraint ceo_secretary_audit_events_event_type_check
+  check (event_type in (
+    'assistant_context_read',
+    'entry_created',
+    'entry_updated',
+    'entry_completed',
+    'entry_reopened',
+    'entry_deleted',
+    'employee_role_changed'
+  ));
+
+alter table public.ceo_secretary_audit_events
+  drop constraint if exists ceo_secretary_audit_events_entity_type_check;
+alter table public.ceo_secretary_audit_events
+  add constraint ceo_secretary_audit_events_entity_type_check
+  check (entity_type in ('ceo_context', 'ceo_entry', 'employee'));
+
+create index if not exists idx_ceo_secretary_audit_events_owner_created
+  on public.ceo_secretary_audit_events (owner_user_id, created_at desc);
+
+alter table public.ceo_secretary_audit_events enable row level security;
+
+revoke all on public.ceo_secretary_audit_events from public;
+revoke all on public.ceo_secretary_audit_events from anon;
+revoke all on public.ceo_secretary_audit_events from authenticated;
+grant select on public.ceo_secretary_audit_events to authenticated;
+grant insert on public.ceo_secretary_audit_events to service_role;
+
+drop policy if exists "ceo_secretary_audit_events_owner_select" on public.ceo_secretary_audit_events;
+create policy "ceo_secretary_audit_events_owner_select"
+on public.ceo_secretary_audit_events
+for select
+to authenticated
+using (public.is_superadmin() and owner_user_id = auth.uid());
+
+create or replace function public.ceo_secretary_entry_audit_snapshot(entry_row public.ceo_secretary_entries)
+returns jsonb
+language sql
+stable
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'title', coalesce(entry_row.title, ''),
+    'entry_type', coalesce(entry_row.entry_type, ''),
+    'context_label', coalesce(entry_row.context_label, ''),
+    'due_date', entry_row.due_date,
+    'priority', coalesce(entry_row.priority, 'normal'),
+    'is_completed', coalesce(entry_row.is_completed, false),
+    'body_length', char_length(coalesce(entry_row.body, ''))
+  );
+$$;
+
+create or replace function public.log_ceo_secretary_entry_audit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  audit_owner uuid;
+  audit_event_type text;
+  audit_actor uuid;
+begin
+  audit_actor := auth.uid();
+
+  if tg_op = 'INSERT' then
+    audit_owner := new.created_by_user_id;
+    audit_event_type := 'entry_created';
+    insert into public.ceo_secretary_audit_events (
+      owner_user_id, actor_user_id, event_type, source, entity_type, entity_id, entity_label, after_state
+    ) values (
+      audit_owner, audit_actor, audit_event_type, 'ceo_secretary', 'ceo_entry', new.id::text,
+      coalesce(new.title, ''), public.ceo_secretary_entry_audit_snapshot(new)
+    );
+    return new;
+  end if;
+
+  audit_owner := old.created_by_user_id;
+  if tg_op = 'DELETE' then
+    insert into public.ceo_secretary_audit_events (
+      owner_user_id, actor_user_id, event_type, source, entity_type, entity_id, entity_label, before_state
+    ) values (
+      audit_owner, audit_actor, 'entry_deleted', 'ceo_secretary', 'ceo_entry', old.id::text,
+      coalesce(old.title, ''), public.ceo_secretary_entry_audit_snapshot(old)
+    );
+    return old;
+  end if;
+
+  audit_event_type := case
+    when old.is_completed is distinct from new.is_completed and new.is_completed then 'entry_completed'
+    when old.is_completed is distinct from new.is_completed and not new.is_completed then 'entry_reopened'
+    else 'entry_updated'
+  end;
+  insert into public.ceo_secretary_audit_events (
+    owner_user_id, actor_user_id, event_type, source, entity_type, entity_id, entity_label, before_state, after_state
+  ) values (
+    audit_owner, audit_actor, audit_event_type, 'ceo_secretary', 'ceo_entry', new.id::text,
+    coalesce(new.title, old.title, ''), public.ceo_secretary_entry_audit_snapshot(old),
+    public.ceo_secretary_entry_audit_snapshot(new)
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_ceo_secretary_entries_audit on public.ceo_secretary_entries;
+create trigger trg_ceo_secretary_entries_audit
+after insert or update or delete on public.ceo_secretary_entries
+for each row execute procedure public.log_ceo_secretary_entry_audit();
+
+create or replace function public.log_ceo_secretary_profile_role_audit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  audit_actor uuid;
+begin
+  if old.role is not distinct from new.role then
+    return new;
+  end if;
+  audit_actor := auth.uid();
+  if audit_actor is null then
+    return new;
+  end if;
+  insert into public.ceo_secretary_audit_events (
+    owner_user_id, actor_user_id, event_type, source, entity_type, entity_id, entity_label, before_state, after_state
+  ) values (
+    audit_actor, audit_actor, 'employee_role_changed', 'ceo_secretary', 'employee', new.user_id::text,
+    coalesce(new.full_name, new.email, 'Mitarbeiter'),
+    jsonb_build_object('role', coalesce(old.role, '')),
+    jsonb_build_object('role', coalesce(new.role, ''))
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_profiles_ceo_secretary_role_audit on public.profiles;
+create trigger trg_profiles_ceo_secretary_role_audit
+after update of role on public.profiles
+for each row execute procedure public.log_ceo_secretary_profile_role_audit();
+
+create or replace function public.prevent_ceo_secretary_audit_event_mutation()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  raise exception 'CEO-Sicherheitsprotokolle sind unveraenderbar.';
+end;
+$$;
+
+drop trigger if exists trg_ceo_secretary_audit_events_append_only on public.ceo_secretary_audit_events;
+create trigger trg_ceo_secretary_audit_events_append_only
+before update or delete on public.ceo_secretary_audit_events
+for each row execute procedure public.prevent_ceo_secretary_audit_event_mutation();
+
+-- -------------------------------------------------------------
+-- END FILE: supabase/patch_ceo_secretary_security.sql
+-- -------------------------------------------------------------
+
+-- -------------------------------------------------------------
+-- BEGIN FILE: supabase/patch_provider_workflow_permissions.sql
+-- -------------------------------------------------------------
+-- Anbieter-Workflow: „In Bearbeitung“ und Einladungen belastbar absichern.
+
+begin;
+
+create or replace function public.is_provider_in_progress_status(status_value text)
+returns boolean
+language sql
+immutable
+as $$
+  select regexp_replace(lower(trim(coalesce(status_value, ''))), '[-[:space:]_]+', '_', 'g')
+    in ('erfasst', 'in_bearbeitung', 'in_progress', 'progress', 'bearbeitung', 'claimed');
+$$;
+
+create or replace function public.is_active_provider_workflow_user()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles p
+    where p.user_id::text = auth.uid()::text
+      and p.status = 'active'
+      and p.role in ('mitarbeiter', 'vertriebsmitarbeiter', 'admin', 'superadmin', 'supaadmin')
+  );
+$$;
+
+-- Bei erneutem Ausführen darf der Backfill nicht an seinem eigenen
+-- Claim-Trigger scheitern. Die Trigger werden am Ende des Patches direkt
+-- wiederhergestellt; die Tabelle wird dabei nicht geöffnet oder umgebaut.
+drop trigger if exists trg_providers_enforce_in_progress_claim on public.providers;
+drop trigger if exists trg_providers_preserve_invitation_workflow on public.providers;
+
+with latest_in_progress_history as (
+  select
+    p.id,
+    (
+      select history.entry
+      from jsonb_array_elements(
+        case
+          when jsonb_typeof(p.payload -> 'statusHistory') = 'array' then p.payload -> 'statusHistory'
+          when jsonb_typeof(p.payload -> 'status_history') = 'array' then p.payload -> 'status_history'
+          else '[]'::jsonb
+        end
+      ) with ordinality as history(entry, position)
+      where public.is_provider_in_progress_status(
+        coalesce(
+          nullif(history.entry ->> 'toStatus', ''),
+          nullif(history.entry ->> 'to_status', ''),
+          nullif(history.entry ->> 'status', ''),
+          ''
+        )
+      )
+      order by history.position desc
+      limit 1
+    ) as entry
+  from public.providers p
+  where public.is_provider_in_progress_status(coalesce(nullif(p.status, ''), p.payload ->> 'status'))
+)
+update public.providers p
+set
+  in_progress_by_user_id = coalesce(
+    nullif(p.in_progress_by_user_id, ''),
+    nullif(p.payload ->> 'inProgressByUserId', ''),
+    nullif(p.payload ->> 'in_progress_by_user_id', ''),
+    nullif(history.entry ->> 'byUserId', ''),
+    nullif(history.entry ->> 'by_user_id', ''),
+    nullif(history.entry ->> 'userId', ''),
+    nullif(p.updated_by_user_id, ''),
+    nullif(p.created_by_user_id, ''),
+    ''
+  ),
+  in_progress_by_name = coalesce(
+    nullif(p.in_progress_by_name, ''),
+    nullif(p.payload ->> 'inProgressByName', ''),
+    nullif(p.payload ->> 'in_progress_by_name', ''),
+    nullif(history.entry ->> 'byName', ''),
+    nullif(history.entry ->> 'by_name', ''),
+    nullif(history.entry ->> 'userName', ''),
+    nullif(history.entry ->> 'name', ''),
+    nullif(p.updated_by_name, ''),
+    nullif(p.created_by_name, ''),
+    ''
+  ),
+  in_progress_by_role = coalesce(
+    nullif(p.in_progress_by_role, ''),
+    nullif(p.payload ->> 'inProgressByRole', ''),
+    nullif(p.payload ->> 'in_progress_by_role', ''),
+    nullif(history.entry ->> 'byRole', ''),
+    nullif(history.entry ->> 'by_role', ''),
+    nullif(history.entry ->> 'role', ''),
+    nullif(p.updated_by_role, ''),
+    nullif(p.created_by_role, ''),
+    ''
+  ),
+  in_progress_at = coalesce(
+    nullif(p.in_progress_at, ''),
+    nullif(p.payload ->> 'inProgressAt', ''),
+    nullif(p.payload ->> 'in_progress_at', ''),
+    nullif(history.entry ->> 'at', ''),
+    nullif(history.entry ->> 'changedAt', ''),
+    nullif(history.entry ->> 'changed_at', ''),
+    nullif(history.entry ->> 'timestamp', ''),
+    nullif(p.source_updated_at, ''),
+    nullif(p.source_created_at, ''),
+    ''
+  )
+from latest_in_progress_history history
+where p.id = history.id;
+
+alter table public.providers enable row level security;
+
+drop policy if exists "providers_auth_insert" on public.providers;
+create policy "providers_auth_insert"
+on public.providers
+for insert
+to authenticated
+with check (
+  public.is_admin()
+  or (
+    public.is_active_provider_workflow_user()
+    and (
+      not public.is_provider_in_progress_status(status)
+      or nullif(in_progress_by_user_id, '') = auth.uid()::text
+    )
+  )
+);
+
+drop policy if exists "providers_auth_update" on public.providers;
+create policy "providers_auth_update"
+on public.providers
+for update
+to authenticated
+using (
+  public.is_admin()
+  or (
+    public.is_active_provider_workflow_user()
+    and (
+      not public.is_provider_in_progress_status(status)
+      or nullif(in_progress_by_user_id, '') = auth.uid()::text
+    )
+  )
+)
+with check (
+  public.is_admin()
+  or (
+    public.is_active_provider_workflow_user()
+    and (
+      not public.is_provider_in_progress_status(status)
+      or nullif(in_progress_by_user_id, '') = auth.uid()::text
+    )
+  )
+);
+
+drop policy if exists "providers_auth_delete" on public.providers;
+create policy "providers_auth_delete"
+on public.providers
+for delete
+to authenticated
+using (
+  public.is_admin()
+  or (
+    public.is_active_provider_workflow_user()
+    and created_by_user_id = auth.uid()::text
+    and (
+      not public.is_provider_in_progress_status(status)
+      or nullif(in_progress_by_user_id, '') = auth.uid()::text
+    )
+  )
+);
+
+create or replace function public.enforce_provider_in_progress_claim()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  actor_user_id text := coalesce(auth.uid()::text, '');
+  is_service_role boolean := coalesce(auth.role(), '') = 'service_role';
+begin
+  if is_service_role then
+    return new;
+  end if;
+
+  if not public.is_active_provider_workflow_user() then
+    raise exception using
+      errcode = '42501',
+      message = 'Nur aktive Benutzer dürfen Anbieter ändern.';
+  end if;
+
+  if public.is_admin() then
+    return new;
+  end if;
+
+  if tg_op = 'INSERT' then
+    if public.is_provider_in_progress_status(new.status)
+      and nullif(new.in_progress_by_user_id, '') is distinct from actor_user_id then
+      raise exception using
+        errcode = '42501',
+        message = 'Der In-Bearbeitung-Claim muss dem ausführenden Benutzer gehören.';
+    end if;
+    return new;
+  end if;
+
+  if public.is_provider_in_progress_status(old.status)
+    and nullif(old.in_progress_by_user_id, '') is distinct from actor_user_id then
+    raise exception using
+      errcode = '42501',
+      message = 'Dieser Anbieter wird von einem anderen Benutzer bearbeitet.';
+  end if;
+
+  if public.is_provider_in_progress_status(new.status)
+    and nullif(new.in_progress_by_user_id, '') is distinct from actor_user_id then
+    raise exception using
+      errcode = '42501',
+      message = 'Der In-Bearbeitung-Claim muss dem ausführenden Benutzer gehören.';
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger trg_providers_enforce_in_progress_claim
+before insert or update on public.providers
+for each row execute procedure public.enforce_provider_in_progress_claim();
+
+-- Einladungsfelder werden ausschließlich über die serverseitigen Endpunkte
+-- verändert. Ein älteres, noch offenes Anbieterformular darf beim normalen
+-- Speichern keinen gerade geänderten Einladungsauftrag überschreiben.
+create or replace function public.preserve_provider_invitation_workflow_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  invitation_fields text[] := array[
+    'invitationRequestStatus', 'invitation_request_status',
+    'invitationRequestedAt', 'invitation_requested_at',
+    'invitationRequestedByUserId', 'invitation_requested_by_user_id',
+    'invitationRequestedByName', 'invitation_requested_by_name',
+    'invitationRequestedByRole', 'invitation_requested_by_role',
+    'invitationInProgressAt', 'invitation_in_progress_at',
+    'invitationInProgressByUserId', 'invitation_in_progress_by_user_id',
+    'invitationInProgressByName', 'invitation_in_progress_by_name',
+    'invitationInProgressByRole', 'invitation_in_progress_by_role',
+    'invitationCompletedAt', 'invitation_completed_at',
+    'invitationCompletedByUserId', 'invitation_completed_by_user_id',
+    'invitationCompletedByName', 'invitation_completed_by_name',
+    'invitationCompletedByRole', 'invitation_completed_by_role'
+  ];
+  field_name text;
+  old_payload jsonb;
+  next_payload jsonb := coalesce(new.payload, '{}'::jsonb);
+begin
+  if coalesce(auth.role(), '') = 'service_role' then
+    return new;
+  end if;
+
+  if tg_op = 'INSERT' then
+    foreach field_name in array invitation_fields loop
+      next_payload := next_payload - field_name;
+    end loop;
+    new.payload := next_payload;
+    return new;
+  end if;
+
+  old_payload := coalesce(old.payload, '{}'::jsonb);
+  foreach field_name in array invitation_fields loop
+    if old_payload ? field_name then
+      next_payload := jsonb_set(next_payload, array[field_name], old_payload -> field_name, true);
+    else
+      next_payload := next_payload - field_name;
+    end if;
+  end loop;
+  new.payload := next_payload;
+  return new;
+end;
+$$;
+
+create trigger trg_providers_preserve_invitation_workflow
+before insert or update on public.providers
+for each row execute procedure public.preserve_provider_invitation_workflow_fields();
+
+commit;
+
+-- -------------------------------------------------------------
+-- END FILE: supabase/patch_provider_workflow_permissions.sql
+-- -------------------------------------------------------------
+
+-- -------------------------------------------------------------
+-- BEGIN FILE: supabase/patch_content_read_receipts.sql
+-- -------------------------------------------------------------
+-- Lesebestätigungen für Hilfe-Themen, Hilfe-Videos und persönliche Glocken-Nachrichten.
+-- Im Supabase SQL Editor ausführen. Das Skript ist idempotent.
+
+create extension if not exists pgcrypto;
+
+create table if not exists public.content_read_receipts (
+  id uuid primary key default gen_random_uuid(),
+  content_type text not null,
+  content_id text not null,
+  content_version integer not null default 1,
+  reader_user_id uuid not null references auth.users(id) on delete cascade,
+  read_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  constraint content_read_receipts_type_check
+    check (content_type in ('help_topic', 'help_video', 'employee_message')),
+  constraint content_read_receipts_id_check
+    check (char_length(content_id) between 1 and 180),
+  constraint content_read_receipts_version_check
+    check (content_version between 1 and 100000),
+  constraint content_read_receipts_unique_reader
+    unique (content_type, content_id, content_version, reader_user_id)
+);
+
+alter table public.content_read_receipts
+  add column if not exists content_type text,
+  add column if not exists content_id text,
+  add column if not exists content_version integer not null default 1,
+  add column if not exists reader_user_id uuid references auth.users(id) on delete cascade,
+  add column if not exists read_at timestamptz not null default now(),
+  add column if not exists created_at timestamptz not null default now();
+
+create index if not exists idx_content_read_receipts_content
+  on public.content_read_receipts (content_type, content_id, content_version, read_at desc);
+
+create index if not exists idx_content_read_receipts_reader
+  on public.content_read_receipts (reader_user_id, read_at desc);
+
+alter table public.content_read_receipts enable row level security;
+
+revoke all on public.content_read_receipts from public;
+revoke all on public.content_read_receipts from anon;
+grant select, insert on public.content_read_receipts to authenticated;
+
+drop policy if exists "content_read_receipts_select_own_or_admin" on public.content_read_receipts;
+create policy "content_read_receipts_select_own_or_admin"
+on public.content_read_receipts
+for select
+to authenticated
+using (
+  reader_user_id = auth.uid()
+  or public.is_admin()
+);
+
+drop policy if exists "content_read_receipts_insert_own_active" on public.content_read_receipts;
+create policy "content_read_receipts_insert_own_active"
+on public.content_read_receipts
+for insert
+to authenticated
+with check (
+  reader_user_id = auth.uid()
+  and exists (
+    select 1
+    from public.profiles p
+    where p.user_id::text = auth.uid()::text
+      and p.status = 'active'
+  )
+);
+
+-- -------------------------------------------------------------
+-- END FILE: supabase/patch_content_read_receipts.sql
+-- -------------------------------------------------------------
+
+-- -------------------------------------------------------------
+-- BEGIN FILE: supabase/patch_web_push_subscriptions.sql
+-- -------------------------------------------------------------
+-- Push-Abonnements für die installierte Vertriebs-PWA.
+-- Private VAPID-Schlüssel bleiben ausschließlich bei Vercel.
+
+create extension if not exists pgcrypto;
+
+create table if not exists public.web_push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  endpoint text not null unique,
+  subscription jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint web_push_subscriptions_endpoint_check check (char_length(endpoint) between 20 and 2048)
+);
+
+create index if not exists idx_web_push_subscriptions_user
+  on public.web_push_subscriptions (user_id, updated_at desc);
+
+alter table public.web_push_subscriptions enable row level security;
+revoke all on public.web_push_subscriptions from public;
+revoke all on public.web_push_subscriptions from anon;
+revoke all on public.web_push_subscriptions from authenticated;
+
+-- -------------------------------------------------------------
+-- END FILE: supabase/patch_web_push_subscriptions.sql
+-- -------------------------------------------------------------

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="my-waycard CRM">
+  <rect width="512" height="512" rx="116" fill="#123b67"/>
+  <rect x="82" y="122" width="348" height="268" rx="38" fill="#fff"/>
+  <rect x="118" y="184" width="276" height="25" rx="12.5" fill="#1666b0"/>
+  <rect x="118" y="238" width="214" height="18" rx="9" fill="#1666b0" opacity=".84"/>
+  <rect x="118" y="278" width="248" height="18" rx="9" fill="#1666b0" opacity=".58"/>
+  <rect x="118" y="318" width="164" height="18" rx="9" fill="#1666b0" opacity=".35"/>
+</svg>

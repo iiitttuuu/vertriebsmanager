@@ -1,5 +1,13 @@
 {
+  "scripts": {
+    "test:provision": "node scripts/test-provision-accounting.mjs",
+    "test:provider-workflow": "node scripts/test-provider-workflow.mjs",
+    "test:provider-invitation-api": "node scripts/test-provider-invitation-api.mjs",
+    "test:resilience": "node scripts/test-crm-resilience.mjs",
+    "test": "npm run test:provision && npm run test:provider-workflow && npm run test:provider-invitation-api && npm run test:resilience"
+  },
   "dependencies": {
-    "vercel": "^50.37.3"
+    "vercel": "^50.37.3",
+    "web-push": "^3.6.7"
   }
 }

@@ -17,12 +17,32 @@ create table if not exists public.provider_registry (
   provider_id text primary key,
   unique_key text not null unique,
   provider_name text not null default '',
+  contact_salutation text not null default '',
+  contact_title text not null default '',
+  contact_first_name text not null default '',
+  contact_last_name text not null default '',
+  contact_person text not null default '',
+  contact_person_phone text not null default '',
+  contact_person_email text not null default '',
+  partner_request_redemption_method text not null default '',
+  partner_request_message text not null default '',
   coverage_mode text not null default 'locations',
   country text not null default '',
   claimed_by_user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.provider_registry
+  add column if not exists contact_salutation text not null default '',
+  add column if not exists contact_title text not null default '',
+  add column if not exists contact_first_name text not null default '',
+  add column if not exists contact_last_name text not null default '',
+  add column if not exists contact_person text not null default '',
+  add column if not exists contact_person_phone text not null default '',
+  add column if not exists contact_person_email text not null default '',
+  add column if not exists partner_request_redemption_method text not null default '',
+  add column if not exists partner_request_message text not null default '';
 
 drop trigger if exists trg_provider_registry_updated_at on public.provider_registry;
 create trigger trg_provider_registry_updated_at

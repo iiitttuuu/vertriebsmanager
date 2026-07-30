@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#123b67" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="mwc-app-version" content="20260730-v73" />
+    <title>my-waycard CRM</title>
+    <link rel="manifest" href="/vertrieb-manifest.webmanifest" />
+    <link rel="icon" href="/assets/pwa-vertrieb-icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/pwa-vertrieb-icon.svg" />
+    <link rel="stylesheet" href="/vertrieb-pwa.css?v=20260730-v73" />
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script defer src="/config.js?v=20260729-supabase-publishable-key-v1"></script>
+    <script defer src="/vertrieb-pwa.js?v=20260730-v73"></script>
+  </head>
+  <body>
+    <main id="sales-pwa-root" class="sales-pwa-root" aria-live="polite">
+      <section id="sales-pwa-loading" class="pwa-centered-view">
+        <img src="/assets/pwa-vertrieb-icon.svg" alt="" class="pwa-loading-logo" />
+        <p>CRM wird geladen …</p>
+      </section>
+    </main>
+    <div id="sales-pwa-toast" class="pwa-toast hidden" role="status" aria-live="polite"></div>
+  </body>
+</html>

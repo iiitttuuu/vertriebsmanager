@@ -1,0 +1,19 @@
+{
+  "name": "my-waycard CRM",
+  "short_name": "CRM",
+  "description": "Die mobile CRM-App von my-waycard.",
+  "id": "/vertrieb",
+  "start_url": "/vertrieb",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#123b67",
+  "lang": "de",
+  "icons": [
+    {
+      "src": "/assets/pwa-vertrieb-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
