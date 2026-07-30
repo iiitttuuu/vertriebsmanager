@@ -82,4 +82,40 @@ assert.match(
   "Der Supabase-Client muss den Timeout-Fetch global verwenden."
 );
 
-console.log("CRM-Resilienz geprüft: hängende Supabase-Anfragen werden abgebrochen.");
+// Ein interaktiver Anbieter-Save darf nicht hinter mehreren langsamen
+// Hintergrund-Synchronisierungen warten. Nach dem bereits laufenden Request
+// muss er vor den wartenden Hintergrundjobs ausgeführt werden.
+let releaseActiveSync;
+const activeSyncGate = new Promise((resolve) => {
+  releaseActiveSync = resolve;
+});
+const syncOrder = [];
+const schedulerContext = {
+  Promise,
+  pendingCriticalProvidersTableSyncs: [],
+  pendingBackgroundProvidersTableSyncs: [],
+  providersTableSyncRunning: false,
+  syncProvidersTableWithStateNow: async (providers) => {
+    syncOrder.push(providers.id);
+    if (providers.id === "active") {
+      await activeSyncGate;
+    }
+    return { ok: true, id: providers.id };
+  },
+};
+vm.createContext(schedulerContext);
+vm.runInContext(extractFunction("syncProvidersTableWithState"), schedulerContext);
+vm.runInContext(extractFunction("processNextProvidersTableSync"), schedulerContext);
+
+const activeSync = schedulerContext.syncProvidersTableWithState({ id: "active" });
+const backgroundSync = schedulerContext.syncProvidersTableWithState({ id: "background" });
+const criticalSync = schedulerContext.syncProvidersTableWithState({ id: "critical" }, { priority: "critical" });
+releaseActiveSync();
+await Promise.all([activeSync, backgroundSync, criticalSync]);
+assert.deepEqual(
+  syncOrder,
+  ["active", "critical", "background"],
+  "Interaktive Anbieter-Saves müssen vor wartenden Hintergrund-Synchronisierungen laufen."
+);
+
+console.log("CRM-Resilienz geprüft: Requests brechen sauber ab und Anbieter-Saves werden priorisiert.");

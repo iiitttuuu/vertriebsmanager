@@ -915,6 +915,7 @@ let providerUnsavedChangesResolve = null;
 let providerPendingTabAfterSave = "";
 let providerPendingCloseAfterSave = false;
 let providerSaveCompletionResolve = null;
+let providerSaveInFlight = false;
 let providerDashboardCreatedSyncInFlight = false;
 let providerCompetitorSyncInFlight = false;
 let supabaseClient = null;
@@ -929,7 +930,12 @@ let remoteStatePullInFlight = false;
 let remoteStatePushInFlight = false;
 let localChangesPendingRemoteSync = false;
 let queuedRemoteStateSkipProvidersTableSync = false;
-let providersTableSyncQueue = Promise.resolve();
+// Anbieter-Synchronisierungen dürfen nicht in einer langen Reihe von
+// Hintergrund-Vollsynchronisierungen stecken bleiben. Interaktive Saves
+// werden nach dem aktuell laufenden Request bevorzugt behandelt.
+let providersTableSyncRunning = false;
+const pendingCriticalProvidersTableSyncs = [];
+const pendingBackgroundProvidersTableSyncs = [];
 let providerOverviewSyncInFlight = false;
 let lastProviderOverviewRefreshAt = 0;
 let partnerRequests = [];
@@ -2835,6 +2841,12 @@ function openProviderUnsavedChangesDialog() {
 function requestProviderFormSave() {
   const form = els.providerForm;
   if (!form) {
+    return Promise.resolve(false);
+  }
+  // Ein Tab-Wechsel kann während eines laufenden Klick-Speicherns erneut ein
+  // requestSubmit() auslösen. Die zweite Anfrage darf weder den ersten Save
+  // überholen noch dessen Abschluss-Callback ersetzen.
+  if (providerSaveInFlight) {
     return Promise.resolve(false);
   }
   if (!form.checkValidity()) {
@@ -6810,6 +6822,10 @@ function bindEvents() {
 
   els.providerForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (providerSaveInFlight) {
+      return;
+    }
+    providerSaveInFlight = true;
     const adminUser = isAdmin();
     const canSetDashboardCreated = canCurrentUserSetProviderDashboardCreated(getCurrentUser());
     const wasEditingProvider = Boolean(editingProviderId);
@@ -7378,6 +7394,7 @@ function bindEvents() {
       console.warn("Anbieter-Speichern fehlgeschlagen.", error);
     } finally {
       setActionButtonBusy(els.providerSaveBtn, false);
+      providerSaveInFlight = false;
       providerSaveCompletionResolve?.(providerSaveSucceeded);
       providerSaveCompletionResolve = null;
     }
@@ -62081,18 +62098,38 @@ async function loadProvidersFromSupabaseTable(client = getSupabaseClient()) {
 }
 
 async function syncProvidersTableWithState(providers = state.providers, options = {}) {
-  const previousSync = providersTableSyncQueue;
-  let releaseSync;
-  const currentSync = new Promise((resolve) => {
-    releaseSync = resolve;
+  return new Promise((resolve) => {
+    const job = { providers, options, resolve };
+    const isCritical = options?.priority === "critical";
+    (isCritical ? pendingCriticalProvidersTableSyncs : pendingBackgroundProvidersTableSyncs).push(job);
+    processNextProvidersTableSync();
   });
-  providersTableSyncQueue = currentSync;
-  await previousSync.catch(() => {});
-  try {
-    return await syncProvidersTableWithStateNow(providers, options);
-  } finally {
-    releaseSync();
+}
+
+function processNextProvidersTableSync() {
+  if (providersTableSyncRunning) {
+    return;
   }
+  const nextJob = pendingCriticalProvidersTableSyncs.shift() || pendingBackgroundProvidersTableSyncs.shift();
+  if (!nextJob) {
+    return;
+  }
+
+  providersTableSyncRunning = true;
+  void (async () => {
+    try {
+      // syncProvidersTableWithStateNow fängt erwartete Serverfehler selbst
+      // ab. Der catch schützt zusätzlich die Warteschlange vor unerwarteten
+      // JavaScript-Fehlern, damit kein weiterer Anbieter-Dialog einfriert.
+      const result = await syncProvidersTableWithStateNow(nextJob.providers, nextJob.options);
+      nextJob.resolve(result);
+    } catch (error) {
+      nextJob.resolve({ ok: false, reason: "exception", error });
+    } finally {
+      providersTableSyncRunning = false;
+      processNextProvidersTableSync();
+    }
+  })();
 }
 
 async function syncProvidersTableWithStateNow(providers = state.providers, options = {}) {
@@ -66076,6 +66113,7 @@ async function persistCriticalStateSnapshot(options = {}) {
   if (providerSyncAction) {
     const providersTableResult = await syncProvidersTableWithState(snapshot.providers || [], {
       warnOnMissingRelation: true,
+      priority: "critical",
       upsertProviderIds: providersSync?.upsertProviderIds || [],
       deleteProviderIds: providersSync?.deleteProviderIds || [],
       forceFullSync: providersSync?.forceFullSync === true,
