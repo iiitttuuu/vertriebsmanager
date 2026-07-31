@@ -914,7 +914,12 @@ let providerDraftPendingResume = false;
 let providerUnsavedChangesResolve = null;
 let providerPendingTabAfterSave = "";
 let providerPendingCloseAfterSave = false;
-let providerSaveCompletionResolve = null;
+// Mehrere Aktionen können auf denselben Speichervorgang warten: etwa wenn
+// jemand direkt nach "Speichern" noch "Zur Übersicht" auswählt. Ein einzelner
+// Callback verlor dabei den ersten/zweiten Wartenden und konnte den bereits
+// erfolgreich gespeicherten Entwurf anschließend wieder als "ungespeichert"
+// markieren.
+let providerSaveCompletionResolvers = [];
 let providerSaveInFlight = false;
 let providerDashboardCreatedSyncInFlight = false;
 let providerCompetitorSyncInFlight = false;
@@ -2838,6 +2843,18 @@ function openProviderUnsavedChangesDialog() {
   });
 }
 
+function waitForProviderSaveCompletion() {
+  return new Promise((resolve) => {
+    providerSaveCompletionResolvers.push(resolve);
+  });
+}
+
+function resolveProviderSaveCompletion(saved) {
+  const resolvers = providerSaveCompletionResolvers;
+  providerSaveCompletionResolvers = [];
+  resolvers.forEach((resolve) => resolve(Boolean(saved)));
+}
+
 function requestProviderFormSave() {
   const form = els.providerForm;
   if (!form) {
@@ -2847,7 +2864,9 @@ function requestProviderFormSave() {
   // requestSubmit() auslösen. Die zweite Anfrage darf weder den ersten Save
   // überholen noch dessen Abschluss-Callback ersetzen.
   if (providerSaveInFlight) {
-    return Promise.resolve(false);
+    // Nicht als Fehler behandeln: Der laufende Speichervorgang ist genau der,
+    // dessen Ergebnis der anschließende Wechsel zur Übersicht benötigt.
+    return waitForProviderSaveCompletion();
   }
   if (!form.checkValidity()) {
     const firstInvalidField = form.querySelector(":invalid");
@@ -2859,13 +2878,11 @@ function requestProviderFormSave() {
     );
     return Promise.resolve(false);
   }
-  const completion = new Promise((resolve) => {
-    providerSaveCompletionResolve = resolve;
-  });
+  const completion = waitForProviderSaveCompletion();
   try {
     form.requestSubmit();
   } catch (error) {
-    providerSaveCompletionResolve = null;
+    resolveProviderSaveCompletion(false);
     showErrorFeedback(
       "Anbieter konnte nicht gespeichert werden. Bitte Formular prüfen und erneut versuchen.",
       { toast: true, statusPersistMs: 5200, toastDurationMs: 5200 }
@@ -3401,12 +3418,29 @@ async function leaveProviderForm({ nextTab = "", close = false } = {}) {
   providerPendingTabAfterSave = normalizedNextTab;
   providerPendingCloseAfterSave = close;
   const saved = await requestProviderFormSave();
-  if (!saved) {
+  if (saved) {
+    // Falls der ursprüngliche Klick bereits kurz vor dem Abschluss war,
+    // konnte er den eben gesetzten Wechselwunsch noch nicht sehen. Den
+    // gewünschten Zielzustand nach dem bestätigten Save deshalb nochmals
+    // atomar herstellen.
     providerPendingTabAfterSave = "";
     providerPendingCloseAfterSave = false;
-    providerFormDirty = true;
-    providerDraftPendingResume = true;
+    providerFormDirty = false;
+    providerDraftPendingResume = false;
+    providerStatusTouchedInForm = false;
+    if (close && providersViewMode === "form") {
+      clearProviderForm();
+      setProvidersView("list");
+      restoreProviderAnalyticsAfterEditor();
+    } else if (normalizedNextTab && providersViewMode === "form") {
+      setProviderDetailTab(normalizedNextTab);
+    }
+    return;
   }
+  providerPendingTabAfterSave = "";
+  providerPendingCloseAfterSave = false;
+  providerFormDirty = true;
+  providerDraftPendingResume = true;
 }
 
 function inferFeedbackTone(message, fallbackTone = "info") {
@@ -7363,15 +7397,21 @@ function bindEvents() {
       providerPendingTabAfterSave = "";
       providerPendingCloseAfterSave = false;
       editingProviderId = targetProviderId;
+      // Der Server hat den Anbieter bestätigt. Ab hier darf kein alter
+      // Entwurfsmarker einen erneuten Speichern-Dialog oder ein Wiederöffnen
+      // des Popups auslösen.
+      providerFormDirty = false;
+      providerDraftPendingResume = false;
+      providerStatusTouchedInForm = false;
       // Der zentrale Anbieter-Sync wurde bereits bestätigt; ein erneuter
       // saveState()-Aufruf würde unmittelbar danach einen zweiten Anbieter-
       // Sync anstoßen. Die lokale Sicherung reicht an dieser Stelle aus.
       persistLocalBackup();
-      if (savedProvider) {
+      if (savedProvider && !closeAfterSave) {
         fillProviderForm(savedProvider);
         els.providerSaveBtn.textContent = "Aktualisieren";
         setProviderDetailTab(nextProviderTab);
-        setProvidersView(closeAfterSave ? "list" : "form", { renderTopicPicker: false });
+        setProvidersView("form", { renderTopicPicker: false });
       } else {
         clearProviderForm();
         setProvidersView("list");
@@ -7395,8 +7435,7 @@ function bindEvents() {
     } finally {
       setActionButtonBusy(els.providerSaveBtn, false);
       providerSaveInFlight = false;
-      providerSaveCompletionResolve?.(providerSaveSucceeded);
-      providerSaveCompletionResolve = null;
+      resolveProviderSaveCompletion(providerSaveSucceeded);
     }
   });
 
@@ -17734,6 +17773,51 @@ async function refreshAuthSessionToken() {
     return String(data?.session?.access_token || "").trim();
   } catch (_error) {
     return "";
+  }
+}
+
+function isSupabaseAuthSessionError(errorLike) {
+  const code = String(errorLike?.code || "").trim().toLowerCase();
+  const status = Number(errorLike?.status || errorLike?.statusCode || 0);
+  const message = String(errorLike?.message || errorLike?.details || "").trim().toLowerCase();
+  return (
+    status === 401 ||
+    code === "pgrst301" ||
+    message.includes("jwt expired") ||
+    message.includes("invalid jwt") ||
+    message.includes("token has expired") ||
+    message.includes("token is expired") ||
+    message.includes("not authenticated")
+  );
+}
+
+async function ensureFreshSupabaseSessionForWrite() {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { ok: false, error: new Error("Supabase-Verbindung ist nicht verfügbar.") };
+  }
+
+  try {
+    const { data, error } = await client.auth.getSession();
+    if (error || !data?.session) {
+      return { ok: false, error: error || new Error("Login-Sitzung fehlt.") };
+    }
+
+    let session = data.session;
+    // Bei inaktiven Browser-Tabs wird der automatische Refresh mancher
+    // Browser gedrosselt. Vor einem kritischen Anbieter-Write erneuern wir
+    // deshalb einen bald ablaufenden Token aktiv.
+    if (isAuthSessionExpiringSoon(session, 2 * 60 * 1000)) {
+      const { data: refreshedData, error: refreshError } = await client.auth.refreshSession();
+      if (refreshError || !refreshedData?.session) {
+        return { ok: false, error: refreshError || new Error("Login-Sitzung konnte nicht erneuert werden.") };
+      }
+      session = refreshedData.session;
+    }
+    authSession = session;
+    return { ok: true, session };
+  } catch (error) {
+    return { ok: false, error };
   }
 }
 
@@ -62137,6 +62221,10 @@ async function syncProvidersTableWithStateNow(providers = state.providers, optio
   if (!client) {
     return { ok: false, reason: "no_client", error: null };
   }
+  const sessionCheck = await ensureFreshSupabaseSessionForWrite();
+  if (!sessionCheck.ok) {
+    return { ok: false, reason: "auth_session_unavailable", error: sessionCheck.error || null };
+  }
   const table = getSupabaseProvidersTable();
 
   try {
@@ -62239,6 +62327,16 @@ async function syncProvidersTableWithStateNow(providers = state.providers, optio
     lastProvidersTableFingerprint = useSelectiveSync ? "" : fingerprint;
     return { ok: true, reason: "synced" };
   } catch (error) {
+    // Ein Token kann zwischen dem Vorab-Check und dem Request vom Server als
+    // abgelaufen bewertet werden. Ein frischer Token plus genau ein Retry
+    // verhindert, dass Vertriebsmitarbeiter nach längerer Inaktivität im
+    // Speicherdialog hängen bleiben.
+    if (!options?._authRefreshRetried && isSupabaseAuthSessionError(error)) {
+      const refreshedToken = await refreshAuthSessionToken();
+      if (refreshedToken) {
+        return syncProvidersTableWithStateNow(providers, { ...options, _authRefreshRetried: true });
+      }
+    }
     if (isSupabaseMissingRelationError(error, table)) {
       if (!providersTableMissingWarned && options?.warnOnMissingRelation !== false) {
         providersTableMissingWarned = true;

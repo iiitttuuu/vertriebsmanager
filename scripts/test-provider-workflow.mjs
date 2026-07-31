@@ -16,6 +16,27 @@ assert.match(
   "Klicks in der Aktionsspalte dürfen nicht den Datensatz-Editor öffnen."
 );
 
+assert.match(
+  appSource,
+  /if \(providerSaveInFlight\) \{\s*\/\/ Nicht als Fehler behandeln:[\s\S]*?return waitForProviderSaveCompletion\(\);\s*\}/,
+  "Ein Wechsel zur Übersicht wartet auf einen bereits laufenden Anbieter-Speichervorgang."
+);
+assert.match(
+  appSource,
+  /providerFormDirty = false;\s*providerDraftPendingResume = false;\s*providerStatusTouchedInForm = false;/,
+  "Nach bestätigtem Anbieter-Speichern werden alle Entwurfsmarker zurückgesetzt."
+);
+assert.match(
+  appSource,
+  /async function syncProvidersTableWithStateNow[\s\S]*?await ensureFreshSupabaseSessionForWrite\(\)/,
+  "Kritische Anbieter-Synchronisierungen prüfen vor dem Write die Login-Sitzung."
+);
+assert.match(
+  appSource,
+  /isSupabaseAuthSessionError\(error\)[\s\S]*?refreshAuthSessionToken\(\)[\s\S]*?_authRefreshRetried: true/,
+  "Ein durch Ablauf abgewiesener Anbieter-Write wird genau einmal mit frischem Token wiederholt."
+);
+
 function extractFunction(name) {
   const marker = `function ${name}(`;
   const start = appSource.indexOf(marker);
