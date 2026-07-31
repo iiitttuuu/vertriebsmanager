@@ -15489,6 +15489,34 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   display: none;
 }
 
+.management-save-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+  padding: 10px 11px;
+  border: 1px solid #b9dec5;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #f8fffa 0%, #eefaf2 100%);
+}
+
+.management-save-panel strong {
+  display: block;
+  color: #1e6035;
+  font-size: 0.8rem;
+}
+
+.management-save-panel p {
+  margin: 3px 0 0;
+  color: #496756;
+  font-size: 0.72rem;
+}
+
+.management-save-panel .btn {
+  flex: 0 0 auto;
+}
+
 .management-search-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -18510,6 +18538,15 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
 
   .management-search-panel {
     grid-template-columns: 1fr;
+  }
+
+  .management-save-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .management-save-panel .btn {
+    width: 100%;
   }
 
   .management-export-panel {

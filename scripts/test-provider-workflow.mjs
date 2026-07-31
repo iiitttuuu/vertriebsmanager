@@ -61,6 +61,26 @@ assert.match(
   /els\.topicForm\.addEventListener\("submit"[\s\S]*?findTopicByNormalizedName\(name\)[\s\S]*?existiert bereits[\s\S]*?createId\("topic"\)/,
   "Beim Anlegen eines Themas werden Doppeleinträge vor dem Speichern blockiert."
 );
+assert.match(
+  appSource,
+  /const mergedCategories = options\?\.persistCategories === true[\s\S]*?: remoteState\.categories;/,
+  "Unabhängige CRM-Speicherungen übernehmen immer den aktuellen Kategorienstand vom Server."
+);
+assert.match(
+  appSource,
+  /async function persistManagementCategoryStructureChange[\s\S]*?persistCategories: true/,
+  "Nur bestätigte Stammdaten-Aktionen dürfen Kategorien und Themen zentral überschreiben."
+);
+assert.match(
+  appSource,
+  /persistCategories: effectiveOptions\?\.persistCategories === true/,
+  "Die explizite Stammdaten-Option muss bis zum finalen Supabase-Speicherschritt weitergereicht werden."
+);
+assert.match(
+  appSource,
+  /async function saveManagementCategoriesWithVerification\(\)[\s\S]*?verifyManagementCategoriesOnServer\(expectedCategories\)/,
+  "Der manuelle Stammdaten-Speicherbutton prüft den geschriebenen Serverstand."
+);
 
 function extractFunction(name) {
   const marker = `function ${name}(`;

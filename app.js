@@ -2452,6 +2452,7 @@ const els = {
   categoryForm: document.getElementById("category-form"),
   subcategoryForm: document.getElementById("subcategory-form"),
   topicForm: document.getElementById("topic-form"),
+  managementSaveBtn: document.getElementById("management-save-btn"),
   managementSearchInput: document.getElementById("management-search-input"),
   managementSearchReset: document.getElementById("management-search-reset"),
   managementSearchMeta: document.getElementById("management-search-meta"),
@@ -10651,6 +10652,10 @@ function bindEvents() {
     );
   });
 
+  els.managementSaveBtn?.addEventListener("click", () => {
+    void saveManagementCategoriesWithVerification();
+  });
+
   els.managementSearchInput?.addEventListener("input", (event) => {
     managementSearchTerm = String(event.target?.value || "").trim();
     queueUiRender("management-search", () => {
@@ -13399,7 +13404,7 @@ async function resolveTopicRequest(request, form) {
           : entry
       ),
     });
-    const saved = await persistCriticalStateSnapshot({ retries: 3 });
+    const saved = await persistCriticalStateSnapshot({ retries: 3, persistCategories: true });
     if (!saved?.ok) throw new Error("Thema und Anbieterzuordnung konnten nicht gespeichert werden.");
     if (provider) {
       const sync = await syncProvidersTableWithState(state.providers, { upsertProviderIds: [provider.id] });
@@ -58181,6 +58186,7 @@ async function persistManagementCategoryStructureChange(
     await previousPersist.catch(() => {});
     criticalPersistResult = await persistCriticalStateSnapshot({
       retries: 3,
+      persistCategories: true,
       providersSync: options?.providersSync || null,
       // Reine Strukturänderungen dürfen keinen langsamen Vollsync aller
       // Anbieter auslösen. Bei Löschungen wird providersSync explizit gesetzt.
@@ -58243,6 +58249,7 @@ async function persistManagementCategoryCreationChange(previousCategoriesSnapsho
     await previousPersist.catch(() => {});
     criticalPersistResult = await persistCriticalStateSnapshot({
       retries: 2,
+      persistCategories: true,
       mergeRemoteCategories: true,
       skipProvidersTableSync: true,
     });
@@ -58279,6 +58286,120 @@ async function persistManagementCategoryCreationChange(previousCategoriesSnapsho
     toastDurationMs: 6200,
   });
   return false;
+}
+
+function hasMatchingManagementCategoryHierarchy(leftCategories, rightCategories) {
+  return JSON.stringify(cloneCategories(leftCategories)) === JSON.stringify(cloneCategories(rightCategories));
+}
+
+async function verifyManagementCategoriesOnServer(expectedCategories) {
+  if (storageMode !== "supabase") {
+    return { ok: false, reason: "central_storage_not_active", error: null };
+  }
+
+  const client = getSupabaseClient();
+  if (!client) {
+    return { ok: false, reason: "client_unavailable", error: null };
+  }
+
+  try {
+    const { data, error } = await client
+      .from(getSupabaseStateTable())
+      .select("payload, updated_at")
+      .eq("id", REMOTE_STATE_ROW_ID)
+      .maybeSingle();
+    if (error || !data?.payload || typeof data.payload !== "object") {
+      return { ok: false, reason: "verification_read_failed", error: error || null };
+    }
+
+    const remoteCategories = normalizePersistedState(data.payload).categories;
+    return {
+      ok: hasMatchingManagementCategoryHierarchy(remoteCategories, expectedCategories),
+      reason: "verification_mismatch",
+      error: null,
+      updatedAt: String(data.updated_at || "").trim(),
+    };
+  } catch (error) {
+    return { ok: false, reason: "verification_exception", error };
+  }
+}
+
+async function saveManagementCategoriesWithVerification() {
+  if (!isAdmin()) {
+    showErrorFeedback("Nur Administratoren können Stammdaten verbindlich speichern.", { toast: true });
+    return false;
+  }
+
+  setActionButtonBusy(els.managementSaveBtn, true, "Speichert und prüft...");
+  const previousPersist = managementCategoryPersistQueue;
+  let releasePersist;
+  const currentPersist = new Promise((resolve) => {
+    releasePersist = resolve;
+  });
+  managementCategoryPersistQueue = currentPersist;
+
+  try {
+    await previousPersist.catch(() => {});
+    const expectedRevision = managementCategorySaveRevision;
+    const expectedCategories = cloneCategories(state.categories);
+    const result = await persistCriticalStateSnapshot({
+      retries: 3,
+      persistCategories: true,
+      skipProvidersTableSync: true,
+    });
+    if (!result?.ok) {
+      const technicalDetail = getSupabaseErrorSummary(result?.error);
+      showErrorFeedback(
+        technicalDetail
+          ? `Stammdaten wurden nicht gespeichert. ${technicalDetail}`
+          : "Stammdaten wurden nicht gespeichert. Bitte erneut versuchen.",
+        { toast: true, statusPersistMs: 7000, toastDurationMs: 7000 }
+      );
+      return false;
+    }
+
+    if (expectedRevision !== managementCategorySaveRevision) {
+      showWarningFeedback("Der Stand wurde gespeichert, während weitere Änderungen vorgenommen wurden. Bitte nochmals speichern und prüfen.", {
+        toast: true,
+        statusPersistMs: 6500,
+        toastDurationMs: 6500,
+      });
+      return false;
+    }
+
+    const verification = await verifyManagementCategoriesOnServer(expectedCategories);
+    if (!verification.ok) {
+      const technicalDetail = getSupabaseErrorSummary(verification.error);
+      showErrorFeedback(
+        verification.reason === "central_storage_not_active"
+          ? "Die zentrale Speicherung ist nicht aktiv. Der Stand wurde daher nicht vom Server bestätigt."
+          : technicalDetail
+          ? `Der Server hat den aktuellen Stammdatenstand nicht bestätigt. ${technicalDetail}`
+          : "Der Server hat den aktuellen Stammdatenstand nicht bestätigt. Bitte erneut speichern.",
+        { toast: true, statusPersistMs: 7000, toastDurationMs: 7000 }
+      );
+      return false;
+    }
+
+    showSuccessFeedback("Stammdaten wurden zentral gespeichert und vom Server bestätigt.", {
+      toast: true,
+      statusPersistMs: 5000,
+      toastDurationMs: 5000,
+    });
+    return true;
+  } catch (error) {
+    const technicalDetail = getSupabaseErrorSummary(error);
+    showErrorFeedback(
+      technicalDetail
+        ? `Stammdaten wurden nicht gespeichert. ${technicalDetail}`
+        : "Stammdaten wurden nicht gespeichert. Bitte erneut versuchen.",
+      { toast: true, statusPersistMs: 7000, toastDurationMs: 7000 }
+    );
+    return false;
+  } finally {
+    releasePersist();
+    setActionButtonBusy(els.managementSaveBtn, false);
+  }
 }
 
 async function handleMoveSubcategory(subcategoryId) {
@@ -66248,10 +66369,16 @@ async function persistStateToSupabase(snapshot, payloadFingerprint = "", options
               snapshotForSave.settings,
               getCurrentSalesDashboardCardOrderUserId()
             );
-        const mergedCategories =
-          isAdmin() && options?.mergeRemoteCategories
+        // app_state enthält viele voneinander unabhängige Bereiche. Ein Save
+        // etwa aus Dashboard, Profil oder Navigation darf niemals einen beim
+        // Laden mitgebrachten, älteren Kategorien-Snapshot zurückschreiben.
+        // Kategorien werden ausschließlich von den expliziten Stammdaten-
+        // Aktionen mit persistCategories verändert.
+        const mergedCategories = options?.persistCategories === true
+          ? isAdmin() && options?.mergeRemoteCategories
             ? mergeManagementCategoryHierarchy(remoteState.categories, snapshotForSave.categories)
-            : snapshotForSave.categories;
+            : snapshotForSave.categories
+          : remoteState.categories;
         snapshotForSave = normalizePersistedState(
           isAdmin()
             ? {
@@ -66413,6 +66540,7 @@ async function persistCriticalStateSnapshot(options = {}) {
   for (let attempt = 1; attempt <= retries; attempt += 1) {
     lastResult = await persistStateToSupabase(snapshot, payloadFingerprint, {
       providersSync,
+      persistCategories: effectiveOptions?.persistCategories === true,
       mergeRemoteCategories: effectiveOptions?.mergeRemoteCategories === true,
       skipProvidersTableSync: effectiveOptions?.skipProvidersTableSync === true,
     });
