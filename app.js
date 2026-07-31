@@ -10611,6 +10611,16 @@ function bindEvents() {
       return;
     }
 
+    const existingTopic = findTopicByNormalizedName(name);
+    if (existingTopic) {
+      showWarningFeedback(
+        `Das Thema „${existingTopic.name}“ existiert bereits unter „${existingTopic.categoryName} > ${existingTopic.subcategoryName}“.`
+      );
+      form.elements.name?.focus();
+      form.elements.name?.select();
+      return;
+    }
+
     const category = getSelectedCategory();
     const subcategory = getSelectedSubcategory();
 
@@ -13361,8 +13371,12 @@ async function resolveTopicRequest(request, form) {
       const subcategory = (category?.subcategories || []).find((entry) => entry.id === String(formData.get("subcategoryId") || ""));
       const topicName = String(formData.get("topic") || "").trim();
       if (!category || !subcategory || !topicName) throw new Error("Bitte Kategorie, Themenbereich und Thema aus den Stammdaten auswählen.");
-      topic = (subcategory.topics || []).find((entry) => normalizeText(entry.name) === normalizeText(topicName));
-      if (topic) throw new Error("Dieses Thema besteht bereits. Bitte „Bestehendes Thema zuordnen“ wählen.");
+      topic = findTopicByNormalizedName(topicName);
+      if (topic) {
+        throw new Error(
+          `Dieses Thema besteht bereits unter „${topic.categoryName} > ${topic.subcategoryName}“. Bitte „Bestehendes Thema zuordnen“ wählen.`
+        );
+      }
       topic = { id: createId("topic"), name: topicName }; subcategory.topics.push(topic);
       topic = { ...topic, categoryName: category.name, subcategoryName: subcategory.name };
     }
@@ -58371,6 +58385,14 @@ function handleEditTopic(topicId) {
     return;
   }
 
+  const existingTopic = findTopicByNormalizedName(name, source.topic.id);
+  if (existingTopic) {
+    showWarningFeedback(
+      `Das Thema „${existingTopic.name}“ existiert bereits unter „${existingTopic.categoryName} > ${existingTopic.subcategoryName}“.`
+    );
+    return;
+  }
+
   const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
   const previousSelection = {
     categoryId: selectedCategoryId,
@@ -61793,6 +61815,21 @@ function getAllTopics() {
         subcategoryName: subcategory.name,
       }))
     )
+  );
+}
+
+function findTopicByNormalizedName(nameLike, excludedTopicId = "") {
+  const normalizedName = normalizeText(nameLike || "");
+  const excludedId = String(excludedTopicId || "").trim();
+  if (!normalizedName) {
+    return null;
+  }
+  return (
+    getAllTopics().find(
+      (topic) =>
+        String(topic?.id || "").trim() !== excludedId &&
+        normalizeText(topic?.name || "") === normalizedName
+    ) || null
   );
 }
 

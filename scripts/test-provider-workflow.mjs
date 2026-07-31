@@ -51,6 +51,16 @@ assert.match(
   /async function handleDeleteTopic[\s\S]*?providersSync: \{ forceFullSync: true \}/,
   "Beim Löschen eines Themas werden auch betroffene Anbieterzuordnungen zentral synchronisiert."
 );
+assert.match(
+  appSource,
+  /function findTopicByNormalizedName\(nameLike, excludedTopicId = ""\)[\s\S]*?getAllTopics\(\)\.find/,
+  "Themennamen werden für den Duplikatschutz über alle Stammdaten hinweg normalisiert verglichen."
+);
+assert.match(
+  appSource,
+  /els\.topicForm\.addEventListener\("submit"[\s\S]*?findTopicByNormalizedName\(name\)[\s\S]*?existiert bereits[\s\S]*?createId\("topic"\)/,
+  "Beim Anlegen eines Themas werden Doppeleinträge vor dem Speichern blockiert."
+);
 
 function extractFunction(name) {
   const marker = `function ${name}(`;
