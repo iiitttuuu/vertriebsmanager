@@ -36,6 +36,21 @@ assert.match(
   /isSupabaseAuthSessionError\(error\)[\s\S]*?refreshAuthSessionToken\(\)[\s\S]*?_authRefreshRetried: true/,
   "Ein durch Ablauf abgewiesener Anbieter-Write wird genau einmal mit frischem Token wiederholt."
 );
+assert.match(
+  appSource,
+  /async function persistManagementCategoryStructureChange[\s\S]*?managementCategoryPersistQueue[\s\S]*?skipProvidersTableSync: !options\?\.providersSync/,
+  "Änderungen an Kategorien, Themenbereichen und Themen werden serialisiert und zentral bestätigt gespeichert."
+);
+assert.match(
+  appSource,
+  /function handleEditCategory[\s\S]*?managementCategorySaveRevision \+= 1;[\s\S]*?persistManagementCategoryStructureChange/,
+  "Das Bearbeiten einer Kategorie nutzt den geschützten Stammdaten-Speicherweg statt des verzögerten Autosaves."
+);
+assert.match(
+  appSource,
+  /async function handleDeleteTopic[\s\S]*?providersSync: \{ forceFullSync: true \}/,
+  "Beim Löschen eines Themas werden auch betroffene Anbieterzuordnungen zentral synchronisiert."
+);
 
 function extractFunction(name) {
   const marker = `function ${name}(`;

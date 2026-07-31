@@ -57787,9 +57787,21 @@ function handleEditCategory(categoryId) {
     return;
   }
 
+  const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
+  const previousSelection = {
+    categoryId: selectedCategoryId,
+    subcategoryId: selectedSubcategoryId,
+  };
   category.name = name;
-  saveState({ showFeedback: false });
+  managementCategorySaveRevision += 1;
+  const revision = managementCategorySaveRevision;
   renderManagementSection();
+  void persistManagementCategoryStructureChange(
+    previousCategoriesSnapshot,
+    previousSelection,
+    "Kategorie konnte nicht dauerhaft gespeichert werden. Bitte erneut versuchen.",
+    revision
+  );
 }
 
 async function handleDeleteCategory(categoryId) {
@@ -57807,6 +57819,12 @@ async function handleDeleteCategory(categoryId) {
     return;
   }
 
+  const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
+  const previousProvidersSnapshot = JSON.parse(JSON.stringify(state.providers));
+  const previousSelection = {
+    categoryId: selectedCategoryId,
+    subcategoryId: selectedSubcategoryId,
+  };
   state.categories.splice(categoryIndex, 1);
   removeTopicIdsFromProviders(topicIds);
 
@@ -57815,8 +57833,16 @@ async function handleDeleteCategory(categoryId) {
     selectedSubcategoryId = null;
   }
 
-  saveState({ showFeedback: false });
+  managementCategorySaveRevision += 1;
+  const revision = managementCategorySaveRevision;
   renderAll();
+  void persistManagementCategoryStructureChange(
+    previousCategoriesSnapshot,
+    previousSelection,
+    "Kategorie konnte nicht dauerhaft gelöscht werden. Bitte erneut versuchen.",
+    revision,
+    { providersSync: { forceFullSync: true }, previousProvidersSnapshot }
+  );
 }
 
 function handleEditSubcategory(subcategoryId) {
@@ -57835,11 +57861,23 @@ function handleEditSubcategory(subcategoryId) {
     return;
   }
 
+  const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
+  const previousSelection = {
+    categoryId: selectedCategoryId,
+    subcategoryId: selectedSubcategoryId,
+  };
   source.subcategory.name = name;
   selectedCategoryId = source.category.id;
   selectedSubcategoryId = source.subcategory.id;
-  saveState({ showFeedback: false });
+  managementCategorySaveRevision += 1;
+  const revision = managementCategorySaveRevision;
   renderManagementSection();
+  void persistManagementCategoryStructureChange(
+    previousCategoriesSnapshot,
+    previousSelection,
+    "Themenbereich konnte nicht dauerhaft gespeichert werden. Bitte erneut versuchen.",
+    revision
+  );
 }
 
 function promptForManagementMoveTarget(promptTitle, options) {
@@ -58101,23 +58139,73 @@ function findTopicLocation(topicId) {
   return null;
 }
 
-async function persistManagementCategoryStructureChange(previousCategoriesSnapshot, previousSelection, failureMessage) {
-  const criticalPersistResult = await persistCriticalStateSnapshot({ retries: 3 });
+async function persistManagementCategoryStructureChange(
+  previousCategoriesSnapshot,
+  previousSelection,
+  failureMessage,
+  revision,
+  options = {}
+) {
+  const expectedRevision = Number(revision) || managementCategorySaveRevision;
+  const hadPendingRemoteChanges = localChangesPendingRemoteSync;
+  managementCategoryOptimisticPersistCount += 1;
+  if (storageMode === "supabase" && !hadPendingRemoteChanges) {
+    // Ein Pull darf den sichtbaren lokalen Stand niemals überholen, während
+    // der bestätigte Stammdaten-Write noch in der Warteschlange steht.
+    localChangesPendingRemoteSync = true;
+  }
+
+  persistLocalBackup();
+  const previousPersist = managementCategoryPersistQueue;
+  let releasePersist;
+  const currentPersist = new Promise((resolve) => {
+    releasePersist = resolve;
+  });
+  managementCategoryPersistQueue = currentPersist;
+  let criticalPersistResult = { ok: false, reason: "unknown", error: null };
+  try {
+    await previousPersist.catch(() => {});
+    criticalPersistResult = await persistCriticalStateSnapshot({
+      retries: 3,
+      providersSync: options?.providersSync || null,
+      // Reine Strukturänderungen dürfen keinen langsamen Vollsync aller
+      // Anbieter auslösen. Bei Löschungen wird providersSync explizit gesetzt.
+      skipProvidersTableSync: !options?.providersSync,
+    });
+  } catch (error) {
+    criticalPersistResult = { ok: false, reason: "exception", error };
+  } finally {
+    releasePersist();
+    managementCategoryOptimisticPersistCount = Math.max(0, managementCategoryOptimisticPersistCount - 1);
+  }
+
   if (criticalPersistResult.ok) {
+    if (managementCategoryOptimisticPersistCount > 0) {
+      localChangesPendingRemoteSync = true;
+    }
     return true;
   }
 
-  state.categories = JSON.parse(JSON.stringify(previousCategoriesSnapshot));
-  selectedCategoryId = previousSelection.categoryId;
-  selectedSubcategoryId = previousSelection.subcategoryId;
-  persistLocalBackup();
-  renderAll();
-  showActionFeedback(failureMessage, {
-    tone: "error",
-    toast: true,
-    statusPersistMs: 6200,
-    toastDurationMs: 6200,
-  });
+  if (!hadPendingRemoteChanges && managementCategoryOptimisticPersistCount === 0) {
+    localChangesPendingRemoteSync = false;
+  } else if (managementCategoryOptimisticPersistCount > 0) {
+    localChangesPendingRemoteSync = true;
+  }
+  if (expectedRevision === managementCategorySaveRevision) {
+    state.categories = JSON.parse(JSON.stringify(previousCategoriesSnapshot));
+    if (Array.isArray(options?.previousProvidersSnapshot)) {
+      state.providers = JSON.parse(JSON.stringify(options.previousProvidersSnapshot));
+    }
+    selectedCategoryId = previousSelection.categoryId;
+    selectedSubcategoryId = previousSelection.subcategoryId;
+    persistLocalBackup();
+    renderAll({ preserveProvidersTable: true });
+  }
+  const technicalDetail = getSupabaseErrorSummary(criticalPersistResult.error);
+  showActionFeedback(
+    technicalDetail ? `${failureMessage} ${technicalDetail}` : failureMessage,
+    { tone: "error", toast: true, statusPersistMs: 6200, toastDurationMs: 6200 }
+  );
   return false;
 }
 
@@ -58214,15 +58302,17 @@ async function handleMoveSubcategory(subcategoryId) {
 
   selectedCategoryId = targetCategory.id;
   selectedSubcategoryId = source.subcategory.id;
+  managementCategorySaveRevision += 1;
+  const revision = managementCategorySaveRevision;
   const persisted = await persistManagementCategoryStructureChange(
     previousCategoriesSnapshot,
     previousSelection,
-    "Themenbereich konnte nicht dauerhaft gespeichert werden. Bitte erneut versuchen."
+    "Themenbereich konnte nicht dauerhaft gespeichert werden. Bitte erneut versuchen.",
+    revision
   );
   if (!persisted) {
     return;
   }
-  saveState({ showFeedback: false });
   renderManagementSection();
 }
 
@@ -58239,6 +58329,12 @@ async function handleDeleteSubcategory(subcategoryId) {
     return;
   }
 
+  const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
+  const previousProvidersSnapshot = JSON.parse(JSON.stringify(state.providers));
+  const previousSelection = {
+    categoryId: selectedCategoryId,
+    subcategoryId: selectedSubcategoryId,
+  };
   const topicIds = source.subcategory.topics.map((topic) => topic.id);
   source.category.subcategories.splice(source.subcategoryIndex, 1);
   removeTopicIdsFromProviders(topicIds);
@@ -58247,8 +58343,16 @@ async function handleDeleteSubcategory(subcategoryId) {
     selectedSubcategoryId = null;
   }
 
-  saveState();
+  managementCategorySaveRevision += 1;
+  const revision = managementCategorySaveRevision;
   renderAll();
+  void persistManagementCategoryStructureChange(
+    previousCategoriesSnapshot,
+    previousSelection,
+    "Themenbereich konnte nicht dauerhaft gelöscht werden. Bitte erneut versuchen.",
+    revision,
+    { providersSync: { forceFullSync: true }, previousProvidersSnapshot }
+  );
 }
 
 function handleEditTopic(topicId) {
@@ -58267,11 +58371,23 @@ function handleEditTopic(topicId) {
     return;
   }
 
+  const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
+  const previousSelection = {
+    categoryId: selectedCategoryId,
+    subcategoryId: selectedSubcategoryId,
+  };
   source.topic.name = name;
   selectedCategoryId = source.category.id;
   selectedSubcategoryId = source.subcategory.id;
-  saveState();
+  managementCategorySaveRevision += 1;
+  const revision = managementCategorySaveRevision;
   renderManagementSection();
+  void persistManagementCategoryStructureChange(
+    previousCategoriesSnapshot,
+    previousSelection,
+    "Thema konnte nicht dauerhaft gespeichert werden. Bitte erneut versuchen.",
+    revision
+  );
 }
 
 async function handleMoveTopic(topicId) {
@@ -58332,15 +58448,17 @@ async function handleMoveTopic(topicId) {
 
   selectedCategoryId = target.category.id;
   selectedSubcategoryId = target.subcategory.id;
+  managementCategorySaveRevision += 1;
+  const revision = managementCategorySaveRevision;
   const persisted = await persistManagementCategoryStructureChange(
     previousCategoriesSnapshot,
     previousSelection,
-    "Thema konnte nicht dauerhaft verschoben werden. Bitte erneut versuchen."
+    "Thema konnte nicht dauerhaft verschoben werden. Bitte erneut versuchen.",
+    revision
   );
   if (!persisted) {
     return;
   }
-  saveState({ showFeedback: false });
   renderManagementSection();
 }
 
@@ -58355,10 +58473,24 @@ async function handleDeleteTopic(topicId) {
     return;
   }
 
+  const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
+  const previousProvidersSnapshot = JSON.parse(JSON.stringify(state.providers));
+  const previousSelection = {
+    categoryId: selectedCategoryId,
+    subcategoryId: selectedSubcategoryId,
+  };
   source.subcategory.topics.splice(source.topicIndex, 1);
   removeTopicIdsFromProviders([topicId]);
-  saveState();
+  managementCategorySaveRevision += 1;
+  const revision = managementCategorySaveRevision;
   renderAll();
+  void persistManagementCategoryStructureChange(
+    previousCategoriesSnapshot,
+    previousSelection,
+    "Thema konnte nicht dauerhaft gelöscht werden. Bitte erneut versuchen.",
+    revision,
+    { providersSync: { forceFullSync: true }, previousProvidersSnapshot }
+  );
 }
 
 function setActiveSection(targetId) {
