@@ -9350,6 +9350,14 @@ body.provider-form-open .topbar {
   font-weight: 700;
 }
 
+/* Der Dialog erklärt eine notwendige Datenumhängung bewusst ruhig und ohne Fettschrift. */
+.category-delete-reassignment-dialog .employee-detail-head h4,
+.category-delete-reassignment-dialog .matrix-info,
+.category-delete-reassignment-dialog .topic-move-field,
+.employee-detail-dialog.category-delete-reassignment-dialog .btn {
+  font-weight: 400;
+}
+
 .employee-detail-dialog:is(
   .live-confirm-dialog,
   .provider-transfer-reject-dialog,

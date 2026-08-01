@@ -1019,6 +1019,7 @@ const A11Y_MODAL_SELECTOR = [
   "#provider-transfer-confirm-panel",
   "#provider-open-notes-panel",
   "#topic-move-panel",
+  "#category-delete-reassignment-panel",
 ].join(", ");
 const A11Y_FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -2575,6 +2576,15 @@ const els = {
   topicMoveClose: document.getElementById("topic-move-close"),
   topicMoveNo: document.getElementById("topic-move-no"),
   topicMoveYes: document.getElementById("topic-move-yes"),
+  categoryDeleteReassignmentPanel: document.getElementById("category-delete-reassignment-panel"),
+  categoryDeleteReassignmentTitle: document.getElementById("category-delete-reassignment-title"),
+  categoryDeleteReassignmentText: document.getElementById("category-delete-reassignment-text"),
+  categoryDeleteReassignmentLabel: document.getElementById("category-delete-reassignment-label"),
+  categoryDeleteReassignmentLabelText: document.getElementById("category-delete-reassignment-label-text"),
+  categoryDeleteReassignmentSelect: document.getElementById("category-delete-reassignment-select"),
+  categoryDeleteReassignmentClose: document.getElementById("category-delete-reassignment-close"),
+  categoryDeleteReassignmentNo: document.getElementById("category-delete-reassignment-no"),
+  categoryDeleteReassignmentYes: document.getElementById("category-delete-reassignment-yes"),
   mapParamsForm: document.getElementById("map-params-form"),
   mapParamsSaveBtn: document.getElementById("map-params-save-btn"),
   providerTargetForm: document.getElementById("provider-target-form"),
@@ -58113,6 +58123,80 @@ async function promptTopicMoveTarget(topicName, sourceLabel, targetSubcategories
   });
 }
 
+async function promptCategoryDeleteReassignment(options = {}) {
+  const targets = Array.isArray(options.targets) ? options.targets.filter((entry) => entry?.id && entry?.label) : [];
+  if (!targets.length) {
+    return "";
+  }
+
+  const title = String(options.title || "Datensätze neu zuordnen").trim();
+  const description = String(options.description || "Bitte eine neue Zuordnung auswählen.").trim();
+  const fieldLabel = String(options.fieldLabel || "Neue Zuordnung").trim();
+  const confirmLabel = String(options.confirmLabel || "Zuordnen und löschen").trim();
+  const panel = els.categoryDeleteReassignmentPanel;
+  const select = els.categoryDeleteReassignmentSelect;
+  const fallback = () => {
+    const selectedIndex = promptForManagementMoveTarget(
+      `${title}\n\n${description}\n\nNeue Zuordnung:`,
+      targets.map((entry) => entry.label)
+    );
+    return selectedIndex === null ? "" : String(targets[selectedIndex]?.id || "").trim();
+  };
+
+  if (
+    !panel ||
+    !select ||
+    !els.categoryDeleteReassignmentText ||
+    !els.categoryDeleteReassignmentLabelText ||
+    !els.categoryDeleteReassignmentYes ||
+    !els.categoryDeleteReassignmentNo ||
+    !els.categoryDeleteReassignmentClose
+  ) {
+    return fallback();
+  }
+
+  if (els.categoryDeleteReassignmentTitle) {
+    els.categoryDeleteReassignmentTitle.textContent = title;
+  }
+  els.categoryDeleteReassignmentText.textContent = description;
+  els.categoryDeleteReassignmentLabelText.textContent = fieldLabel;
+  select.innerHTML = targets
+    .map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.label)}</option>`)
+    .join("");
+  els.categoryDeleteReassignmentYes.textContent = confirmLabel;
+  panel.classList.remove("hidden");
+  syncBodyModalOpenState();
+  window.setTimeout(() => select.focus({ preventScroll: true }), 0);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const closePanel = (targetId = "") => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      panel.classList.add("hidden");
+      syncBodyModalOpenState();
+      els.categoryDeleteReassignmentYes.removeEventListener("click", onYes);
+      els.categoryDeleteReassignmentNo.removeEventListener("click", onNo);
+      els.categoryDeleteReassignmentClose.removeEventListener("click", onNo);
+      document.removeEventListener("keydown", onKeyDown);
+      resolve(String(targetId || "").trim());
+    };
+    const onYes = () => closePanel(select.value);
+    const onNo = () => closePanel();
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closePanel();
+      }
+    };
+    els.categoryDeleteReassignmentYes.addEventListener("click", onYes);
+    els.categoryDeleteReassignmentNo.addEventListener("click", onNo);
+    els.categoryDeleteReassignmentClose.addEventListener("click", onNo);
+    document.addEventListener("keydown", onKeyDown);
+  });
+}
+
 function findSubcategoryLocation(subcategoryId) {
   const normalizedId = String(subcategoryId || "").trim();
   if (!normalizedId) {
@@ -58452,15 +58536,56 @@ async function handleMoveSubcategory(subcategoryId) {
 }
 
 async function handleDeleteSubcategory(subcategoryId) {
+  const refreshed = await refreshManagementCategoriesFromRemote({ render: true });
+  if (!refreshed) {
+    return;
+  }
   const source = findSubcategoryLocation(subcategoryId);
   if (!source) {
+    showWarningFeedback("Der Themenbereich wurde inzwischen geändert. Bitte erneut auswählen.");
     return;
   }
 
-  const confirmed = await confirmDeleteAction(
-    `Unterkategorie "${source.subcategory.name}" wirklich löschen? Alle Themen darin werden mitgelöscht.`
-  );
-  if (!confirmed) {
+  const topicIds = source.subcategory.topics.map((topic) => String(topic.id || "").trim()).filter(Boolean);
+  const linkedProviders = getProvidersLinkedToTopicIds(topicIds);
+  let targetSubcategory = null;
+
+  if (linkedProviders.length) {
+    const targetSubcategories = [];
+    state.categories.forEach((category) => {
+      category.subcategories.forEach((subcategory) => {
+        if (subcategory.id === source.subcategory.id) {
+          return;
+        }
+        targetSubcategories.push({
+          id: subcategory.id,
+          label: `${category.name} > ${subcategory.name}`,
+        });
+      });
+    });
+    targetSubcategories.sort((left, right) => left.label.localeCompare(right.label, "de"));
+    if (!targetSubcategories.length) {
+      showWarningFeedback("Dieser Themenbereich ist noch mit Datensätzen verbunden. Bitte zuerst einen weiteren Themenbereich anlegen.");
+      return;
+    }
+
+    const targetId = await promptCategoryDeleteReassignment({
+      title: "Themenbereich löschen",
+      description: `${linkedProviders.length} ${linkedProviders.length === 1 ? "Anbieter-Datensatz verwendet" : "Anbieter-Datensätze verwenden"} Themen aus „${source.subcategory.name}“. Bitte wählen Sie den Themenbereich, in den die Themen und ihre Zuordnungen verschoben werden sollen.`,
+      fieldLabel: "Neuer Themenbereich",
+      confirmLabel: "Verschieben und löschen",
+      targets: targetSubcategories,
+    });
+    if (!targetId) {
+      return;
+    }
+    const targetLocation = findSubcategoryLocation(targetId);
+    if (!targetLocation) {
+      showWarningFeedback("Der gewählte Themenbereich ist nicht mehr verfügbar. Bitte erneut versuchen.");
+      return;
+    }
+    targetSubcategory = targetLocation.subcategory;
+  } else if (!(await confirmDeleteAction(`Themenbereich „${source.subcategory.name}“ wirklich löschen? Alle Themen darin werden mitgelöscht.`))) {
     return;
   }
 
@@ -58470,12 +58595,20 @@ async function handleDeleteSubcategory(subcategoryId) {
     categoryId: selectedCategoryId,
     subcategoryId: selectedSubcategoryId,
   };
-  const topicIds = source.subcategory.topics.map((topic) => topic.id);
+  if (targetSubcategory) {
+    targetSubcategory.topics.push(...source.subcategory.topics);
+  }
   source.category.subcategories.splice(source.subcategoryIndex, 1);
-  removeTopicIdsFromProviders(topicIds);
+  if (!targetSubcategory) {
+    removeTopicIdsFromProviders(topicIds);
+  }
 
   if (selectedSubcategoryId === subcategoryId) {
-    selectedSubcategoryId = null;
+    selectedSubcategoryId = targetSubcategory?.id || null;
+    if (targetSubcategory) {
+      const targetLocation = findSubcategoryLocation(targetSubcategory.id);
+      selectedCategoryId = targetLocation?.category?.id || selectedCategoryId;
+    }
   }
 
   managementCategorySaveRevision += 1;
@@ -58486,7 +58619,7 @@ async function handleDeleteSubcategory(subcategoryId) {
     previousSelection,
     "Themenbereich konnte nicht dauerhaft gelöscht werden. Bitte erneut versuchen.",
     revision,
-    { providersSync: { forceFullSync: true }, previousProvidersSnapshot }
+    targetSubcategory ? {} : { providersSync: { forceFullSync: true }, previousProvidersSnapshot }
   );
 }
 
@@ -58606,13 +58739,41 @@ async function handleMoveTopic(topicId) {
 }
 
 async function handleDeleteTopic(topicId) {
+  const refreshed = await refreshManagementCategoriesFromRemote({ render: true });
+  if (!refreshed) {
+    return;
+  }
   const source = findTopicLocation(topicId);
   if (!source) {
+    showWarningFeedback("Das Thema wurde inzwischen geändert. Bitte erneut auswählen.");
     return;
   }
 
-  const confirmed = await confirmDeleteAction(`Thema "${source.topic.name}" wirklich löschen?`);
-  if (!confirmed) {
+  const linkedProviders = getProvidersLinkedToTopicIds([topicId]);
+  let targetTopicId = "";
+  if (linkedProviders.length) {
+    const targetTopics = getAllTopics()
+      .filter((topic) => String(topic.id || "").trim() !== String(topicId || "").trim())
+      .map((topic) => ({
+        id: topic.id,
+        label: `${topic.categoryName} > ${topic.subcategoryName} > ${topic.name}`,
+      }))
+      .sort((left, right) => left.label.localeCompare(right.label, "de"));
+    if (!targetTopics.length) {
+      showWarningFeedback("Dieses Thema ist noch mit Datensätzen verbunden. Bitte zuerst ein weiteres Thema anlegen.");
+      return;
+    }
+    targetTopicId = await promptCategoryDeleteReassignment({
+      title: "Thema löschen",
+      description: `${linkedProviders.length} ${linkedProviders.length === 1 ? "Anbieter-Datensatz verwendet" : "Anbieter-Datensätze verwenden"} „${source.topic.name}“. Bitte wählen Sie das Thema, dem diese Datensätze künftig zugeordnet werden sollen.`,
+      fieldLabel: "Neues Thema",
+      confirmLabel: "Zuordnen und löschen",
+      targets: targetTopics,
+    });
+    if (!targetTopicId) {
+      return;
+    }
+  } else if (!(await confirmDeleteAction(`Thema „${source.topic.name}“ wirklich löschen?`))) {
     return;
   }
 
@@ -58623,7 +58784,11 @@ async function handleDeleteTopic(topicId) {
     subcategoryId: selectedSubcategoryId,
   };
   source.subcategory.topics.splice(source.topicIndex, 1);
-  removeTopicIdsFromProviders([topicId]);
+  if (targetTopicId) {
+    replaceTopicIdsForProviders([topicId], targetTopicId);
+  } else {
+    removeTopicIdsFromProviders([topicId]);
+  }
   managementCategorySaveRevision += 1;
   const revision = managementCategorySaveRevision;
   renderAll();
@@ -61912,6 +62077,36 @@ function getDefaultDashboardCountryFilter(countries = []) {
 
 function collectTopicIdsFromCategory(category) {
   return category.subcategories.flatMap((subcategory) => subcategory.topics.map((topic) => topic.id));
+}
+
+function getProvidersLinkedToTopicIds(topicIds) {
+  const ids = new Set((Array.isArray(topicIds) ? topicIds : []).map((id) => String(id || "").trim()).filter(Boolean));
+  if (!ids.size) {
+    return [];
+  }
+  return state.providers.filter((provider) =>
+    (Array.isArray(provider?.topicIds) ? provider.topicIds : []).some((topicId) => ids.has(String(topicId || "").trim()))
+  );
+}
+
+function replaceTopicIdsForProviders(topicIds, targetTopicId) {
+  const ids = new Set((Array.isArray(topicIds) ? topicIds : []).map((id) => String(id || "").trim()).filter(Boolean));
+  const targetId = String(targetTopicId || "").trim();
+  if (!ids.size || !targetId) {
+    return 0;
+  }
+  let changedCount = 0;
+  state.providers.forEach((provider) => {
+    const currentIds = Array.isArray(provider?.topicIds) ? provider.topicIds : [];
+    if (!currentIds.some((topicId) => ids.has(String(topicId || "").trim()))) {
+      return;
+    }
+    provider.topicIds = Array.from(
+      new Set(currentIds.map((topicId) => (ids.has(String(topicId || "").trim()) ? targetId : topicId)))
+    );
+    changedCount += 1;
+  });
+  return changedCount;
 }
 
 function removeTopicIdsFromProviders(topicIds) {

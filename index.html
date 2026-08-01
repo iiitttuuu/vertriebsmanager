@@ -5631,6 +5631,36 @@
       </div>
     </div>
 
+    <div
+      id="category-delete-reassignment-panel"
+      class="employee-detail-panel hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="category-delete-reassignment-title"
+    >
+      <div class="employee-detail-dialog live-confirm-dialog category-delete-reassignment-dialog">
+        <div class="employee-detail-head">
+          <h4 id="category-delete-reassignment-title">Datensätze neu zuordnen</h4>
+          <button
+            type="button"
+            id="category-delete-reassignment-close"
+            class="mini-btn"
+            title="Schließen"
+            aria-label="Schließen"
+          >✕</button>
+        </div>
+        <p id="category-delete-reassignment-text" class="matrix-info"></p>
+        <label for="category-delete-reassignment-select" id="category-delete-reassignment-label" class="topic-move-field">
+          <span id="category-delete-reassignment-label-text">Neue Zuordnung</span>
+          <select id="category-delete-reassignment-select"></select>
+        </label>
+        <div class="auth-actions">
+          <button type="button" id="category-delete-reassignment-no" class="btn btn-primary">Abbrechen</button>
+          <button type="button" id="category-delete-reassignment-yes" class="btn btn-success btn-action">Zuordnen und löschen</button>
+        </div>
+      </div>
+    </div>
+
     <div id="sales-phone-status-modal" class="modal-overlay-page sales-phone-command-modal hidden" data-sales-phone-modal="status">
       <div class="modal-dialog-panel sales-phone-modal-panel">
         <div class="modal-dialog-head sales-phone-modal-head">
