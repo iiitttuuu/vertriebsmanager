@@ -925,6 +925,8 @@ let providerDashboardCreatedSyncInFlight = false;
 let providerCompetitorSyncInFlight = false;
 let supabaseClient = null;
 const TOPIC_REQUESTS_TABLE = "topic_requests";
+const TOPIC_SUBTOPICS_TABLE = "topic_subtopics";
+let topicSubtopics = [];
 let storageMode = "local";
 let remoteSaveTimeoutId = null;
 let queuedProvidersSync = null;
@@ -4526,6 +4528,7 @@ function queuePostLoginDataHydration(flowId = 0, initialDataPromise = Promise.re
         syncUsersFromSupabase(),
         hydratePartnerRequestsFromSupabase({ force: true }),
         hydrateTopicRequestsFromSupabase(),
+        hydrateTopicSubtopicsFromSupabase(),
         hydrateContentReadReceipts({ force: true }),
         canUseAdminFeatures() ? hydrateIncomingInvoicesFromSupabase({ force: true }) : Promise.resolve(),
         repairOrphanProviderRegistryEntries(),
@@ -10773,6 +10776,14 @@ function bindEvents() {
   });
 
   els.topicsList.addEventListener("click", (event) => {
+    const subtopicsButton = event.target.closest("button[data-manage-topic-subtopics]");
+    if (subtopicsButton) {
+      if (!isAdmin()) {
+        return;
+      }
+      void openTopicSubtopicsModal(subtopicsButton.dataset.manageTopicSubtopics);
+      return;
+    }
     const editButton = event.target.closest("button[data-edit-topic]");
     if (editButton) {
       if (!isAdmin()) {
@@ -12618,6 +12629,181 @@ async function hydrateTopicRequestsFromSupabase() {
   renderAdminNotifications();
   renderSalesDashboardSection();
   return true;
+}
+
+function normalizeTopicSubtopicRows(rows = []) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((row) => ({
+      id: String(row?.id || "").trim(),
+      topicId: String(row?.topic_id || row?.topicId || "").trim(),
+      name: String(row?.name || "").trim(),
+      normalizedName: normalizeText(row?.normalized_name || row?.name || ""),
+    }))
+    .filter((entry) => entry.id && entry.topicId && entry.name);
+}
+
+function getTopicSubtopics(topicId) {
+  const normalizedTopicId = String(topicId || "").trim();
+  return topicSubtopics
+    .filter((entry) => entry.topicId === normalizedTopicId)
+    .slice()
+    .sort((left, right) => left.name.localeCompare(right.name, "de"));
+}
+
+async function hydrateTopicSubtopicsFromSupabase() {
+  const client = getSupabaseClient();
+  if (!client) {
+    return false;
+  }
+  const { data, error } = await client
+    .from(TOPIC_SUBTOPICS_TABLE)
+    .select("id, topic_id, name, normalized_name")
+    .order("name", { ascending: true });
+  if (error) {
+    console.warn("Sub-Themen konnten nicht aus Supabase geladen werden.", error);
+    return false;
+  }
+  topicSubtopics = normalizeTopicSubtopicRows(data);
+  renderManagementSection();
+  renderProviderTopicPicker();
+  return true;
+}
+
+async function deleteTopicSubtopicsOnServer(topicIds) {
+  const normalizedTopicIds = Array.from(
+    new Set((Array.isArray(topicIds) ? topicIds : []).map((id) => String(id || "").trim()).filter(Boolean))
+  );
+  if (!normalizedTopicIds.length) {
+    return true;
+  }
+  const client = getSupabaseClient();
+  if (storageMode === "supabase") {
+    if (!client) {
+      showErrorFeedback("Keine Verbindung zu Supabase. Das Hauptthema bleibt unverändert.", { toast: true });
+      return false;
+    }
+    const { error } = await client.from(TOPIC_SUBTOPICS_TABLE).delete().in("topic_id", normalizedTopicIds);
+    if (error) {
+      showErrorFeedback("Die zugehörigen Sub-Themen konnten nicht gelöscht werden. Das Hauptthema bleibt unverändert.", {
+        toast: true,
+      });
+      return false;
+    }
+  }
+  const topicIdSet = new Set(normalizedTopicIds);
+  topicSubtopics = topicSubtopics.filter((entry) => !topicIdSet.has(entry.topicId));
+  return true;
+}
+
+async function openTopicSubtopicsModal(topicId) {
+  if (!isAdmin()) {
+    return;
+  }
+  const topic = findTopicLocation(topicId)?.topic;
+  if (!topic) {
+    showWarningFeedback("Das Thema ist nicht mehr verfügbar.");
+    return;
+  }
+  const normalizedTopicId = String(topic.id || "").trim();
+  const modal = document.createElement("div");
+  modal.className = "topic-subtopics-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-label", `Sub-Themen für ${topic.name}`);
+
+  const renderModal = () => {
+    const entries = getTopicSubtopics(normalizedTopicId);
+    modal.innerHTML = `<section class="topic-subtopics-dialog"><header><div><p>SUB-THEMEN</p><h3>${escapeHtml(topic.name)}</h3><span>Sub-Themen verbessern die Suche bei der Anbieter-Zuordnung. Anbieter bleiben dem Hauptthema zugeordnet.</span></div><button type="button" class="mini-btn" data-close-subtopics aria-label="Popup schließen">✕</button></header><form data-subtopic-form><label>Neues Sub-Thema<input name="name" maxlength="120" autocomplete="off" placeholder="z. B. Fitnesstraining" required /></label><button type="submit" class="btn btn-success">Hinzufügen</button></form><div class="topic-subtopics-list">${entries.length ? entries.map((entry) => `<div><span>${escapeHtml(entry.name)}</span><button type="button" class="mini-btn danger" data-delete-subtopic="${escapeHtml(entry.id)}" aria-label="${escapeHtml(`${entry.name} löschen`)}" title="Sub-Thema löschen">✕</button></div>`).join("") : "<p>Noch keine Sub-Themen erfasst.</p>"}</div></section>`;
+  };
+  const close = () => {
+    document.removeEventListener("keydown", onKeyDown);
+    modal.remove();
+  };
+  const onKeyDown = (event) => {
+    if (event.key === "Escape") {
+      close();
+    }
+  };
+  modal.addEventListener("click", async (event) => {
+    if (event.target === modal || event.target.closest("[data-close-subtopics]")) {
+      close();
+      return;
+    }
+    const deleteButton = event.target.closest("[data-delete-subtopic]");
+    if (!deleteButton) {
+      return;
+    }
+    const subtopicId = String(deleteButton.dataset.deleteSubtopic || "").trim();
+    const subtopic = topicSubtopics.find((entry) => entry.id === subtopicId);
+    if (!subtopic || !(await confirmDeleteAction(`Sub-Thema „${subtopic.name}“ wirklich löschen?`))) {
+      return;
+    }
+    const client = getSupabaseClient();
+    if (storageMode === "supabase") {
+      if (!client) {
+        showErrorFeedback("Keine Verbindung zu Supabase. Sub-Thema wurde nicht gelöscht.", { toast: true });
+        return;
+      }
+      const { error } = await client.from(TOPIC_SUBTOPICS_TABLE).delete().eq("id", subtopicId);
+      if (error) {
+        showErrorFeedback("Sub-Thema konnte nicht gelöscht werden.", { toast: true });
+        return;
+      }
+    }
+    topicSubtopics = topicSubtopics.filter((entry) => entry.id !== subtopicId);
+    renderModal();
+    renderManagementSection();
+    renderProviderTopicPicker();
+  });
+  modal.addEventListener("submit", async (event) => {
+    const form = event.target.closest("form[data-subtopic-form]");
+    if (!form) {
+      return;
+    }
+    event.preventDefault();
+    const name = String(new FormData(form).get("name") || "").trim().slice(0, 120);
+    const normalizedName = normalizeText(name);
+    if (!normalizedName) {
+      return;
+    }
+    if (getTopicSubtopics(normalizedTopicId).some((entry) => entry.normalizedName === normalizedName)) {
+      showWarningFeedback("Dieses Sub-Thema ist für dieses Hauptthema bereits vorhanden.", { toast: true });
+      form.elements.name?.focus();
+      form.elements.name?.select();
+      return;
+    }
+    const client = getSupabaseClient();
+    let inserted = { id: createId("topic_subtopic"), topicId: normalizedTopicId, name, normalizedName };
+    if (storageMode === "supabase") {
+      if (!client) {
+        showErrorFeedback("Keine Verbindung zu Supabase. Sub-Thema wurde nicht gespeichert.", { toast: true });
+        return;
+      }
+      const { data, error } = await client
+        .from(TOPIC_SUBTOPICS_TABLE)
+        .insert({ topic_id: normalizedTopicId, name, normalized_name: normalizedName })
+        .select("id, topic_id, name, normalized_name")
+        .single();
+      if (error) {
+        showErrorFeedback(
+          error.code === "23505"
+            ? "Dieses Sub-Thema ist für dieses Hauptthema bereits vorhanden."
+            : "Sub-Thema konnte nicht in Supabase gespeichert werden.",
+          { toast: true }
+        );
+        return;
+      }
+      inserted = normalizeTopicSubtopicRows([data])[0] || inserted;
+    }
+    topicSubtopics.push(inserted);
+    renderModal();
+    renderManagementSection();
+    renderProviderTopicPicker();
+  });
+  document.body.appendChild(modal);
+  document.addEventListener("keydown", onKeyDown);
+  renderModal();
+  modal.querySelector("input[name='name']")?.focus();
 }
 
 function getTopicRequestNotifications() {
@@ -52815,7 +53001,8 @@ function renderProviderTopicPicker() {
   const query = normalizeText(els.providerTopicSearch?.value || "");
   const filteredTopics = allTopics.filter((topic) => {
     if (!query) return false;
-    const searchText = normalizeText(`${topic.name} ${topic.subcategoryName} ${topic.categoryName}`);
+    const subtopicNames = getTopicSubtopics(topic.id).map((entry) => entry.name).join(" ");
+    const searchText = normalizeText(`${topic.name} ${subtopicNames} ${topic.subcategoryName} ${topic.categoryName}`);
     return searchText.includes(query);
   });
   const activeSearchLabel = String(els.providerTopicSearch?.value || "").trim();
@@ -52828,6 +53015,12 @@ function renderProviderTopicPicker() {
       filteredTopics
         .map((topic) => {
           const selected = providerTopicSelection.has(topic.id);
+          const matchedSubtopics = query
+            ? getTopicSubtopics(topic.id).filter((entry) => normalizeText(entry.name).includes(query))
+            : [];
+          const matchingHint = matchedSubtopics.length
+            ? ` · gefunden über Sub-Thema: ${matchedSubtopics.map((entry) => entry.name).join(", ")}`
+            : "";
           return `
             <button
               type="button"
@@ -52837,7 +53030,7 @@ function renderProviderTopicPicker() {
               <span class="topic-result-title">${escapeHtml(topic.name)}</span>
               <span class="topic-result-meta">${escapeHtml(topic.subcategoryName)} · ${escapeHtml(
                 topic.categoryName
-              )}</span>
+              )}${escapeHtml(matchingHint)}</span>
             </button>
           `;
         })
@@ -57448,7 +57641,13 @@ function topicMatchesManagementSearch(topic, subcategory, category, query) {
   if (!query) {
     return true;
   }
-  return normalizeText(`${topic?.name || ""} ${subcategory?.name || ""} ${category?.name || ""}`).includes(query);
+  const subtopicNames = getTopicSubtopics(topic?.id).map((entry) => entry.name).join(" ");
+  return normalizeText(`${topic?.name || ""} ${subtopicNames} ${subcategory?.name || ""} ${category?.name || ""}`).includes(query);
+}
+
+function topicSubtopicsButtonMarkup(topic) {
+  const count = getTopicSubtopics(topic?.id).length;
+  return `<button type="button" class="mini-btn topic-subtopics-btn" title="Sub-Themen verwalten (${count})" aria-label="Sub-Themen für ${escapeHtml(topic?.name || "Thema")} verwalten" data-manage-topic-subtopics="${escapeHtml(topic?.id || "")}">S</button>`;
 }
 
 function subcategoryMatchesManagementSearch(subcategory, category, query) {
@@ -57703,6 +57902,7 @@ function renderTopicsList() {
                       <button type="button" class="mini-btn" title="Thema bearbeiten" aria-label="Thema bearbeiten" data-edit-topic="${escapeHtml(
                         topic.id
                       )}">✎</button>
+                      ${topicSubtopicsButtonMarkup(topic)}
                       <button type="button" class="mini-btn" title="In anderen Themenbereich verschieben" aria-label="In anderen Themenbereich verschieben" data-move-topic="${escapeHtml(
                         topic.id
                       )}">↔</button>
@@ -57756,6 +57956,7 @@ function renderTopicsList() {
                     <button type="button" class="mini-btn" title="Thema bearbeiten" aria-label="Thema bearbeiten" data-edit-topic="${escapeHtml(
                       topic.id
                     )}">✎</button>
+                    ${topicSubtopicsButtonMarkup(topic)}
                     <button type="button" class="mini-btn" title="In anderen Themenbereich verschieben" aria-label="In anderen Themenbereich verschieben" data-move-topic="${escapeHtml(
                       topic.id
                     )}">↔</button>
@@ -57845,6 +58046,9 @@ async function handleDeleteCategory(categoryId) {
     `Kategorie "${category.name}" wirklich löschen? Unterkategorien und Themen werden mitgelöscht.`
   );
   if (!confirmed) {
+    return;
+  }
+  if (!(await deleteTopicSubtopicsOnServer(topicIds))) {
     return;
   }
 
@@ -58589,6 +58793,10 @@ async function handleDeleteSubcategory(subcategoryId) {
     return;
   }
 
+  if (!targetSubcategory && !(await deleteTopicSubtopicsOnServer(topicIds))) {
+    return;
+  }
+
   const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
   const previousProvidersSnapshot = JSON.parse(JSON.stringify(state.providers));
   const previousSelection = {
@@ -58774,6 +58982,9 @@ async function handleDeleteTopic(topicId) {
       return;
     }
   } else if (!(await confirmDeleteAction(`Thema „${source.topic.name}“ wirklich löschen?`))) {
+    return;
+  }
+  if (!(await deleteTopicSubtopicsOnServer([topicId]))) {
     return;
   }
 

@@ -9350,6 +9350,128 @@ body.provider-form-open .topbar {
   font-weight: 700;
 }
 
+.topic-subtopics-btn {
+  color: #2f6fba;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.topic-subtopics-modal {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(20, 31, 45, 0.42);
+  backdrop-filter: blur(8px);
+}
+
+.topic-subtopics-dialog {
+  width: min(100%, 520px);
+  max-height: min(84vh, 680px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 24px;
+  border: 1px solid #d7dee8;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+}
+
+.topic-subtopics-dialog header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e4e9f0;
+}
+
+.topic-subtopics-dialog header p,
+.topic-subtopics-dialog header h3,
+.topic-subtopics-dialog header span {
+  display: block;
+  margin: 0;
+}
+
+.topic-subtopics-dialog header p {
+  color: #2f6fba;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.topic-subtopics-dialog header h3 {
+  margin-top: 4px;
+  color: #1d2c3b;
+  font-size: 1.22rem;
+  font-weight: 600;
+}
+
+.topic-subtopics-dialog header span {
+  margin-top: 7px;
+  color: #65788f;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.topic-subtopics-dialog form {
+  display: flex;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.topic-subtopics-dialog form label {
+  display: grid;
+  flex: 1;
+  gap: 5px;
+  color: #41566f;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.topic-subtopics-dialog form input {
+  min-width: 0;
+}
+
+.topic-subtopics-dialog form .btn {
+  align-self: end;
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.topic-subtopics-list {
+  display: grid;
+  gap: 7px;
+}
+
+.topic-subtopics-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid #dfe7f0;
+  border-radius: 10px;
+  background: #f8fbff;
+  color: #30496e;
+  font-size: 0.86rem;
+}
+
+.topic-subtopics-list > p {
+  margin: 0;
+  color: #718096;
+  font-size: 0.84rem;
+}
+
+@media (max-width: 560px) {
+  .topic-subtopics-modal { padding: 14px; }
+  .topic-subtopics-dialog { padding: 18px; }
+  .topic-subtopics-dialog form { flex-direction: column; }
+  .topic-subtopics-dialog form .btn { align-self: stretch; }
+}
+
 /* Der Dialog erklärt eine notwendige Datenumhängung bewusst ruhig und ohne Fettschrift. */
 .category-delete-reassignment-dialog .employee-detail-head h4,
 .category-delete-reassignment-dialog .matrix-info,

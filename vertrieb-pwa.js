@@ -5,6 +5,7 @@
   const STATE_TABLE = "app_state";
   const PROVIDER_NOTES_TABLE = "provider_notes";
   const TOPIC_REQUESTS_TABLE = "topic_requests";
+  const TOPIC_SUBTOPICS_TABLE = "topic_subtopics";
   const CONTENT_READ_RECEIPTS_TABLE = "content_read_receipts";
   const PROVIDER_NOTE_STORAGE_PREFIX = "VMMETA@";
   const ROUTE_RETURN_STORAGE_KEY = "mwc_vertrieb_route_return_v1";
@@ -32,6 +33,7 @@
     profile: null,
     providers: [],
     categories: [],
+    topicSubtopics: [],
     view: "home",
     detailId: "",
     wizard: { step: 1, providerId: "", values: createEmptyProviderValues() },
@@ -122,6 +124,13 @@
   }
   function normalizeDedupPart(value) {
     return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+  }
+  function topicSubtopicsFor(topicId) {
+    const normalizedTopicId = String(topicId || "").trim();
+    return (Array.isArray(state.topicSubtopics) ? state.topicSubtopics : [])
+      .filter((entry) => String(entry?.topicId || "").trim() === normalizedTopicId)
+      .map((entry) => String(entry?.name || "").trim())
+      .filter(Boolean);
   }
   function parseFlag(value) { return value === true || ["true", "1", "yes", "ja"].includes(normalize(value)); }
   function roleLabel(role) { return normalize(role) === "vertriebsmitarbeiter" ? "Vertrieb" : "Mitarbeiter"; }
@@ -549,6 +558,18 @@
       })).filter((category) => category.subcategories.length);
       const settings = payload.settings && typeof payload.settings === "object" ? payload.settings : {};
       state.categories = nextCategories;
+      const { data: subtopicRows, error: subtopicError } = await state.client
+        .from(TOPIC_SUBTOPICS_TABLE)
+        .select("topic_id, name")
+        .order("name", { ascending: true });
+      if (subtopicError) {
+        console.warn("Sub-Themen konnten in der Vertriebs-App nicht geladen werden.", subtopicError);
+        state.topicSubtopics = [];
+      } else {
+        state.topicSubtopics = (Array.isArray(subtopicRows) ? subtopicRows : [])
+          .map((row) => ({ topicId: String(row?.topic_id || "").trim(), name: String(row?.name || "").trim() }))
+          .filter((entry) => entry.topicId && entry.name);
+      }
       topicsRemoteUpdatedAt = remoteUpdatedAt || topicsRemoteUpdatedAt;
       state.appPlatformCountry = String(settings.platformCountryFilter || "").trim();
       state.employeeMessages = normalizeEmployeeMessages(settings.secretaryEmployeeMessages);
@@ -1373,7 +1394,12 @@
     const topics = state.categories
       .flatMap((category) => category.subcategories.flatMap((subcategory) => subcategory.topics.map((topic) => ({ category, subcategory, topic }))))
       .sort((left, right) => `${left.category.name} ${left.subcategory.name} ${left.topic.name}`.localeCompare(`${right.category.name} ${right.subcategory.name} ${right.topic.name}`, "de"));
-    const options = topics.map(({ category, subcategory, topic }) => `<label class="pwa-topic-option pwa-topic-option-search" data-topic-option data-topic-search-text="${escapeHtml(normalizeDedupPart(`${category.name} ${subcategory.name} ${topic.name}`))}"><input type="checkbox" data-topic-id="${escapeHtml(topic.id)}" value="${escapeHtml(topic.id)}" ${selected.has(topic.id) ? "checked" : ""} /><span><b>${escapeHtml(topic.name)}</b><small>${escapeHtml(category.name)} · ${escapeHtml(subcategory.name)}</small></span></label>`).join("");
+    const options = topics.map(({ category, subcategory, topic }) => {
+      const subtopics = topicSubtopicsFor(topic.id);
+      const searchText = normalizeDedupPart(`${category.name} ${subcategory.name} ${topic.name} ${subtopics.join(" ")}`);
+      const subtopicHint = subtopics.length ? ` · Sub-Themen: ${subtopics.join(", ")}` : "";
+      return `<label class="pwa-topic-option pwa-topic-option-search" data-topic-option data-topic-search-text="${escapeHtml(searchText)}"><input type="checkbox" data-topic-id="${escapeHtml(topic.id)}" value="${escapeHtml(topic.id)}" ${selected.has(topic.id) ? "checked" : ""} /><span><b>${escapeHtml(topic.name)}</b><small>${escapeHtml(category.name)} · ${escapeHtml(subcategory.name)}${escapeHtml(subtopicHint)}</small></span></label>`;
+    }).join("");
     return `<section class="pwa-topic-picker"><label class="pwa-topic-search pwa-topic-search-primary"><span>⌕</span><input id="pwa-topic-search" type="search" placeholder="Thema suchen" autocomplete="off" /></label><div class="pwa-topic-selection-line"><strong id="pwa-topic-selected-count">${selected.size}</strong><span>Themen ausgewählt</span><small id="pwa-topic-visible-count">Thema suchen</small></div>${selectedTopicsSummaryMarkup(values.topicIds, { id: "pwa-topic-selected-summary", title: "Gewählte Themen", className: "pwa-topic-selected-summary", canUnselect: true })}<div class="pwa-topic-results pwa-topic-results-simple" id="pwa-topic-results">${options}</div><button type="button" id="pwa-topic-no-results" class="pwa-topic-no-results hidden" data-open-topic-request><b>Kein passendes Thema gefunden.</b><span>Kategorie anfragen ›</span></button><button type="button" class="pwa-topic-request-trigger" data-open-topic-request><span>+</span><b>Kategorie fehlt?</b><small>Wunsch an Superadmin senden</small><i>›</i></button></section>`;
   }
   function wizardStepMarkup(values, step) {
