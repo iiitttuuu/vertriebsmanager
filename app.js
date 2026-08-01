@@ -13543,12 +13543,37 @@ function openTopicRequestResolutionModal(requestId) {
   document.body.appendChild(modal);
   const form = modal.querySelector("form");
   const refreshMasterData = () => {
-    const category = categories.find((entry) => entry.id === form.elements.categoryId.value) || categories[0];
+    const selectedCategoryId = String(form.elements.categoryId.value || "").trim();
+    const category =
+      categories.find((entry) => String(entry?.id || "").trim() === selectedCategoryId) || categories[0] || null;
     const subcategories = Array.isArray(category?.subcategories) ? category.subcategories : [];
-    form.elements.subcategoryId.innerHTML = subcategories.map((subcategory) => `<option value="${escapeHtml(subcategory.id)}">${escapeHtml(subcategory.name)}</option>`).join("") || '<option value="">Keine Themenbereiche vorhanden</option>';
-    const subcategory = subcategories.find((entry) => entry.id === form.elements.subcategoryId.value) || subcategories[0];
+    const previousSubcategoryId = String(form.elements.subcategoryId.value || "").trim();
+    form.elements.subcategoryId.innerHTML = subcategories.length
+      ? subcategories
+          .map(
+            (subcategory) =>
+              `<option value="${escapeHtml(subcategory.id)}">${escapeHtml(subcategory.name)}</option>`
+          )
+          .join("")
+      : '<option value="">Keine Themenbereiche vorhanden</option>';
+    const subcategory =
+      subcategories.find((entry) => String(entry?.id || "").trim() === previousSubcategoryId) ||
+      subcategories[0] ||
+      null;
+    if (subcategory) {
+      form.elements.subcategoryId.value = String(subcategory.id || "");
+    }
     const topics = Array.isArray(subcategory?.topics) ? subcategory.topics : [];
-    form.elements.existingTopicId.innerHTML = topics.map((topic) => `<option value="${escapeHtml(topic.id)}">${escapeHtml(topic.name)}</option>`).join("") || '<option value="">Keine Themen vorhanden</option>';
+    const previousTopicId = String(form.elements.existingTopicId.value || "").trim();
+    form.elements.existingTopicId.innerHTML = topics.length
+      ? topics
+          .map((topic) => `<option value="${escapeHtml(topic.id)}">${escapeHtml(topic.name)}</option>`)
+          .join("")
+      : '<option value="">Keine Themen vorhanden</option>';
+    const topic = topics.find((entry) => String(entry?.id || "").trim() === previousTopicId) || topics[0] || null;
+    if (topic) {
+      form.elements.existingTopicId.value = String(topic.id || "");
+    }
     form.elements.subcategoryId.disabled = !subcategories.length;
     form.elements.existingTopicId.disabled = !topics.length;
   };
