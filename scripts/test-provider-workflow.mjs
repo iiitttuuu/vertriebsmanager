@@ -91,6 +91,21 @@ assert.match(
   /reason: remoteStateRowExists \? "write_conflict" : "write_not_confirmed"[\s\S]*?createPersistenceConflictError\(\)/,
   "Ein paralleler Save wird als Konflikt erkannt statt ältere Kategorien zurückzuschreiben."
 );
+assert.match(
+  appSource,
+  /function rememberProviderEditorResume\(\)[\s\S]*?window\.sessionStorage[\s\S]*?providerId[\s\S]*?userId[\s\S]*?tab/,
+  "Die Anbieter-Wiederaufnahme darf nur Kontext, keine Formularfelder, im Browser merken."
+);
+assert.match(
+  appSource,
+  /function restoreProviderEditorResume\(\)[\s\S]*?openProviderEditor\(resume\.providerId, \{ tab: resume\.tab \}\)/,
+  "Ein Anbieter wird nach Reload ausschließlich über den normalen Editorzugriff wieder geöffnet."
+);
+assert.match(
+  appSource,
+  /async function handleSignOut\(\)[\s\S]*?clearProviderEditorResume\(\)/,
+  "Beim bewussten Abmelden muss der gemerkte Anbieter-Kontext gelöscht werden."
+);
 
 function extractFunction(name) {
   const marker = `function ${name}(`;

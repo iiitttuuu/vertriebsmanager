@@ -1,4 +1,6 @@
 const STORAGE_KEY = "vertriebsmanager_state_v1";
+const PROVIDER_EDITOR_RESUME_STORAGE_KEY = "vertriebsmanager_provider_editor_resume_v1";
+const PROVIDER_EDITOR_RESUME_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const SALES_DASHBOARD_LOCAL_LAYOUT_STORAGE_KEY = "vertriebsmanager_sales_dashboard_layout_v1";
 const DAILY_SALES_PROGRESS_STORAGE_KEY = "vertriebsmanager_daily_sales_progress_v2";
 const REMOTE_STATE_ROW_ID = "main";
@@ -913,6 +915,7 @@ let ceoSecretaryChatMessages = [];
 let ceoSecretaryLastReferencedEntryIds = [];
 let providerFormDirty = false;
 let providerDraftPendingResume = false;
+let providerEditorResumeRestoredForSession = false;
 let providerUnsavedChangesResolve = null;
 let providerPendingTabAfterSave = "";
 let providerPendingCloseAfterSave = false;
@@ -4522,6 +4525,9 @@ function queuePostLoginDataHydration(flowId = 0, initialDataPromise = Promise.re
 
       ensureSessionUser();
       ensureManagementSelection();
+      if (providersViewMode === "list") {
+        restoreProviderEditorResume();
+      }
       startRemoteStateSync();
       startPartnerRequestSync({ refreshImmediately: false });
       if (!initialDataReady) {
@@ -4561,6 +4567,7 @@ function queuePostLoginDataHydration(flowId = 0, initialDataPromise = Promise.re
 async function bootstrapAfterAuth(flowId = 0) {
   onboardingPromptShownForSession = false;
   automaticLoginPopupShownForSession = false;
+  providerEditorResumeRestoredForSession = false;
   if (dailySalesProgressPromptTimerId) {
     window.clearTimeout(dailySalesProgressPromptTimerId);
     dailySalesProgressPromptTimerId = 0;
@@ -4621,6 +4628,9 @@ async function bootstrapAfterAuth(flowId = 0) {
     return;
   }
   renderInitialDashboardShell();
+  if (initialDataReady) {
+    restoreProviderEditorResume();
+  }
   queuePostLoginDataHydration(flowId, initialDataPromise, initialDataReady);
 }
 
@@ -44270,6 +44280,86 @@ function findProviderRecordById(providerId, providers) {
   return providers.find((entry) => String(entry?.id || "").trim() === normalizedProviderId) || null;
 }
 
+function rememberProviderEditorResume() {
+  const providerId = String(editingProviderId || "").trim();
+  const userId = String(authProfile?.user_id || "").trim();
+  if (!providerId || !userId || providersViewMode !== "form") {
+    return;
+  }
+  try {
+    window.sessionStorage?.setItem(
+      PROVIDER_EDITOR_RESUME_STORAGE_KEY,
+      JSON.stringify({
+        providerId,
+        tab: normalizeProviderDetailTab(providerDetailTab),
+        userId,
+        savedAt: new Date().toISOString(),
+      })
+    );
+  } catch (_error) {
+    // Die Wiederaufnahme ist reine Komfortfunktion und darf den Editor nie
+    // beeinträchtigen, falls der Browser keinen Session-Speicher zulässt.
+  }
+}
+
+function clearProviderEditorResume() {
+  try {
+    window.sessionStorage?.removeItem(PROVIDER_EDITOR_RESUME_STORAGE_KEY);
+  } catch (_error) {
+    // bewusst still
+  }
+}
+
+function readProviderEditorResume() {
+  try {
+    const rawValue = window.sessionStorage?.getItem(PROVIDER_EDITOR_RESUME_STORAGE_KEY);
+    if (!rawValue) {
+      return null;
+    }
+    const value = JSON.parse(rawValue);
+    const providerId = String(value?.providerId || "").trim();
+    const userId = String(value?.userId || "").trim();
+    const savedAt = Date.parse(String(value?.savedAt || ""));
+    if (
+      !providerId ||
+      !userId ||
+      !Number.isFinite(savedAt) ||
+      Date.now() - savedAt > PROVIDER_EDITOR_RESUME_MAX_AGE_MS
+    ) {
+      clearProviderEditorResume();
+      return null;
+    }
+    return { providerId, userId, tab: normalizeProviderDetailTab(value?.tab || "master") };
+  } catch (_error) {
+    clearProviderEditorResume();
+    return null;
+  }
+}
+
+function restoreProviderEditorResume() {
+  if (providerEditorResumeRestoredForSession) {
+    return false;
+  }
+  providerEditorResumeRestoredForSession = true;
+  const resume = readProviderEditorResume();
+  if (!resume || resume.userId !== String(authProfile?.user_id || "").trim()) {
+    return false;
+  }
+  // openProviderEditor prüft den aktuellen Serverstand, Sichtbarkeit und
+  // Sperren erneut. Dadurch wird niemals ein nur lokal gemerkter Zugriff
+  // nach einem Reload wiederhergestellt.
+  const opened = openProviderEditor(resume.providerId, { tab: resume.tab });
+  if (!opened) {
+    clearProviderEditorResume();
+    return false;
+  }
+  showInfoFeedback("Anbieter wurde nach dem Neuladen wieder geöffnet.", {
+    toast: false,
+    statusPersistMs: 2600,
+  });
+  return true;
+}
+
 function openProviderEditor(providerId, options = {}) {
   const provider = findProviderRecordById(providerId, state.providers);
   if (!provider) {
@@ -44301,6 +44391,7 @@ function openProviderEditor(providerId, options = {}) {
   els.providerSaveBtn.textContent = "Aktualisieren";
   setProviderDetailTab(options?.tab || "master");
   setProvidersView("form", { renderTopicPicker: false });
+  rememberProviderEditorResume();
   return true;
 }
 
@@ -56202,6 +56293,7 @@ function setProviderDetailTab(tab) {
   } else if (providerDetailTab === "tour") {
     renderProviderTourTab();
   }
+  rememberProviderEditorResume();
 }
 
 function getCurrentUserId() {
@@ -57309,6 +57401,7 @@ async function handleAddProviderNote() {
 }
 
 function clearProviderForm() {
+  clearProviderEditorResume();
   editingProviderId = null;
   providerFormDirty = false;
   providerDraftPendingResume = false;
@@ -64185,6 +64278,7 @@ async function handleSignOut() {
   if (!client) {
     return;
   }
+  clearProviderEditorResume();
   stopRemoteStateSync();
   stopPartnerRequestSync();
   setAppLoadingState(true);
