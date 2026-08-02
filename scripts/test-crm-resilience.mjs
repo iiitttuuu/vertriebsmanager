@@ -81,6 +81,21 @@ assert.match(
   /global:\s*\{\s*fetch:\s*fetchSupabaseWithTimeout\s*,?\s*\}/,
   "Der Supabase-Client muss den Timeout-Fetch global verwenden."
 );
+assert.match(
+  appSource,
+  /async function syncProvidersTableWithStateNow[\s\S]*?fingerprint === lastProvidersTableFingerprint[\s\S]*?return \{ ok: true, reason: "unchanged" \};[\s\S]*?const sessionCheck = await ensureFreshSupabaseSessionForWrite\(\);/,
+  "Unveränderte Anbieter dürfen normale CRM-Saves nicht durch eine zusätzliche Session-Prüfung verlangsamen."
+);
+assert.match(
+  appSource,
+  /function scheduleRemoteStateRetry\(\)[\s\S]*?REMOTE_RETRY_INITIAL_DELAY_MS[\s\S]*?queueRemoteStateSave\(\);/,
+  "Kurzzeitige app_state-Ausfälle müssen automatisch mit dem aktuellen Stand erneut versucht werden."
+);
+assert.match(
+  appSource,
+  /async function insertTopicSubtopicWithRetry[\s\S]*?attempt <= 3[\s\S]*?findTopicSubtopicOnServer[\s\S]*?await waitForMs\(300 \* attempt\)/,
+  "Sub-Themen müssen bei kurzfristigen Supabase-Aussetzern verifiziert wiederholt werden."
+);
 
 // Ein interaktiver Anbieter-Save darf nicht hinter mehreren langsamen
 // Hintergrund-Synchronisierungen warten. Nach dem bereits laufenden Request

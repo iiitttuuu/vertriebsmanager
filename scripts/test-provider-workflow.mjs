@@ -81,6 +81,16 @@ assert.match(
   /async function saveManagementCategoriesWithVerification\(\)[\s\S]*?verifyManagementCategoriesOnServer\(expectedCategories\)/,
   "Der manuelle Stammdaten-Speicherbutton prüft den geschriebenen Serverstand."
 );
+assert.match(
+  appSource,
+  /async function persistStateToSupabase[\s\S]*?select\("payload, updated_at"\)[\s\S]*?\.update\(\{ payload: nextStateRow\.payload, updated_at: nextStateRow\.updated_at \}\)[\s\S]*?\.eq\("updated_at", remoteStateUpdatedAtAtRead\)/,
+  "Jeder zentrale Save muss den zuvor gelesenen Serverstand per Compare-and-Swap absichern."
+);
+assert.match(
+  appSource,
+  /reason: remoteStateRowExists \? "write_conflict" : "write_not_confirmed"[\s\S]*?createPersistenceConflictError\(\)/,
+  "Ein paralleler Save wird als Konflikt erkannt statt ältere Kategorien zurückzuschreiben."
+);
 
 function extractFunction(name) {
   const marker = `function ${name}(`;

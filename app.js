@@ -3,6 +3,8 @@ const SALES_DASHBOARD_LOCAL_LAYOUT_STORAGE_KEY = "vertriebsmanager_sales_dashboa
 const DAILY_SALES_PROGRESS_STORAGE_KEY = "vertriebsmanager_daily_sales_progress_v2";
 const REMOTE_STATE_ROW_ID = "main";
 const REMOTE_SAVE_DEBOUNCE_MS = 450;
+const REMOTE_RETRY_INITIAL_DELAY_MS = 1500;
+const REMOTE_RETRY_MAX_DELAY_MS = 15000;
 // Hintergrund-Sync soll Änderungen zeitnah erkennen, darf aber die Eingabe nicht
 // durch wiederholte Komplettabfragen aller Anbieter belasten.
 const REMOTE_SYNC_INTERVAL_MS = 10000;
@@ -929,6 +931,8 @@ const TOPIC_SUBTOPICS_TABLE = "topic_subtopics";
 let topicSubtopics = [];
 let storageMode = "local";
 let remoteSaveTimeoutId = null;
+let remoteRetryTimeoutId = null;
+let remoteRetryAttempt = 0;
 let queuedProvidersSync = null;
 let lastRemotePayloadFingerprint = "";
 let lastRemoteStateUpdatedAt = "";
@@ -12649,6 +12653,101 @@ function getTopicSubtopics(topicId) {
     .sort((left, right) => left.name.localeCompare(right.name, "de"));
 }
 
+function isRetryableSupabaseWriteError(errorLike) {
+  const status = Number(errorLike?.status || errorLike?.statusCode || 0);
+  const code = String(errorLike?.code || "").trim().toLowerCase();
+  const name = String(errorLike?.name || "").trim().toLowerCase();
+  const message = String(errorLike?.message || errorLike?.details || "").trim().toLowerCase();
+  if (isSupabaseWritePermissionError(errorLike) || status === 400 || status === 401 || status === 403) {
+    return false;
+  }
+  return (
+    status === 408 ||
+    status === 425 ||
+    status === 429 ||
+    status >= 500 ||
+    name === "timeouterror" ||
+    name === "aborterror" ||
+    code === "pgrst003" ||
+    message.includes("timeout") ||
+    message.includes("timed out") ||
+    message.includes("network") ||
+    message.includes("fetch failed") ||
+    message.includes("connection") ||
+    message.includes("temporar")
+  );
+}
+
+async function findTopicSubtopicOnServer(topicId, normalizedName) {
+  const client = getSupabaseClient();
+  if (!client) {
+    return null;
+  }
+  try {
+    const { data, error } = await client
+      .from(TOPIC_SUBTOPICS_TABLE)
+      .select("id, topic_id, name, normalized_name")
+      .eq("topic_id", topicId)
+      .eq("normalized_name", normalizedName)
+      .maybeSingle();
+    return error ? null : normalizeTopicSubtopicRows([data])[0] || null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function insertTopicSubtopicWithRetry(topicId, name, normalizedName) {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { ok: false, reason: "no_client", error: null };
+  }
+  const sessionCheck = await ensureFreshSupabaseSessionForWrite();
+  if (!sessionCheck.ok) {
+    return { ok: false, reason: "auth_session_unavailable", error: sessionCheck.error || null };
+  }
+
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const { data, error } = await client
+        .from(TOPIC_SUBTOPICS_TABLE)
+        .insert({ topic_id: topicId, name, normalized_name: normalizedName })
+        .select("id, topic_id, name, normalized_name")
+        .single();
+      if (!error) {
+        const saved = normalizeTopicSubtopicRows([data])[0];
+        if (saved) {
+          return { ok: true, entry: saved };
+        }
+      }
+      lastError = error || createPersistenceVerificationError("Sub-Thema wurde vom Server nicht bestätigt.");
+      // Ein abgebrochener Request kann serverseitig trotzdem noch angekommen
+      // sein. Vor einem erneuten Insert wird daher zuerst der tatsächliche
+      // Serverstand abgefragt; so entstehen keine Doppelungen.
+      const confirmed = await findTopicSubtopicOnServer(topicId, normalizedName);
+      if (confirmed) {
+        return { ok: true, entry: confirmed };
+      }
+      if (String(lastError?.code || "") === "23505" || !isRetryableSupabaseWriteError(lastError)) {
+        return { ok: false, reason: "write_failed", error: lastError };
+      }
+    } catch (error) {
+      lastError = error;
+      const confirmed = await findTopicSubtopicOnServer(topicId, normalizedName);
+      if (confirmed) {
+        return { ok: true, entry: confirmed };
+      }
+      if (!isRetryableSupabaseWriteError(error)) {
+        return { ok: false, reason: "exception", error };
+      }
+    }
+    if (attempt < 3) {
+      await waitForMs(300 * attempt);
+    }
+  }
+  return { ok: false, reason: "retries_exhausted", error: lastError };
+}
+
 async function hydrateTopicSubtopicsFromSupabase() {
   const client = getSupabaseClient();
   if (!client) {
@@ -12778,21 +12877,18 @@ async function openTopicSubtopicsModal(topicId) {
         showErrorFeedback("Keine Verbindung zu Supabase. Sub-Thema wurde nicht gespeichert.", { toast: true });
         return;
       }
-      const { data, error } = await client
-        .from(TOPIC_SUBTOPICS_TABLE)
-        .insert({ topic_id: normalizedTopicId, name, normalized_name: normalizedName })
-        .select("id, topic_id, name, normalized_name")
-        .single();
-      if (error) {
+      const persistence = await insertTopicSubtopicWithRetry(normalizedTopicId, name, normalizedName);
+      if (!persistence.ok) {
+        const error = persistence.error;
         showErrorFeedback(
-          error.code === "23505"
+          error?.code === "23505"
             ? "Dieses Sub-Thema ist für dieses Hauptthema bereits vorhanden."
-            : "Sub-Thema konnte nicht in Supabase gespeichert werden.",
+            : "Sub-Thema konnte vorübergehend nicht zentral gespeichert werden. Bitte erneut versuchen.",
           { toast: true }
         );
         return;
       }
-      inserted = normalizeTopicSubtopicRows([data])[0] || inserted;
+      inserted = persistence.entry || inserted;
     }
     topicSubtopics.push(inserted);
     renderModal();
@@ -63015,6 +63111,17 @@ function createPersistenceVerificationError(message) {
   return error;
 }
 
+// Der gesamte app_state liegt in einer zentralen Zeile. Ohne diese explizite
+// Konfliktkennung kann ein Hintergrund-Save, der seinen Serverstand wenige
+// Millisekunden vor einer Stammdaten-Änderung gelesen hat, die gelöschten
+// Kategorien wieder zurückschreiben. Der Aufrufer wiederholt den Save dann
+// mit einem frisch gelesenen Stand statt den alten Snapshot zu überschreiben.
+function createPersistenceConflictError() {
+  const error = new Error("Der zentrale Datenstand wurde parallel geändert.");
+  error.code = "PERSISTENCE_CONFLICT";
+  return error;
+}
+
 async function fetchProvidersTableRowsFromSupabase(client, table = getSupabaseProvidersTable()) {
   const rows = [];
   let from = 0;
@@ -63097,6 +63204,26 @@ async function syncProvidersTableWithStateNow(providers = state.providers, optio
   if (!client) {
     return { ok: false, reason: "no_client", error: null };
   }
+  const upsertProviderIds = Array.isArray(options?.upsertProviderIds)
+    ? options.upsertProviderIds.map((id) => String(id || "").trim()).filter(Boolean)
+    : [];
+  const deleteProviderIds = Array.isArray(options?.deleteProviderIds)
+    ? options.deleteProviderIds.map((id) => String(id || "").trim()).filter(Boolean)
+    : [];
+  const useSelectiveSync = !options?.forceFullSync && (upsertProviderIds.length > 0 || deleteProviderIds.length > 0);
+  const providerRows = Array.isArray(providers) ? providers : [];
+  const normalizedProviders = useSelectiveSync
+    ? providerRows
+        .filter((provider) => upsertProviderIds.includes(String(provider?.id || "").trim()))
+        .map((provider) => normalizeProviderRecord(provider))
+        .filter(Boolean)
+    : providerRows.map((provider) => normalizeProviderRecord(provider)).filter(Boolean);
+  const fingerprint = useSelectiveSync ? "" : getProvidersStateFingerprint(normalizedProviders);
+  // Normale app_state-Änderungen dürfen nicht jedes Mal auf eine Session- oder
+  // Anbieter-Abfrage warten, wenn sich kein Anbieter geändert hat.
+  if (!useSelectiveSync && !options?.force && fingerprint === lastProvidersTableFingerprint) {
+    return { ok: true, reason: "unchanged" };
+  }
   const sessionCheck = await ensureFreshSupabaseSessionForWrite();
   if (!sessionCheck.ok) {
     return { ok: false, reason: "auth_session_unavailable", error: sessionCheck.error || null };
@@ -63104,25 +63231,7 @@ async function syncProvidersTableWithStateNow(providers = state.providers, optio
   const table = getSupabaseProvidersTable();
 
   try {
-    const upsertProviderIds = Array.isArray(options?.upsertProviderIds)
-      ? options.upsertProviderIds.map((id) => String(id || "").trim()).filter(Boolean)
-      : [];
-    const deleteProviderIds = Array.isArray(options?.deleteProviderIds)
-      ? options.deleteProviderIds.map((id) => String(id || "").trim()).filter(Boolean)
-      : [];
-    const useSelectiveSync = !options?.forceFullSync && (upsertProviderIds.length > 0 || deleteProviderIds.length > 0);
     const chunkSize = 200;
-    const providerRows = Array.isArray(providers) ? providers : [];
-    const normalizedProviders = useSelectiveSync
-      ? providerRows
-          .filter((provider) => upsertProviderIds.includes(String(provider?.id || "").trim()))
-          .map((provider) => normalizeProviderRecord(provider))
-          .filter(Boolean)
-      : providerRows.map((provider) => normalizeProviderRecord(provider)).filter(Boolean);
-    const fingerprint = useSelectiveSync ? "" : getProvidersStateFingerprint(normalizedProviders);
-    if (!useSelectiveSync && !options?.force && fingerprint === lastProvidersTableFingerprint) {
-      return { ok: true, reason: "unchanged" };
-    }
 
     if (useSelectiveSync) {
       const upsertProviderIdSet = new Set(upsertProviderIds);
@@ -66675,6 +66784,31 @@ function mergeQueuedProvidersSync(existingValue, nextValue) {
   };
 }
 
+function resetRemoteStateRetry() {
+  if (remoteRetryTimeoutId) {
+    window.clearTimeout(remoteRetryTimeoutId);
+    remoteRetryTimeoutId = null;
+  }
+  remoteRetryAttempt = 0;
+}
+
+function scheduleRemoteStateRetry() {
+  if (storageMode !== "supabase" || remoteRetryTimeoutId || !localChangesPendingRemoteSync) {
+    return;
+  }
+  const delay = Math.min(
+    REMOTE_RETRY_MAX_DELAY_MS,
+    REMOTE_RETRY_INITIAL_DELAY_MS * 2 ** Math.min(remoteRetryAttempt, 4)
+  );
+  remoteRetryAttempt += 1;
+  remoteRetryTimeoutId = window.setTimeout(() => {
+    remoteRetryTimeoutId = null;
+    // Immer den aktuellen Stand erneut einreihen, nie den alten Snapshot der
+    // fehlgeschlagenen Anfrage. So werden weitere Änderungen mitgesichert.
+    queueRemoteStateSave();
+  }, delay);
+}
+
 function queueRemoteStateSave(options = {}) {
   const payloadFingerprint = JSON.stringify(state);
   const hasExplicitProvidersSync = Boolean(options?.providersSync);
@@ -66710,8 +66844,9 @@ function queueRemoteStateSave(options = {}) {
       }
       if (remoteStatePushInFlight) {
         localChangesPendingRemoteSync = true;
+        scheduleRemoteStateRetry();
         showActionFeedback(
-          "Die zentrale Synchronisierung läuft noch. Die Änderung bleibt lokal erhalten und wird beim nächsten Speichern erneut versucht.",
+          "Die zentrale Synchronisierung läuft noch. Die Änderung bleibt lokal erhalten und wird automatisch erneut versucht.",
           { tone: "warning", toast: true, statusPersistMs: 6200, toastDurationMs: 6200 }
         );
         return;
@@ -66735,8 +66870,9 @@ function queueRemoteStateSave(options = {}) {
         return;
       }
       localChangesPendingRemoteSync = true;
+      scheduleRemoteStateRetry();
       showActionFeedback(
-        "Die Änderung wurde lokal übernommen, konnte aber noch nicht zentral synchronisiert werden. Bitte später erneut speichern.",
+        "Die Änderung wurde lokal übernommen und wird bei wiederhergestellter Verbindung automatisch erneut synchronisiert.",
         { tone: "warning", toast: true, statusPersistMs: 6200, toastDurationMs: 6200 }
       );
     })();
@@ -66964,53 +67100,59 @@ async function persistStateToSupabase(snapshot, payloadFingerprint = "", options
   remoteStatePushInFlight = true;
   try {
     const table = getSupabaseStateTable();
-    const currentUser = getCurrentUser();
     let snapshotForSave = normalizePersistedState(snapshot || {});
+    let remoteStateUpdatedAtAtRead = "";
+    let remoteStateRowExists = false;
 
-    if (currentUser) {
-      const { data: remoteData, error: remoteReadError } = await client
-        .from(table)
-        .select("payload")
-        .eq("id", REMOTE_STATE_ROW_ID)
-        .maybeSingle();
-      if (!remoteReadError && remoteData?.payload && typeof remoteData.payload === "object") {
-        const remoteState = normalizePersistedState(remoteData.payload);
-        const mergedSettings = isAdmin()
-          ? mergeCurrentUserDashboardLayoutSettings(
-              snapshotForSave.settings,
-              remoteState.settings,
-              getCurrentSalesDashboardCardOrderUserId()
-            )
-          : mergeCurrentUserDashboardLayoutSettings(
-              remoteState.settings,
-              snapshotForSave.settings,
-              getCurrentSalesDashboardCardOrderUserId()
-            );
-        // app_state enthält viele voneinander unabhängige Bereiche. Ein Save
-        // etwa aus Dashboard, Profil oder Navigation darf niemals einen beim
-        // Laden mitgebrachten, älteren Kategorien-Snapshot zurückschreiben.
-        // Kategorien werden ausschließlich von den expliziten Stammdaten-
-        // Aktionen mit persistCategories verändert.
-        const mergedCategories = options?.persistCategories === true
-          ? isAdmin() && options?.mergeRemoteCategories
-            ? mergeManagementCategoryHierarchy(remoteState.categories, snapshotForSave.categories)
-            : snapshotForSave.categories
-          : remoteState.categories;
-        snapshotForSave = normalizePersistedState(
-          isAdmin()
-            ? {
-                ...snapshotForSave,
-                categories: mergedCategories,
-                settings: mergedSettings,
-              }
-            : {
-                ...snapshotForSave,
-                users: remoteState.users,
-                categories: remoteState.categories,
-                settings: mergedSettings,
-              }
-        );
-      }
+    const { data: remoteData, error: remoteReadError } = await client
+      .from(table)
+      .select("payload, updated_at")
+      .eq("id", REMOTE_STATE_ROW_ID)
+      .maybeSingle();
+    // Ein nicht bestätigtes Lesen darf nicht mit einem blinden Upsert
+    // beantwortet werden: das wäre wieder ein möglicher Lost Update.
+    if (remoteReadError) {
+      return { ok: false, reason: "prewrite_read_failed", error: remoteReadError };
+    }
+    remoteStateRowExists = Boolean(remoteData);
+    remoteStateUpdatedAtAtRead = String(remoteData?.updated_at || "").trim();
+    if (remoteData?.payload && typeof remoteData.payload === "object") {
+      const remoteState = normalizePersistedState(remoteData.payload);
+      const mergedSettings = isAdmin()
+        ? mergeCurrentUserDashboardLayoutSettings(
+            snapshotForSave.settings,
+            remoteState.settings,
+            getCurrentSalesDashboardCardOrderUserId()
+          )
+        : mergeCurrentUserDashboardLayoutSettings(
+            remoteState.settings,
+            snapshotForSave.settings,
+            getCurrentSalesDashboardCardOrderUserId()
+          );
+      // app_state enthält viele voneinander unabhängige Bereiche. Ein Save
+      // etwa aus Dashboard, Profil oder Navigation darf niemals einen beim
+      // Laden mitgebrachten, älteren Kategorien-Snapshot zurückschreiben.
+      // Kategorien werden ausschließlich von den expliziten Stammdaten-
+      // Aktionen mit persistCategories verändert.
+      const mergedCategories = options?.persistCategories === true
+        ? isAdmin() && options?.mergeRemoteCategories
+          ? mergeManagementCategoryHierarchy(remoteState.categories, snapshotForSave.categories)
+          : snapshotForSave.categories
+        : remoteState.categories;
+      snapshotForSave = normalizePersistedState(
+        isAdmin()
+          ? {
+              ...snapshotForSave,
+              categories: mergedCategories,
+              settings: mergedSettings,
+            }
+          : {
+              ...snapshotForSave,
+              users: remoteState.users,
+              categories: remoteState.categories,
+              settings: mergedSettings,
+            }
+      );
     }
 
     const providersSync = options?.providersSync || null;
@@ -67038,14 +67180,22 @@ async function persistStateToSupabase(snapshot, payloadFingerprint = "", options
         : snapshotForSave;
 
     const savedAt = new Date().toISOString();
-    const { data: writtenRows, error } = await client.from(table).upsert(
-      {
-        id: REMOTE_STATE_ROW_ID,
-        payload: snapshotForAppState,
-        updated_at: savedAt,
-      },
-      { onConflict: "id" }
-    ).select("id, updated_at");
+    const nextStateRow = {
+      id: REMOTE_STATE_ROW_ID,
+      payload: snapshotForAppState,
+      updated_at: savedAt,
+    };
+    // Compare-and-swap: nur der Stand, den wir eben gelesen haben, darf
+    // ersetzt werden. Bei einer parallelen Änderung liefert Supabase keine
+    // Zeile zurück; der umgebende, kontrollierte Retry liest dann neu.
+    const writeQuery = remoteStateRowExists
+      ? client
+          .from(table)
+          .update({ payload: nextStateRow.payload, updated_at: nextStateRow.updated_at })
+          .eq("id", REMOTE_STATE_ROW_ID)
+          .eq("updated_at", remoteStateUpdatedAtAtRead)
+      : client.from(table).upsert(nextStateRow, { onConflict: "id" });
+    const { data: writtenRows, error } = await writeQuery.select("id, updated_at");
 
     if (error) {
       if (isSupabaseWritePermissionError(error) && !appStatePermissionWarned) {
@@ -67061,8 +67211,10 @@ async function persistStateToSupabase(snapshot, payloadFingerprint = "", options
     if (!Array.isArray(writtenRows) || !writtenRows.some((row) => String(row?.id || "").trim() === REMOTE_STATE_ROW_ID)) {
       return {
         ok: false,
-        reason: "write_not_confirmed",
-        error: createPersistenceVerificationError("App-Status wurde vom Server nicht als gespeichert bestätigt."),
+        reason: remoteStateRowExists ? "write_conflict" : "write_not_confirmed",
+        error: remoteStateRowExists
+          ? createPersistenceConflictError()
+          : createPersistenceVerificationError("App-Status wurde vom Server nicht als gespeichert bestätigt."),
       };
     }
 
@@ -67091,6 +67243,7 @@ async function persistStateToSupabase(snapshot, payloadFingerprint = "", options
     lastRemotePayloadFingerprint = JSON.stringify(snapshotForSave);
     lastRemoteStateUpdatedAt = String(verifiedStateRow?.updated_at || savedAt).trim();
     localChangesPendingRemoteSync = false;
+    resetRemoteStateRetry();
     return { ok: true };
   } catch (error) {
     if (isSupabaseWritePermissionError(error) && !appStatePermissionWarned) {
