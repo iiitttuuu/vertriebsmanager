@@ -396,8 +396,8 @@ assert.match(
 );
 assert.match(
   appSource,
-  /upsert\(chunk, \{ onConflict: "id" \}\)\.select\("id"\)[\s\S]*Anbieter-Speicherung wurde nicht bestätigt/,
-  "Ein Anbieter-Upsert gilt erst nach bestätigter providers-ID als gespeichert."
+  /upsert\(chunk, \{ onConflict: "id" \}\)\.select\("\*"\)[\s\S]*\.select\("\*"\)[\s\S]*Anbieter-Speicherung ist nach dem erneuten Laden unvollständig/,
+  "Ein Anbieter-Upsert gilt erst nach vollständiger Read-after-write-Verifikation als gespeichert."
 );
 assert.match(
   appSource,

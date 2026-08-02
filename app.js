@@ -7352,7 +7352,6 @@ function bindEvents() {
       }
       const criticalPersistResult = await persistCriticalStateSnapshot({
         retries: 3,
-        deferAppState: true,
         providersSync: { upsertProviderIds: [targetProviderId] },
       });
       if (!criticalPersistResult.ok) {
@@ -34190,6 +34189,33 @@ async function syncConversationThreadToSupabase(threadId, options = {}) {
       }
     }
   }
+  // Erst ein separater Reload aller zusammengehörenden Tabellen bestätigt den
+  // Abschluss. Ohne diese Prüfung kann z. B. ein Thread gespeichert sein,
+  // während eine Notiz oder Aufgabe durch RLS/Schema nur teilweise ankam.
+  const [verifiedThreadResult, verifiedNotesResult, verifiedTasksResult] = await Promise.all([
+    client.from(getConversationThreadsTable()).select("*").eq("id", normalizedThreadId),
+    client.from(getConversationNotesTable()).select("*").eq("thread_id", normalizedThreadId),
+    client.from(getConversationTasksTable()).select("*").eq("thread_id", normalizedThreadId),
+  ]);
+  const verificationError = verifiedThreadResult.error || verifiedNotesResult.error || verifiedTasksResult.error;
+  if (verificationError) {
+    return { ok: false, reason: "verification_read_failed", error: verificationError };
+  }
+  const verifiedThread = buildConversationThreadsFromSupabaseRows(
+    verifiedThreadResult.data,
+    verifiedNotesResult.data,
+    verifiedTasksResult.data
+  ).find((entry) => String(entry?.id || "").trim() === normalizedThreadId);
+  if (
+    !verifiedThread ||
+    getStablePersistenceFingerprint(verifiedThread) !== getStablePersistenceFingerprint(thread)
+  ) {
+    return {
+      ok: false,
+      reason: "verification_failed",
+      error: createPersistenceVerificationError("Gespräch, Notizen oder Aufgaben weichen nach dem erneuten Laden vom gespeicherten Stand ab."),
+    };
+  }
   return { ok: true };
 }
 
@@ -34202,9 +34228,34 @@ async function deleteConversationThreadFromSupabase(threadId) {
   if (!client || conversationThreadsRemoteUnavailable) {
     return { ok: false, reason: "remote_unavailable" };
   }
-  const { error } = await client.from(getConversationThreadsTable()).delete().eq("id", normalizedThreadId);
+  const { data: deletedRows, error } = await client
+    .from(getConversationThreadsTable())
+    .delete()
+    .eq("id", normalizedThreadId)
+    .select("id");
   if (error) {
     return { ok: false, reason: "delete_failed", error };
+  }
+  if (!Array.isArray(deletedRows) || !deletedRows.some((row) => String(row?.id || "").trim() === normalizedThreadId)) {
+    return {
+      ok: false,
+      reason: "delete_not_confirmed",
+      error: createPersistenceVerificationError("Gesprächs-Löschung wurde vom Server nicht bestätigt."),
+    };
+  }
+  const { data: stillExistingRows, error: verifyError } = await client
+    .from(getConversationThreadsTable())
+    .select("id")
+    .eq("id", normalizedThreadId);
+  if (verifyError) {
+    return { ok: false, reason: "delete_verification_failed", error: verifyError };
+  }
+  if (Array.isArray(stillExistingRows) && stillExistingRows.length) {
+    return {
+      ok: false,
+      reason: "delete_verification_failed",
+      error: createPersistenceVerificationError("Gespräch ist nach der Löschung weiterhin vorhanden."),
+    };
   }
   return { ok: true };
 }
@@ -37393,11 +37444,13 @@ async function handleCreateConversationThread(options = {}) {
   conversationDetailTab = "overview";
   resetConversationNoteComposer();
   saveState({ showFeedback: false });
-  await syncConversationThreadRemoteOrWarn(thread.id, { deleteMissing: true });
+  const conversationSaved = await syncConversationThreadRemoteOrWarn(thread.id, { deleteMissing: true });
   renderConversationNotesSection();
   renderCompaniesSection();
   openConversationEditModal();
-  showSuccessFeedback("Gespräch angelegt.");
+  if (conversationSaved) {
+    showSuccessFeedback("Gespräch angelegt.");
+  }
 }
 
 async function handleDeleteConversationThread() {
@@ -37416,15 +37469,17 @@ async function handleDeleteConversationThread() {
   resetConversationNoteComposer();
   saveState({ showFeedback: false });
   const remoteDeleteResult = await deleteConversationThreadFromSupabase(selectedThread.id);
-  if (!remoteDeleteResult.ok && remoteDeleteResult.error && shouldUseConversationLocalFallback(remoteDeleteResult.error)) {
-    conversationThreadsRemoteUnavailable = true;
+  if (!remoteDeleteResult.ok) {
+    if (remoteDeleteResult.error && shouldUseConversationLocalFallback(remoteDeleteResult.error)) {
+      conversationThreadsRemoteUnavailable = true;
+    }
     const technicalDetail = getSupabaseErrorSummary(remoteDeleteResult.error);
     showActionFeedback(
-      isConversationTableMissingError(remoteDeleteResult.error)
-        ? `Gespräch lokal gelöscht. SQL für Gesprächsnotizen fehlt noch.${technicalDetail ? ` (${technicalDetail})` : ""}`
-        : `Gespräch lokal gelöscht. Supabase-Löschen aktuell blockiert.${technicalDetail ? ` (${technicalDetail})` : ""}`,
+      `Gespräch wurde nur lokal entfernt und nicht zentral bestätigt.${technicalDetail ? ` (${technicalDetail})` : ""}`,
       { tone: "warning", toast: false, statusPersistMs: 6200 }
     );
+    renderConversationNotesSection();
+    return;
   }
   renderConversationNotesSection();
   showSuccessFeedback("Gespräch gelöscht.");
@@ -37483,10 +37538,12 @@ async function handleConversationMetaSave(event) {
       return;
     }
     saveState({ showFeedback: false });
-    await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
+    const conversationSaved = await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
     renderConversationNotesSection();
     renderCompaniesSection();
-    showSuccessFeedback("Gespräch gespeichert.");
+    if (conversationSaved) {
+      showSuccessFeedback("Gespräch gespeichert.");
+    }
   } finally {
     setActionButtonBusy(submitter, false);
   }
@@ -37712,9 +37769,12 @@ async function handleAddConversationNote() {
     return;
   }
   saveState({ showFeedback: false });
-  await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
+  const conversationSaved = await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
   resetConversationNoteComposer();
   renderConversationNotesSection();
+  if (!conversationSaved) {
+    return;
+  }
   if (editingMode) {
     showSuccessFeedback("Notiz aktualisiert.");
   } else {
@@ -37769,9 +37829,11 @@ async function handleConversationTaskTitleUpdate(taskId, nextTitleRaw) {
     return;
   }
   saveState({ showFeedback: false });
-  await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
+  const conversationSaved = await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
   renderConversationNotesSection();
-  showSuccessFeedback("Aufgabentitel aktualisiert.");
+  if (conversationSaved) {
+    showSuccessFeedback("Aufgabentitel aktualisiert.");
+  }
 }
 
 async function handleConversationTaskStatusUpdate(taskId, nextStatusRaw) {
@@ -37824,9 +37886,11 @@ async function handleConversationTaskStatusUpdate(taskId, nextStatusRaw) {
     return;
   }
   saveState({ showFeedback: false });
-  await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
+  const conversationSaved = await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
   renderConversationNotesSection();
-  showSuccessFeedback("Aufgabenstatus aktualisiert.");
+  if (conversationSaved) {
+    showSuccessFeedback("Aufgabenstatus aktualisiert.");
+  }
 }
 
 async function handleConversationTaskAssigneeUpdate(taskId, assigneeSelectionInput) {
@@ -37889,9 +37953,11 @@ async function handleConversationTaskAssigneeUpdate(taskId, assigneeSelectionInp
     return;
   }
   saveState({ showFeedback: false });
-  await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
+  const conversationSaved = await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
   renderConversationNotesSection();
-  showSuccessFeedback("Aufgabe neu zugewiesen.");
+  if (conversationSaved) {
+    showSuccessFeedback("Aufgabe neu zugewiesen.");
+  }
 }
 
 async function handleConversationTaskDueDateUpdate(taskId, dueDateRaw) {
@@ -37946,9 +38012,11 @@ async function handleConversationTaskDueDateUpdate(taskId, dueDateRaw) {
     return;
   }
   saveState({ showFeedback: false });
-  await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
+  const conversationSaved = await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
   renderConversationNotesSection();
-  showSuccessFeedback("Fälligkeit aktualisiert.");
+  if (conversationSaved) {
+    showSuccessFeedback("Fälligkeit aktualisiert.");
+  }
 }
 
 async function handleConversationTaskDelete(taskId) {
@@ -37991,9 +38059,11 @@ async function handleConversationTaskDelete(taskId) {
     return;
   }
   saveState({ showFeedback: false });
-  await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
+  const conversationSaved = await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
   renderConversationNotesSection();
-  showSuccessFeedback("Aufgabe gelöscht.");
+  if (conversationSaved) {
+    showSuccessFeedback("Aufgabe gelöscht.");
+  }
 }
 
 async function handleConversationNoteEdit(noteId) {
@@ -38047,12 +38117,14 @@ async function handleConversationNoteDelete(noteId) {
     return;
   }
   saveState({ showFeedback: false });
-  await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
+  const conversationSaved = await syncConversationThreadRemoteOrWarn(selectedThreadId, { deleteMissing: true });
   if (conversationNoteComposerMode === "edit" && String(conversationNoteEditingNoteId || "").trim() === normalizedNoteId) {
     resetConversationNoteComposer();
   }
   renderConversationNotesSection();
-  showSuccessFeedback("Notiz gelöscht.");
+  if (conversationSaved) {
+    showSuccessFeedback("Notiz gelöscht.");
+  }
 }
 
 function buildProviderSearchIndexText(provider, topicLookup) {
@@ -44684,7 +44756,6 @@ async function handleLinkPartnerRequestToExistingProvider(requestId, providerId)
   setAdminNotificationDismissedById(entry.notificationId, true);
   const criticalPersistResult = await persistCriticalStateSnapshot({
     retries: 3,
-    deferAppState: true,
     providersSync: { upsertProviderIds: [provider.id] },
   });
   if (!criticalPersistResult.ok) {
@@ -56610,6 +56681,21 @@ async function setProviderNoteDoneStatus(providerId, noteId, done) {
     return;
   }
 
+  const { data: verifiedNoteRow, error: verifyError } = await client
+    .from("provider_notes")
+    .select("note_text")
+    .eq("id", normalizedNoteId)
+    .eq("provider_id", normalizedProviderId)
+    .maybeSingle();
+  if (verifyError || !verifiedNoteRow || String(verifiedNoteRow.note_text || "") !== noteTextForStorage) {
+    const verificationFailure = verifyError || createPersistenceVerificationError("Notiz wurde nach dem Speichern nicht vollständig bestätigt.");
+    console.warn("Provider-Notiz konnte nicht verifiziert werden.", verificationFailure);
+    showActionFeedback("Notizänderung wurde nicht zentral bestätigt. Bitte erneut laden und prüfen.", {
+      tone: "error", toast: true, statusPersistMs: 5600, toastDurationMs: 5600,
+    });
+    return;
+  }
+
   await fetchProviderNotesForProvider(normalizedProviderId, { force: true });
   if (editingProviderId === normalizedProviderId && providerDetailTab === "notes") {
     renderProviderNotes();
@@ -56870,7 +56956,9 @@ async function handleDeleteProviderNote(noteId) {
         dueDate: noteToDelete.dueDate,
         done: noteToDelete.done,
       });
-      showSuccessFeedback("Notiz gelöscht.");
+      showActionFeedback("Notiz ist nur lokal vorgemerkt und wurde nicht zentral gelöscht.", {
+        tone: "warning", toast: false, statusPersistMs: 5600,
+      });
     }
     return;
   }
@@ -56908,11 +56996,12 @@ async function handleDeleteProviderNote(noteId) {
     return;
   }
 
-  const { error } = await client
+  const { data: deletedRows, error } = await client
     .from("provider_notes")
     .delete()
     .eq("id", normalizedNoteId)
-    .eq("provider_id", normalizedProviderId);
+    .eq("provider_id", normalizedProviderId)
+    .select("id");
 
   if (error) {
     setProviderNotesLocalOnlyMode(normalizedProviderId, true);
@@ -56931,6 +57020,13 @@ async function handleDeleteProviderNote(noteId) {
           : "Notiz konnte nicht gelöscht werden."
       );
     }
+    return;
+  }
+
+  if (!Array.isArray(deletedRows) || !deletedRows.some((row) => String(row?.id || "").trim() === normalizedNoteId)) {
+    showActionFeedback("Notiz-Löschung wurde nicht zentral bestätigt. Bitte erneut laden und prüfen.", {
+      tone: "error", toast: true, statusPersistMs: 5600, toastDurationMs: 5600,
+    });
     return;
   }
 
@@ -57003,12 +57099,15 @@ async function handleAddProviderNote() {
         dueDate,
         done: Boolean(editSourceNote?.done),
       });
-      showSuccessFeedback(normalizedEditNoteId ? "Notiz aktualisiert." : "Notiz gespeichert.");
+      showActionFeedback("Notiz ist nur lokal vorgemerkt und wurde nicht zentral gespeichert.", {
+        tone: "warning", toast: false, statusPersistMs: 5600,
+      });
     }
     return;
   }
 
   let error = null;
+  let writtenNoteRows = null;
   if (normalizedEditNoteId) {
     const noteTextForStorage = toProviderNoteStorageText({
       text,
@@ -57028,8 +57127,10 @@ async function handleAddProviderNote() {
       .from("provider_notes")
       .update({ note_text: noteTextForStorage })
       .eq("id", normalizedEditNoteId)
-      .eq("provider_id", normalizedProviderId);
+      .eq("provider_id", normalizedProviderId)
+      .select("id");
     error = updateResult.error;
+    writtenNoteRows = updateResult.data;
   } else {
     const insertResult = await client.from("provider_notes").insert({
       provider_id: normalizedProviderId,
@@ -57037,8 +57138,9 @@ async function handleAddProviderNote() {
       created_by_user_id: note.createdByUserId,
       created_by_name: note.createdByName,
       created_by_role: note.createdByRole,
-    });
+    }).select("id");
     error = insertResult.error;
+    writtenNoteRows = insertResult.data;
   }
 
   if (error) {
@@ -57078,6 +57180,16 @@ async function handleAddProviderNote() {
             : "Notiz konnte nicht gespeichert werden."
       );
     }
+    return;
+  }
+
+  const hasConfirmedNoteWrite = normalizedEditNoteId
+    ? Array.isArray(writtenNoteRows) && writtenNoteRows.some((row) => String(row?.id || "").trim() === normalizedEditNoteId)
+    : Array.isArray(writtenNoteRows) && writtenNoteRows.length === 1 && Boolean(String(writtenNoteRows[0]?.id || "").trim());
+  if (!hasConfirmedNoteWrite) {
+    showActionFeedback("Notiz wurde vom Server nicht als gespeichert bestätigt.", {
+      tone: "error", toast: true, statusPersistMs: 5600, toastDurationMs: 5600,
+    });
     return;
   }
 
@@ -59556,10 +59668,6 @@ async function persistProviderInvitationRequestChange(provider, providerSnapshot
   const showFeedback = options.showFeedback !== false;
   const persisted = await persistCriticalStateSnapshot({
     retries: 3,
-    // Der Schalter braucht nur den betroffenen Anbieter sofort. Der deutlich
-    // größere app_state-Abgleich läuft danach im Hintergrund, damit der Dialog
-    // nicht auf den kompletten Plattform-Snapshot warten muss.
-    deferAppState: true,
     providersSync: { upsertProviderIds: [provider.id] },
   });
   if (!persisted.ok) {
@@ -62537,6 +62645,7 @@ function buildProviderTableRow(provider) {
       normalizedProvider.contactPersonEmail || normalizedProvider.contact_person_email || ""
     ).trim(),
     admin_only: isProviderAdminOnly(normalizedProvider),
+    dashboard_created: isProviderDashboardCreated(normalizedProvider),
     early_partner: isProviderEarlyPartner(normalizedProvider),
     online_only: isProviderOnlineOnly(normalizedProvider),
     topic_ids: Array.isArray(normalizedProvider.topicIds) ? normalizedProvider.topicIds.filter(Boolean) : [],
@@ -62860,6 +62969,53 @@ function normalizeProvidersTableRows(rows = []) {
   return rows.map((row) => buildProviderRecordFromTableRow(row)).filter(Boolean);
 }
 
+// JSONB antwortet mit einer anderen Eigenschaftsreihenfolge als der Browser
+// sie beim Upsert gesendet hat. Für eine belastbare Read-after-write-Prüfung
+// vergleichen wir deshalb einen kanonischen Fingerabdruck statt JSON.stringify
+// auf den unveränderten Objekten zu verwenden.
+function getStablePersistenceFingerprint(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => getStablePersistenceFingerprint(entry)).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${getStablePersistenceFingerprint(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value ?? null);
+}
+
+function getProviderPersistenceFingerprint(provider) {
+  const normalized = { ...(normalizeProviderRecord(provider) || {}) };
+  // Diese Felder werden bewusst ausschließlich vom serverseitigen
+  // Einladungs-Workflow verwaltet. Der Trigger bewahrt den neuesten
+  // Serverwert und entfernt leere Legacy-Schlüssel. Sie dürfen deshalb keine
+  // fachlich korrekten Stammdaten-Saves als Payload-Abweichung markieren.
+  [
+    "invitationRequestStatus", "invitation_request_status",
+    "invitationRequestedAt", "invitation_requested_at",
+    "invitationRequestedByUserId", "invitation_requested_by_user_id",
+    "invitationRequestedByName", "invitation_requested_by_name",
+    "invitationRequestedByRole", "invitation_requested_by_role",
+    "invitationInProgressAt", "invitation_in_progress_at",
+    "invitationInProgressByUserId", "invitation_in_progress_by_user_id",
+    "invitationInProgressByName", "invitation_in_progress_by_name",
+    "invitationInProgressByRole", "invitation_in_progress_by_role",
+    "invitationCompletedAt", "invitation_completed_at",
+    "invitationCompletedByUserId", "invitation_completed_by_user_id",
+    "invitationCompletedByName", "invitation_completed_by_name",
+    "invitationCompletedByRole", "invitation_completed_by_role",
+  ].forEach((key) => delete normalized[key]);
+  return getStablePersistenceFingerprint(normalized);
+}
+
+function createPersistenceVerificationError(message) {
+  const error = new Error(message);
+  error.code = "PERSISTENCE_VERIFICATION_FAILED";
+  return error;
+}
+
 async function fetchProvidersTableRowsFromSupabase(client, table = getSupabaseProvidersTable()) {
   const rows = [];
   let from = 0;
@@ -62980,7 +63136,7 @@ async function syncProvidersTableWithStateNow(providers = state.providers, optio
         if (!chunk.length) {
           continue;
         }
-        const { data, error } = await client.from(table).upsert(chunk, { onConflict: "id" }).select("id");
+        const { data, error } = await client.from(table).upsert(chunk, { onConflict: "id" }).select("*");
         if (error) {
           throw error;
         }
@@ -62991,23 +63147,38 @@ async function syncProvidersTableWithStateNow(providers = state.providers, optio
             .filter(Boolean)
         );
         let missingIds = expectedIds.filter((id) => !confirmedIds.has(id));
-        if (missingIds.length) {
-          const { data: verifiedRows, error: verifyError } = await client
-            .from(table)
-            .select("id")
-            .in("id", missingIds);
-          if (verifyError) {
-            throw verifyError;
-          }
-          const verifiedIds = new Set(
-            (Array.isArray(verifiedRows) ? verifiedRows : [])
-              .map((row) => String(row?.id || "").trim())
-              .filter(Boolean)
-          );
-          missingIds = missingIds.filter((id) => !verifiedIds.has(id));
+        // Nicht der Rückgabewert des Upserts, sondern ein separater Read ist
+        // maßgeblich. Damit entspricht die Prüfung dem Neuladen der Seite und
+        // deckt RLS-Noops, Trigger-Anpassungen und unvollständige Payloads auf.
+        const { data: verifiedRows, error: verifyError } = await client
+          .from(table)
+          .select("*")
+          .in("id", expectedIds);
+        if (verifyError) {
+          throw verifyError;
         }
+        const verifiedById = new Map(
+          (Array.isArray(verifiedRows) ? verifiedRows : [])
+            .map((row) => [String(row?.id || "").trim(), row])
+            .filter(([id]) => Boolean(id))
+        );
+        missingIds = expectedIds.filter((id) => !verifiedById.has(id));
         if (missingIds.length) {
-          throw new Error(`Anbieter-Speicherung wurde nicht bestätigt (${missingIds.join(", ")}).`);
+          throw createPersistenceVerificationError(
+            `Anbieter-Speicherung wurde nach dem erneuten Laden nicht bestätigt (${missingIds.join(", ")}).`
+          );
+        }
+        const incompleteIds = chunk
+          .filter((row) => {
+            const savedProvider = buildProviderRecordFromTableRow(verifiedById.get(String(row.id || "").trim()));
+            return getProviderPersistenceFingerprint(row.payload) !== getProviderPersistenceFingerprint(savedProvider);
+          })
+          .map((row) => String(row.id || "").trim())
+          .filter(Boolean);
+        if (incompleteIds.length) {
+          throw createPersistenceVerificationError(
+            `Anbieter-Speicherung ist nach dem erneuten Laden unvollständig (${incompleteIds.join(", ")}).`
+          );
         }
       }
 
@@ -63016,9 +63187,20 @@ async function syncProvidersTableWithStateNow(providers = state.providers, optio
         if (!chunk.length) {
           continue;
         }
-        const { error } = await client.from(table).delete().in("id", chunk);
+        const { data: deletedRows, error } = await client.from(table).delete().in("id", chunk).select("id");
         if (error) {
           throw error;
+        }
+        const deletedIds = new Set(
+          (Array.isArray(deletedRows) ? deletedRows : [])
+            .map((row) => String(row?.id || "").trim())
+            .filter(Boolean)
+        );
+        const missingDeletedIds = chunk.filter((id) => !deletedIds.has(id));
+        if (missingDeletedIds.length) {
+          throw createPersistenceVerificationError(
+            `Anbieter-Löschung wurde nicht bestätigt (${missingDeletedIds.join(", ")}).`
+          );
         }
       }
     } else {
@@ -66775,6 +66957,11 @@ async function persistStateToSupabase(snapshot, payloadFingerprint = "", options
     return { ok: false, reason: "no_client", error: null };
   }
 
+  const sessionCheck = await ensureFreshSupabaseSessionForWrite();
+  if (!sessionCheck.ok) {
+    return { ok: false, reason: "auth_session_unavailable", error: sessionCheck.error || null };
+  }
+
   remoteStatePushInFlight = true;
   try {
     const table = getSupabaseStateTable();
@@ -66852,14 +67039,14 @@ async function persistStateToSupabase(snapshot, payloadFingerprint = "", options
         : snapshotForSave;
 
     const savedAt = new Date().toISOString();
-    const { error } = await client.from(table).upsert(
+    const { data: writtenRows, error } = await client.from(table).upsert(
       {
         id: REMOTE_STATE_ROW_ID,
         payload: snapshotForAppState,
         updated_at: savedAt,
       },
       { onConflict: "id" }
-    );
+    ).select("id, updated_at");
 
     if (error) {
       if (isSupabaseWritePermissionError(error) && !appStatePermissionWarned) {
@@ -66872,8 +67059,38 @@ async function persistStateToSupabase(snapshot, payloadFingerprint = "", options
       return { ok: false, reason: "write_failed", error };
     }
 
+    if (!Array.isArray(writtenRows) || !writtenRows.some((row) => String(row?.id || "").trim() === REMOTE_STATE_ROW_ID)) {
+      return {
+        ok: false,
+        reason: "write_not_confirmed",
+        error: createPersistenceVerificationError("App-Status wurde vom Server nicht als gespeichert bestätigt."),
+      };
+    }
+
+    const { data: verifiedStateRow, error: verifyError } = await client
+      .from(table)
+      .select("payload, updated_at")
+      .eq("id", REMOTE_STATE_ROW_ID)
+      .maybeSingle();
+    if (verifyError) {
+      return { ok: false, reason: "verification_read_failed", error: verifyError };
+    }
+    const verifiedPayload = verifiedStateRow?.payload && typeof verifiedStateRow.payload === "object"
+      ? normalizePersistedState(verifiedStateRow.payload)
+      : null;
+    if (
+      !verifiedPayload ||
+      getStablePersistenceFingerprint(verifiedPayload) !== getStablePersistenceFingerprint(snapshotForAppState)
+    ) {
+      return {
+        ok: false,
+        reason: "verification_failed",
+        error: createPersistenceVerificationError("App-Status weicht nach dem erneuten Laden vom gespeicherten Stand ab."),
+      };
+    }
+
     lastRemotePayloadFingerprint = JSON.stringify(snapshotForSave);
-    lastRemoteStateUpdatedAt = savedAt;
+    lastRemoteStateUpdatedAt = String(verifiedStateRow?.updated_at || savedAt).trim();
     localChangesPendingRemoteSync = false;
     return { ok: true };
   } catch (error) {
@@ -67003,10 +67220,24 @@ function saveState(options = {}) {
   }
   const feedbackMessage = String(options?.feedbackMessage || "").trim();
   if (feedbackMessage) {
-    showSuccessFeedback(feedbackMessage, { toast: false, statusPersistMs: 2000 });
+    if (storageMode === "supabase") {
+      showInfoFeedback("Änderung wird mit dem Server synchronisiert.", { toast: false, statusPersistMs: 2000 });
+    } else {
+      showWarningFeedback("Änderung ist nur lokal vorgemerkt; zentrale Speicherung ist nicht verfügbar.", {
+        toast: false,
+        statusPersistMs: 3200,
+      });
+    }
     return;
   }
-  announceAutoSaveFeedback();
+  // Eine Hintergrundspeicherung hat zu diesem Zeitpunkt noch keine
+  // bestätigte Serverantwort. Deshalb nie optimistisch „gespeichert“ melden.
+  if (storageMode !== "supabase") {
+    showWarningFeedback("Änderung ist nur lokal vorgemerkt; zentrale Speicherung ist nicht verfügbar.", {
+      toast: false,
+      statusPersistMs: 3200,
+    });
+  }
 }
 
 function createId(prefix) {

@@ -120,6 +120,25 @@ where p.id = history.id;
 -- des normalen Mitarbeiters zwingend auf die eigene User-ID zeigen.
 alter table public.providers enable row level security;
 
+-- Der Browser verifiziert jeden interaktiven Anbieter-Save mit einem neuen
+-- SELECT. Ohne diese Policy kann ein Write trotz erfolgreicher Datenänderung
+-- nicht bestätigt werden und würde im UI fälschlich als nicht gespeichert
+-- erscheinen. Alle aktiven Rollen (inkl. Vertrieb) dürfen lesen; Schreib-
+-- rechte bleiben in den folgenden, engeren Policies geregelt.
+drop policy if exists "providers_auth_select" on public.providers;
+create policy "providers_auth_select"
+on public.providers
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profiles p
+    where p.user_id::text = auth.uid()::text
+      and p.status = 'active'
+  )
+);
+
 drop policy if exists "providers_auth_insert" on public.providers;
 create policy "providers_auth_insert"
 on public.providers

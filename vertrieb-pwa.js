@@ -387,6 +387,34 @@
     return Array.from(new Set(items.map((item) => String(item && typeof item === "object" ? item.id ?? item.topicId ?? item.topic_id ?? "" : item || "").trim()).filter(Boolean)));
   }
 
+  function stablePersistenceFingerprint(value) {
+    if (Array.isArray(value)) return `[${value.map((entry) => stablePersistenceFingerprint(entry)).join(",")}]`;
+    if (value && typeof value === "object") {
+      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stablePersistenceFingerprint(value[key])}`).join(",")}}`;
+    }
+    return JSON.stringify(value ?? null);
+  }
+
+  function providerPersistenceFingerprint(payload) {
+    const comparable = { ...(payload && typeof payload === "object" ? payload : {}) };
+    [
+      "invitationRequestStatus", "invitation_request_status",
+      "invitationRequestedAt", "invitation_requested_at",
+      "invitationRequestedByUserId", "invitation_requested_by_user_id",
+      "invitationRequestedByName", "invitation_requested_by_name",
+      "invitationRequestedByRole", "invitation_requested_by_role",
+      "invitationInProgressAt", "invitation_in_progress_at",
+      "invitationInProgressByUserId", "invitation_in_progress_by_user_id",
+      "invitationInProgressByName", "invitation_in_progress_by_name",
+      "invitationInProgressByRole", "invitation_in_progress_by_role",
+      "invitationCompletedAt", "invitation_completed_at",
+      "invitationCompletedByUserId", "invitation_completed_by_user_id",
+      "invitationCompletedByName", "invitation_completed_by_name",
+      "invitationCompletedByRole", "invitation_completed_by_role",
+    ].forEach((key) => delete comparable[key]);
+    return stablePersistenceFingerprint(comparable);
+  }
+
   function normalizeRow(row) {
     const payload = row?.payload && typeof row.payload === "object" && !Array.isArray(row.payload) ? row.payload : {};
     const locations = Array.isArray(row?.locations) && row.locations.length ? row.locations : Array.isArray(payload.locations) ? payload.locations : [];
@@ -413,7 +441,10 @@
       competitorName: String(payload.competitorName ?? payload.competitor_name ?? "").trim(),
       adminOnly: parseFlag(row?.admin_only ?? payload.adminOnly ?? payload.admin_only),
       dashboardCreated: (() => {
-        const raw = row?.dashboard_created ?? payload.dashboardCreated ?? payload.dashboard_created;
+        // Ältere Migrationen konnten die flache Spalte noch nicht befüllt
+        // haben. Der JSON-Payload ist bis zum korrigierenden Write daher die
+        // verlässlichere Quelle und darf nicht still mit false überschrieben werden.
+        const raw = payload.dashboardCreated ?? payload.dashboard_created ?? row?.dashboard_created;
         return raw === undefined || raw === null ? ["angelegt", "erstellt", "created"].includes(normalize(row?.status ?? payload.status)) : parseFlag(raw);
       })(),
       competitor: (() => {
@@ -520,7 +551,7 @@
       city: provider.city, state: provider.state, country: provider.country, website: provider.website, email: provider.email, phone: provider.phone,
       contact_salutation: provider.contactSalutation, contact_title: provider.contactTitle, contact_first_name: provider.contactFirstName,
       contact_last_name: provider.contactLastName, contact_person: contactName(provider), contact_person_phone: provider.contactPersonPhone,
-      contact_person_email: provider.contactPersonEmail, admin_only: Boolean(provider.adminOnly), online_only: Boolean(provider.onlineOnly), topic_ids: provider.topicIds || [], locations,
+      contact_person_email: provider.contactPersonEmail, admin_only: Boolean(provider.adminOnly), dashboard_created: Boolean(provider.dashboardCreated), online_only: Boolean(provider.onlineOnly), topic_ids: provider.topicIds || [], locations,
       coverage_mode: coverageMode, coverage_country: coverageCountry, coverage_states: coverageStates, latitude, longitude, status_history: provider.statusHistory || [],
       source_created_at: provider.createdAt, created_by_name: provider.createdByName, created_by_role: provider.createdByRole,
       created_by_user_id: provider.createdByUserId, source_updated_at: provider.updatedAt, updated_by_name: provider.updatedByName,
@@ -751,12 +782,28 @@
   }
   async function saveProvider(provider) {
     const row = buildProviderRow(provider);
-    const { error } = await state.client.from(PROVIDERS_TABLE).upsert(row, { onConflict: "id" });
+    const { data: writtenRows, error } = await state.client
+      .from(PROVIDERS_TABLE)
+      .upsert(row, { onConflict: "id" })
+      .select("*");
     if (error) throw error;
-    // Die Eingabe ist nach dem bestätigten Upsert bereits vollständig bekannt.
-    // Eine zusätzliche select("*")-Antwort würde denselben großen Datensatz
-    // nochmals über das Netz übertragen.
-    const normalized = normalizeRow(row);
+    if (!Array.isArray(writtenRows) || !writtenRows.some((entry) => String(entry?.id || "").trim() === String(row.id || "").trim())) {
+      throw new Error("Anbieter-Speicherung wurde vom Server nicht bestätigt.");
+    }
+    // Ein separater Read entspricht einem Neuladen der App. Nur dieser Stand
+    // darf als Erfolg gelten; RLS-Noops und Trigger-Anpassungen werden so
+    // sichtbar statt lokal still weitergeführt.
+    const { data: verifiedRow, error: verifyError } = await state.client
+      .from(PROVIDERS_TABLE)
+      .select("*")
+      .eq("id", row.id)
+      .maybeSingle();
+    if (verifyError) throw verifyError;
+    if (!verifiedRow) throw new Error("Anbieter ist nach dem Speichern nicht erneut ladbar.");
+    if (providerPersistenceFingerprint(verifiedRow.payload) !== providerPersistenceFingerprint(row.payload)) {
+      throw new Error("Anbieter wurde nicht vollständig gespeichert. Bitte erneut laden und Änderungen prüfen.");
+    }
+    const normalized = normalizeRow(verifiedRow);
     state.providers = [normalized, ...state.providers.filter((entry) => entry.id !== normalized.id)];
     return normalized;
   }
