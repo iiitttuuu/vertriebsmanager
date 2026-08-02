@@ -43,8 +43,9 @@ Dann `http://localhost:8080/index.html` oeffnen.
 5. SQL aus `supabase/patch_provider_workflow_permissions.sql` im SQL Editor ausfuehren. Dieser Patch sichert den In-Bearbeitung-Claim und den Einladungs-Workflow serverseitig ab.
 6. Fuer Gesprächsnotizen (Superadmin-Tool): SQL aus `supabase/patch_conversation_notes.sql` ausfuehren.
 7. Für Push-Mitteilungen der Vertriebs-PWA: SQL aus `supabase/patch_web_push_subscriptions.sql` ausführen.
-7. Optional: SQL aus `supabase/seed_categories.sql` ausfuehren, um die 6 Standard-Hauptkategorien vorzubelegen.
-8. In `config.js` setzen:
+8. Für sofortige Desktop-Synchronisierung ohne häufiges Polling: SQL aus `supabase/patch_desktop_realtime_sync.sql` ausführen.
+9. Optional: SQL aus `supabase/seed_categories.sql` ausfuehren, um die 6 Standard-Hauptkategorien vorzubelegen.
+10. In `config.js` setzen:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
    - Die folgenden Werte gehören **nicht** in `config.js`: Im Vercel-Projekt unter *Settings → Environment Variables* `SUPABASE_SERVICE_ROLE_KEY` (und empfehlenswert auch `SUPABASE_URL`) setzen. Der Service-Role-Key wird nur von den geschützten Server-Endpunkten für Einladungen verwendet und darf nie an den Browser ausgeliefert werden.

@@ -29,6 +29,7 @@
 \i supabase/patch_supaadmin_role.sql
 \i supabase/patch_partner_requests_notifications.sql
 \i supabase/patch_partner_requests_responsibility.sql
+\i supabase/patch_desktop_realtime_sync.sql
 \i supabase/patch_content_read_receipts.sql
 \i supabase/patch_web_push_subscriptions.sql
 \i supabase/patch_categories_neue_kat.sql

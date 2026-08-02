@@ -8,9 +8,10 @@ const REMOTE_SAVE_DEBOUNCE_MS = 450;
 const REMOTE_RETRY_INITIAL_DELAY_MS = 1500;
 const REMOTE_RETRY_MAX_DELAY_MS = 15000;
 // Hintergrund-Sync soll Änderungen zeitnah erkennen, darf aber die Eingabe nicht
-// durch wiederholte Komplettabfragen aller Anbieter belasten.
-const REMOTE_SYNC_INTERVAL_MS = 10000;
-const PROVIDER_OVERVIEW_SYNC_INTERVAL_MS = 8000;
+// durch wiederholte Komplettabfragen aller Anbieter belasten. Beim Zurückkehren
+// in einen sichtbaren Tab erfolgt zusätzlich ein sofortiger Abgleich.
+const REMOTE_SYNC_INTERVAL_MS = 60000;
+const PROVIDER_OVERVIEW_SYNC_INTERVAL_MS = 45000;
 const LOCAL_PROVIDER_RECOVERY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const UI_SEARCH_RENDER_DEBOUNCE_MS = 140;
 const LOCAL_BACKUP_IDLE_TIMEOUT_MS = 700;
@@ -34,7 +35,10 @@ const AUTH_DIRECT_REQUEST_TIMEOUT_MS = 3200;
 const AUTH_PROXY_REQUEST_TIMEOUT_MS = 16000;
 const AUTH_SIGNIN_PROXY_ENDPOINT = "/api/auth/signin";
 const CEO_SECRETARY_PROCESS_ENDPOINT = "/api/ceo-secretary/process";
-const PARTNER_REQUEST_SYNC_INTERVAL_MS = 15000;
+// Realtime liefert Änderungen unverzüglich. Dieses Intervall ist lediglich der
+// sichere Fallback für getrennte Realtime-Verbindungen.
+const PARTNER_REQUEST_SYNC_INTERVAL_MS = 60000;
+const DESKTOP_FOREGROUND_SYNC_DEBOUNCE_MS = 350;
 const PARTNER_REQUEST_PAGE_SIZE = 1000;
 const PROVIDERS_TABLE_PAGE_SIZE = 1000;
 const PROVIDER_NOTES_PREFETCH_LIMIT = 8;
@@ -940,6 +944,11 @@ let queuedProvidersSync = null;
 let lastRemotePayloadFingerprint = "";
 let lastRemoteStateUpdatedAt = "";
 let remoteSyncIntervalId = null;
+let desktopForegroundSyncTimeoutId = null;
+let desktopStateRealtimeChannel = null;
+let desktopStateRealtimeRefreshTimeoutId = null;
+let desktopStateRealtimeNeedsStatePull = false;
+let desktopStateRealtimeNeedsProviderRefresh = false;
 let remoteStatePullInFlight = false;
 let remoteStatePushInFlight = false;
 let localChangesPendingRemoteSync = false;
@@ -4032,7 +4041,16 @@ async function initialize() {
     if (localBackupQueuedHandle !== null) {
       flushQueuedLocalBackup();
     }
+    clearDesktopForegroundSync();
   });
+  // Hintergrund-Tabs erzeugen keine regelmäßigen Serverabfragen. Sobald ein
+  // Nutzer zurückkehrt, holen wir Änderungen einmalig und ohne Wartezeit nach.
+  document.addEventListener("visibilitychange", () => {
+    if (isDesktopDocumentVisible()) {
+      scheduleDesktopForegroundSync();
+    }
+  });
+  window.addEventListener("focus", scheduleDesktopForegroundSync);
   showAuthGate("Bitte melde dich an.");
   clearLegacyAuthErrorParams();
   void restoreStartupSessionInBackground();
@@ -66068,8 +66086,10 @@ function startPartnerRequestSync(options = {}) {
   if (options?.refreshImmediately !== false) {
     void refreshPartnerRequestsAndAdminUi();
   }
-  partnerRequestSyncIntervalId = window.setInterval(async () => {
-    await refreshPartnerRequestsAndAdminUi();
+  partnerRequestSyncIntervalId = window.setInterval(() => {
+    if (isDesktopDocumentVisible()) {
+      void refreshPartnerRequestsAndAdminUi();
+    }
   }, PARTNER_REQUEST_SYNC_INTERVAL_MS);
 }
 
@@ -66181,18 +66201,135 @@ function startRemoteStateSync() {
   if (storageMode !== "supabase") {
     return;
   }
+  startDesktopStateRealtimeSync();
   pullRemoteStateIfChanged();
   remoteSyncIntervalId = window.setInterval(() => {
-    pullRemoteStateIfChanged();
+    if (isDesktopDocumentVisible()) {
+      void pullRemoteStateIfChanged();
+    }
   }, REMOTE_SYNC_INTERVAL_MS);
 }
 
 function stopRemoteStateSync() {
-  if (!remoteSyncIntervalId) {
+  if (remoteSyncIntervalId) {
+    window.clearInterval(remoteSyncIntervalId);
+    remoteSyncIntervalId = null;
+  }
+  stopDesktopStateRealtimeSync();
+}
+
+function queueDesktopStateRealtimeRefresh(source) {
+  if (source === "providers") {
+    desktopStateRealtimeNeedsProviderRefresh = true;
+  } else {
+    desktopStateRealtimeNeedsStatePull = true;
+  }
+  if (desktopStateRealtimeRefreshTimeoutId) {
     return;
   }
-  window.clearInterval(remoteSyncIntervalId);
-  remoteSyncIntervalId = null;
+  desktopStateRealtimeRefreshTimeoutId = window.setTimeout(() => {
+    desktopStateRealtimeRefreshTimeoutId = null;
+    flushDesktopStateRealtimeRefresh();
+  }, 250);
+}
+
+function flushDesktopStateRealtimeRefresh() {
+  if (!isDesktopDocumentVisible() || storageMode !== "supabase" || !authSession) {
+    return;
+  }
+  const needsStatePull = desktopStateRealtimeNeedsStatePull;
+  const needsProviderRefresh = desktopStateRealtimeNeedsProviderRefresh;
+  desktopStateRealtimeNeedsStatePull = false;
+  desktopStateRealtimeNeedsProviderRefresh = false;
+  if (needsStatePull) {
+    void pullRemoteStateIfChanged();
+  }
+  if (needsProviderRefresh) {
+    void refreshProviderOverviewFromSupabase({ force: true });
+  }
+}
+
+function startDesktopStateRealtimeSync() {
+  stopDesktopStateRealtimeSync();
+  const client = getSupabaseClient();
+  const currentUser = getCurrentUser();
+  const stateTable = getSupabaseStateTable();
+  const providersTable = getSupabaseProvidersTable();
+  if (!client || !currentUser || !stateTable || !providersTable || typeof client.channel !== "function") {
+    return;
+  }
+  const channelName = `desktop_crm_sync_${String(stateTable)}_${String(providersTable)}`.replace(/[^a-zA-Z0-9_-]/g, "_");
+  try {
+    desktopStateRealtimeChannel = client
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: stateTable },
+        () => queueDesktopStateRealtimeRefresh("state")
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: providersTable },
+        () => queueDesktopStateRealtimeRefresh("providers")
+      )
+      .subscribe();
+  } catch (error) {
+    desktopStateRealtimeChannel = null;
+    console.warn("Desktop-Realtime-Sync konnte nicht gestartet werden; Intervall-Sync bleibt aktiv.", error);
+  }
+}
+
+function stopDesktopStateRealtimeSync() {
+  if (desktopStateRealtimeRefreshTimeoutId) {
+    window.clearTimeout(desktopStateRealtimeRefreshTimeoutId);
+    desktopStateRealtimeRefreshTimeoutId = null;
+  }
+  desktopStateRealtimeNeedsStatePull = false;
+  desktopStateRealtimeNeedsProviderRefresh = false;
+  if (!desktopStateRealtimeChannel) {
+    return;
+  }
+  const channel = desktopStateRealtimeChannel;
+  desktopStateRealtimeChannel = null;
+  const client = getSupabaseClient();
+  if (client && typeof client.removeChannel === "function") {
+    void client.removeChannel(channel);
+  } else if (typeof channel.unsubscribe === "function") {
+    void channel.unsubscribe();
+  }
+}
+
+function isDesktopDocumentVisible() {
+  return document.visibilityState !== "hidden";
+}
+
+function clearDesktopForegroundSync() {
+  if (!desktopForegroundSyncTimeoutId) {
+    return;
+  }
+  window.clearTimeout(desktopForegroundSyncTimeoutId);
+  desktopForegroundSyncTimeoutId = null;
+}
+
+function scheduleDesktopForegroundSync() {
+  if (desktopForegroundSyncTimeoutId || !isDesktopDocumentVisible()) {
+    return;
+  }
+  desktopForegroundSyncTimeoutId = window.setTimeout(() => {
+    desktopForegroundSyncTimeoutId = null;
+    if (
+      !isDesktopDocumentVisible() ||
+      storageMode !== "supabase" ||
+      !authSession
+    ) {
+      return;
+    }
+    // Fokus und visibilitychange treten beim Wechsel zurück zum CRM häufig
+    // gemeinsam auf. Der kurze Debounce sorgt für genau einen Abgleich.
+    flushDesktopStateRealtimeRefresh();
+    void pullRemoteStateIfChanged();
+    void refreshPartnerRequestsAndAdminUi();
+  }, DESKTOP_FOREGROUND_SYNC_DEBOUNCE_MS);
 }
 
 function isProviderOverviewListActive() {
