@@ -551,7 +551,7 @@
       city: provider.city, state: provider.state, country: provider.country, website: provider.website, email: provider.email, phone: provider.phone,
       contact_salutation: provider.contactSalutation, contact_title: provider.contactTitle, contact_first_name: provider.contactFirstName,
       contact_last_name: provider.contactLastName, contact_person: contactName(provider), contact_person_phone: provider.contactPersonPhone,
-      contact_person_email: provider.contactPersonEmail, admin_only: Boolean(provider.adminOnly), dashboard_created: Boolean(provider.dashboardCreated), online_only: Boolean(provider.onlineOnly), topic_ids: provider.topicIds || [], locations,
+      contact_person_email: provider.contactPersonEmail, admin_only: Boolean(provider.adminOnly), online_only: Boolean(provider.onlineOnly), topic_ids: provider.topicIds || [], locations,
       coverage_mode: coverageMode, coverage_country: coverageCountry, coverage_states: coverageStates, latitude, longitude, status_history: provider.statusHistory || [],
       source_created_at: provider.createdAt, created_by_name: provider.createdByName, created_by_role: provider.createdByRole,
       created_by_user_id: provider.createdByUserId, source_updated_at: provider.updatedAt, updated_by_name: provider.updatedByName,

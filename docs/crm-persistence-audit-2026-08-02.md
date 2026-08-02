@@ -8,7 +8,6 @@
 - Gesprächsnotizen und -aufgaben werden in drei Tabellen gespeichert. Mehrere Aktionen ignorierten einen Fehler dieses Synchronisationsbündels und meldeten dennoch Erfolg.
 - Anbieter-Notizen konnten im lokalen Fallback eine Erfolgsmeldung anzeigen, obwohl sie nicht zentral gespeichert waren.
 - Die Vertriebs-PWA übernahm nach dem Upsert einen lokalen Payload statt des erneut geladenen Serverstands.
-- Das Feld „Im Dashboard angelegt“ war in der flachen Anbieter-Row nicht bei jedem Upsert enthalten; dadurch konnten API-/PWA-Ansichten einen veralteten Spaltenwert sehen.
 
 ## Änderungen
 
@@ -19,7 +18,7 @@
 | `app.js` | Gespräche, Notizen und Aufgaben werden nach dem gesamten Sync-Bündel erneut geladen und verglichen; Erfolgsmeldungen werten das Ergebnis aus. |
 | `app.js` | Anbieter-Notizen prüfen Update/Insert/Delete-Antworten; lokale Fallbacks sind als Warnung gekennzeichnet. |
 | `vertrieb-pwa.js` | Anbieter-Upsert fordert vollständige Daten an, lädt anschließend erneut und vergleicht den Server-Payload. |
-| `supabase/patch_provider_workflow_permissions.sql`, `supabase/patch_providers_table.sql` | Aktive Benutzer erhalten explizit eine `SELECT`-Policy auf `providers`; der Dashboard-Status wird auch in die flache Tabellen-Spalte migriert und geschrieben. |
+| `supabase/patch_provider_workflow_permissions.sql`, `supabase/patch_providers_table.sql` | Aktive Benutzer erhalten explizit eine `SELECT`-Policy auf `providers`; Anbieter-Payloads bleiben bei der Migration vollständig erhalten. |
 | `scripts/test-persistence-verification.mjs` | Regressionstest für die verpflichtenden Verifikations-, Session- und RLS-Schutzmechanismen. |
 
 ## Rollen und Bereiche

@@ -318,7 +318,6 @@ set
   contact_person_phone = coalesce(payload ->> 'contactPersonPhone', payload ->> 'contact_person_phone', contact_person_phone, ''),
   contact_person_email = coalesce(payload ->> 'contactPersonEmail', payload ->> 'contact_person_email', contact_person_email, ''),
   admin_only = lower(coalesce(payload ->> 'adminOnly', payload ->> 'admin_only', 'false')) in ('true', 't', '1', 'yes'),
-  dashboard_created = lower(coalesce(payload ->> 'dashboardCreated', payload ->> 'dashboard_created', 'false')) in ('true', 't', '1', 'yes'),
   early_partner = lower(coalesce(payload ->> 'earlyPartner', payload ->> 'early_partner', 'false')) in ('true', 't', '1', 'yes'),
   online_only = lower(coalesce(payload ->> 'onlineOnly', payload ->> 'online_only', 'false')) in ('true', 't', '1', 'yes'),
   topic_ids = case

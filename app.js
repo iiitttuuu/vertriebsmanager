@@ -62645,7 +62645,6 @@ function buildProviderTableRow(provider) {
       normalizedProvider.contactPersonEmail || normalizedProvider.contact_person_email || ""
     ).trim(),
     admin_only: isProviderAdminOnly(normalizedProvider),
-    dashboard_created: isProviderDashboardCreated(normalizedProvider),
     early_partner: isProviderEarlyPartner(normalizedProvider),
     online_only: isProviderOnlineOnly(normalizedProvider),
     topic_ids: Array.isArray(normalizedProvider.topicIds) ? normalizedProvider.topicIds.filter(Boolean) : [],
