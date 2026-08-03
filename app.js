@@ -7133,6 +7133,9 @@ function bindEvents() {
       const criticalPersistResult = await persistCriticalStateSnapshot({
         retries: 3,
         providersSync: { upsertProviderIds: [targetProviderId] },
+        // Der Anbieter selbst ist vor der Erfolgsmeldung per Read-after-write
+        // bestätigt. app_state kann mit lokalem Backup und Retry nachziehen.
+        deferAppState: true,
       });
       if (!criticalPersistResult.ok) {
         if (editingProviderId) {
@@ -63902,7 +63905,9 @@ async function syncProvidersTableWithStateNow(providers = state.providers, optio
         if (!chunk.length) {
           continue;
         }
-        const { data, error } = await client.from(table).upsert(chunk, { onConflict: "id" }).select("*");
+        // Für die Bestätigung reicht die ID. Die vollständige Nutzlast wird
+        // unmittelbar danach ohnehin erneut gelesen und verglichen.
+        const { data, error } = await client.from(table).upsert(chunk, { onConflict: "id" }).select("id");
         if (error) {
           throw error;
         }

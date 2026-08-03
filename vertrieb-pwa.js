@@ -785,7 +785,7 @@
     const { data: writtenRows, error } = await state.client
       .from(PROVIDERS_TABLE)
       .upsert(row, { onConflict: "id" })
-      .select("*");
+      .select("id");
     if (error) throw error;
     if (!Array.isArray(writtenRows) || !writtenRows.some((entry) => String(entry?.id || "").trim() === String(row.id || "").trim())) {
       throw new Error("Anbieter-Speicherung wurde vom Server nicht bestätigt.");

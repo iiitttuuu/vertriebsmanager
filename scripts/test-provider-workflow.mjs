@@ -28,6 +28,11 @@ assert.match(
 );
 assert.match(
   appSource,
+  /providersSync: \{ upsertProviderIds: \[targetProviderId\] \},[\s\S]*?deferAppState: true/,
+  "Die Anbieterbearbeitung bestätigt zuerst den Anbieter und synchronisiert app_state anschließend ohne den Editor zu blockieren."
+);
+assert.match(
+  appSource,
   /async function syncProvidersTableWithStateNow[\s\S]*?await ensureFreshSupabaseSessionForWrite\(\)/,
   "Kritische Anbieter-Synchronisierungen prüfen vor dem Write die Login-Sitzung."
 );
@@ -421,7 +426,7 @@ assert.match(
 );
 assert.match(
   appSource,
-  /upsert\(chunk, \{ onConflict: "id" \}\)\.select\("\*"\)[\s\S]*\.select\("\*"\)[\s\S]*Anbieter-Speicherung ist nach dem erneuten Laden unvollständig/,
+  /upsert\(chunk, \{ onConflict: "id" \}\)\.select\("id"\)[\s\S]*\.select\("\*"\)[\s\S]*Anbieter-Speicherung ist nach dem erneuten Laden unvollständig/,
   "Ein Anbieter-Upsert gilt erst nach vollständiger Read-after-write-Verifikation als gespeichert."
 );
 assert.match(

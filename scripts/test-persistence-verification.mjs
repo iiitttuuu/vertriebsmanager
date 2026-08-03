@@ -15,8 +15,8 @@ assert.match(
 );
 assert.match(
   appSource,
-  /\.upsert\(chunk, \{ onConflict: "id" \}\)\.select\("\*"\)/,
-  "Selektive Anbieter-Saves müssen die vollständige Serverantwort anfordern."
+  /\.upsert\(chunk, \{ onConflict: "id" \}\)\.select\("id"\)/,
+  "Selektive Anbieter-Saves bestätigen den Write schlank per ID."
 );
 assert.match(
   appSource,
@@ -61,8 +61,8 @@ assert.match(
 
 assert.match(
   pwaSource,
-  /\.upsert\(row, \{ onConflict: "id" \}\)\s*\.select\("\*"\)/,
-  "Die Vertriebs-PWA muss die vollständige Serverantwort anfordern."
+  /\.upsert\(row, \{ onConflict: "id" \}\)\s*\.select\("id"\)/,
+  "Die Vertriebs-PWA bestätigt den Write schlank per ID."
 );
 assert.match(
   pwaSource,
