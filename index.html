@@ -4538,6 +4538,29 @@
             </div>
           </details>
 
+          <details class="management-export-accordion management-import-accordion">
+            <summary>
+              <span>Kategorie per CSV aktualisieren</span>
+              <small>Nur Themenbereiche und Themen – Anbieter bleiben verknüpft</small>
+            </summary>
+            <div class="management-import-panel">
+              <label class="management-export-field" for="category-csv-import-category-select">
+                <span>Kategorie</span>
+                <select id="category-csv-import-category-select">
+                  <option value="">Kategorie auswählen</option>
+                </select>
+              </label>
+              <label class="management-export-field management-import-file-field" for="category-csv-import-file">
+                <span>CSV-Datei</span>
+                <input id="category-csv-import-file" type="file" accept=".csv,text/csv" />
+              </label>
+              <button type="button" id="category-csv-import-read-btn" class="btn btn-primary">CSV prüfen</button>
+              <p class="management-import-hint">Am sichersten: Kategorie zuerst exportieren, in Excel Themenbereich und Thema ändern und wieder hochladen. Die Spalte <strong>Thema-ID</strong> nicht verändern.</p>
+              <div id="category-csv-import-preview" class="management-import-preview hidden" aria-live="polite"></div>
+              <button type="button" id="category-csv-import-apply-btn" class="btn btn-success" disabled>Änderungen übernehmen</button>
+            </div>
+          </details>
+
           <div class="management-summary">
             <div class="summary-chip">
               <span id="management-cat-count">0</span>

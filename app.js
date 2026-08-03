@@ -820,6 +820,7 @@ let managementSearchTerm = "";
 let managementCategorySaveRevision = 0;
 let managementCategoryOptimisticPersistCount = 0;
 let managementCategoryPersistQueue = Promise.resolve();
+let categoryCsvImportDraft = null;
 let providerTopicSelection = new Set();
 let providerAdditionalLocationsDraft = [];
 let providerCoverageStatesDraft = [];
@@ -2479,6 +2480,11 @@ const els = {
   categoryCsvTargetSelect: document.getElementById("category-csv-target-select"),
   categoryCsvDownloadBtn: document.getElementById("category-csv-download-btn"),
   categoryCsvMeta: document.getElementById("category-csv-meta"),
+  categoryCsvImportCategorySelect: document.getElementById("category-csv-import-category-select"),
+  categoryCsvImportFile: document.getElementById("category-csv-import-file"),
+  categoryCsvImportReadBtn: document.getElementById("category-csv-import-read-btn"),
+  categoryCsvImportPreview: document.getElementById("category-csv-import-preview"),
+  categoryCsvImportApplyBtn: document.getElementById("category-csv-import-apply-btn"),
   categoriesList: document.getElementById("categories-list"),
   subcategoriesList: document.getElementById("subcategories-list"),
   topicsList: document.getElementById("topics-list"),
@@ -10734,6 +10740,24 @@ function bindEvents() {
     exportCategoryHierarchyCsv();
   });
 
+  els.categoryCsvImportCategorySelect?.addEventListener("change", () => {
+    categoryCsvImportDraft = null;
+    renderCategoryCsvImportControls();
+  });
+
+  els.categoryCsvImportFile?.addEventListener("change", () => {
+    categoryCsvImportDraft = null;
+    renderCategoryCsvImportControls();
+  });
+
+  els.categoryCsvImportReadBtn?.addEventListener("click", () => {
+    void prepareCategoryCsvImport();
+  });
+
+  els.categoryCsvImportApplyBtn?.addEventListener("click", () => {
+    void applyCategoryCsvImport();
+  });
+
   els.categoriesList.addEventListener("click", (event) => {
     const editButton = event.target.closest("button[data-edit-category]");
     if (editButton) {
@@ -17078,6 +17102,7 @@ function renderManagementSection() {
   ensureManagementSelection();
   renderManagementSummary();
   renderCategoryCsvExportControls();
+  renderCategoryCsvImportControls();
   renderCategoryList();
   renderSubcategoriesList();
   renderTopicsList();
@@ -57975,6 +58000,334 @@ function exportCategoryHierarchyCsv() {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
   showSuccessFeedback(`CSV Export erstellt. ${csvRows.length - 1} Zeilen exportiert.`);
+}
+
+function normalizeCategoryCsvImportHeader(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function parseCategoryCsvImportText(value) {
+  const source = String(value || "").replace(/^\uFEFF/, "");
+  const firstLine = source.split(/\r?\n/, 1)[0] || "";
+  const delimiter = (firstLine.match(/;/g) || []).length >= (firstLine.match(/,/g) || []).length ? ";" : ",";
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (quoted) {
+      if (character === '"' && source[index + 1] === '"') {
+        cell += '"';
+        index += 1;
+      } else if (character === '"') {
+        quoted = false;
+      } else {
+        cell += character;
+      }
+      continue;
+    }
+    if (character === '"') {
+      quoted = true;
+    } else if (character === delimiter) {
+      row.push(cell.trim());
+      cell = "";
+    } else if (character === "\n") {
+      row.push(cell.trim());
+      if (row.some((entry) => entry)) {
+        rows.push(row);
+      }
+      row = [];
+      cell = "";
+    } else if (character !== "\r") {
+      cell += character;
+    }
+  }
+  row.push(cell.trim());
+  if (row.some((entry) => entry)) {
+    rows.push(row);
+  }
+  return rows;
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("file_read_failed"));
+    reader.readAsText(file, "utf-8");
+  });
+}
+
+function getCategoryCsvImportEntries(csvText, expectedCategoryName = "") {
+  const rows = parseCategoryCsvImportText(csvText);
+  if (rows.length < 2) {
+    return { entries: [], errors: ["Die CSV enthält keine Themen-Zeilen."] };
+  }
+  const headers = rows[0].map(normalizeCategoryCsvImportHeader);
+  const subcategoryIndex = headers.indexOf("themenbereich");
+  const topicIndex = headers.indexOf("thema");
+  const topicIdIndex = headers.indexOf("themaid");
+  const categoryIndex = headers.indexOf("kategorie");
+  const errors = [];
+  if (subcategoryIndex < 0 || topicIndex < 0) {
+    return {
+      entries: [],
+      errors: ["Die CSV braucht die Spalten „Themenbereich“ und „Thema“."],
+    };
+  }
+
+  const normalizedExpectedCategory = normalizeText(expectedCategoryName);
+  const entries = [];
+  rows.slice(1).forEach((row, index) => {
+    const subcategoryName = String(row[subcategoryIndex] || "").trim();
+    const topicName = String(row[topicIndex] || "").trim();
+    const categoryName = categoryIndex >= 0 ? String(row[categoryIndex] || "").trim() : "";
+    if (!subcategoryName && !topicName) {
+      return;
+    }
+    if (!subcategoryName || !topicName) {
+      errors.push(`Zeile ${index + 2}: Themenbereich und Thema müssen beide ausgefüllt sein.`);
+      return;
+    }
+    if (categoryName && normalizedExpectedCategory && normalizeText(categoryName) !== normalizedExpectedCategory) {
+      errors.push(`Zeile ${index + 2}: Kategorie „${categoryName}“ passt nicht zur ausgewählten Kategorie.`);
+      return;
+    }
+    entries.push({
+      subcategoryName,
+      topicName,
+      topicId: topicIdIndex >= 0 ? String(row[topicIdIndex] || "").trim() : "",
+      rowNumber: index + 2,
+    });
+  });
+  if (!entries.length && !errors.length) {
+    errors.push("Die CSV enthält keine verwertbaren Themen-Zeilen.");
+  }
+  return { entries, errors };
+}
+
+function buildCategoryCsvImportDraft(categoryId, entries) {
+  const category = state.categories.find((entry) => entry.id === String(categoryId || "").trim());
+  if (!category) {
+    return { errors: ["Die ausgewählte Kategorie ist nicht mehr vorhanden."] };
+  }
+
+  const existingTopics = (category.subcategories || []).flatMap((subcategory) =>
+    (subcategory.topics || []).map((topic) => ({
+      id: String(topic.id || "").trim(),
+      name: String(topic.name || "").trim(),
+      subcategoryName: String(subcategory.name || "").trim(),
+    }))
+  );
+  const existingById = new Map(existingTopics.map((topic) => [topic.id, topic]));
+  const seenIds = new Set();
+  const errors = [];
+  const plannedEntries = entries.map((entry, index) => {
+    if (entry.topicId) {
+      const existing = existingById.get(entry.topicId);
+      if (!existing) {
+        errors.push(`Zeile ${entry.rowNumber}: Die Themen-ID ist in dieser Kategorie nicht vorhanden.`);
+      } else if (seenIds.has(entry.topicId)) {
+        errors.push(`Zeile ${entry.rowNumber}: Dieselbe Themen-ID kommt mehrfach vor.`);
+      }
+      seenIds.add(entry.topicId);
+    }
+    return { ...entry, plannedId: entry.topicId || `new-${index}` };
+  });
+
+  const finalTopics = new Map(existingTopics.map((topic) => [topic.id, { ...topic }]));
+  plannedEntries.forEach((entry) => {
+    finalTopics.set(entry.plannedId, {
+      id: entry.plannedId,
+      name: entry.topicName,
+      subcategoryName: entry.subcategoryName,
+    });
+  });
+  const topicKeys = new Map();
+  finalTopics.forEach((topic) => {
+    const key = `${normalizeText(topic.subcategoryName)}|${normalizeText(topic.name)}`;
+    if (topicKeys.has(key) && topicKeys.get(key) !== topic.id) {
+      errors.push(`„${topic.name}“ wäre im Themenbereich „${topic.subcategoryName}“ doppelt vorhanden.`);
+    }
+    topicKeys.set(key, topic.id);
+  });
+
+  const existingSubcategoryNames = new Set(
+    (category.subcategories || []).map((subcategory) => normalizeText(subcategory.name))
+  );
+  const importedSubcategoryNames = new Set(plannedEntries.map((entry) => normalizeText(entry.subcategoryName)));
+  const newSubcategoryCount = [...importedSubcategoryNames].filter((name) => !existingSubcategoryNames.has(name)).length;
+  const changedTopicCount = plannedEntries.filter((entry) => {
+    const existing = existingById.get(entry.topicId);
+    return existing && (existing.name !== entry.topicName || existing.subcategoryName !== entry.subcategoryName);
+  }).length;
+  const newTopicCount = plannedEntries.filter((entry) => !entry.topicId).length;
+
+  return {
+    categoryId: category.id,
+    categoryName: category.name,
+    entries: plannedEntries,
+    errors: Array.from(new Set(errors)),
+    changedTopicCount,
+    newTopicCount,
+    newSubcategoryCount,
+    unchangedTopicCount: Math.max(0, existingTopics.length - seenIds.size),
+  };
+}
+
+function renderCategoryCsvImportPreview(message = "", isError = false) {
+  const preview = els.categoryCsvImportPreview;
+  if (!preview) {
+    return;
+  }
+  preview.classList.toggle("hidden", !message);
+  preview.classList.toggle("is-error", Boolean(message && isError));
+  preview.innerHTML = message;
+}
+
+function renderCategoryCsvImportControls() {
+  const select = els.categoryCsvImportCategorySelect;
+  if (!select || !els.categoryCsvImportReadBtn || !els.categoryCsvImportApplyBtn) {
+    return;
+  }
+  const previousValue = String(select.value || "").trim();
+  select.innerHTML = state.categories.length
+    ? state.categories.map((category) => `<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)}</option>`).join("")
+    : '<option value="">Keine Kategorie vorhanden</option>';
+  select.value = state.categories.some((category) => category.id === previousValue)
+    ? previousValue
+    : String(state.categories[0]?.id || "");
+  const readyToRead = isAdmin() && Boolean(select.value) && Boolean(els.categoryCsvImportFile?.files?.[0]);
+  els.categoryCsvImportReadBtn.disabled = !readyToRead;
+  const draftIsCurrent = categoryCsvImportDraft?.categoryId === select.value && !categoryCsvImportDraft?.errors?.length;
+  els.categoryCsvImportApplyBtn.disabled = !isAdmin() || !draftIsCurrent;
+  if (!draftIsCurrent) {
+    renderCategoryCsvImportPreview();
+  }
+}
+
+function formatCategoryCsvImportPreview(draft) {
+  const unchangedHint = draft.unchangedTopicCount
+    ? `<li>${escapeHtml(String(draft.unchangedTopicCount))} bisherige Themen fehlen in der CSV und bleiben unverändert.</li>`
+    : "";
+  return `<strong>Vorschau für „${escapeHtml(draft.categoryName)}“</strong><ul><li>${escapeHtml(String(draft.changedTopicCount))} Themen werden umbenannt oder verschoben; Anbieter bleiben dabei zugeordnet.</li><li>${escapeHtml(String(draft.newTopicCount))} neue Themen werden angelegt.</li><li>${escapeHtml(String(draft.newSubcategoryCount))} neue Themenbereiche werden angelegt.</li>${unchangedHint}</ul>`;
+}
+
+async function prepareCategoryCsvImport() {
+  if (!isAdmin()) {
+    showErrorFeedback("Nur Administratoren können Kategorien importieren.", { toast: true });
+    return;
+  }
+  const categoryId = String(els.categoryCsvImportCategorySelect?.value || "").trim();
+  const category = state.categories.find((entry) => entry.id === categoryId);
+  const file = els.categoryCsvImportFile?.files?.[0] || null;
+  if (!category || !file) {
+    showWarningFeedback("Bitte Kategorie und CSV-Datei auswählen.", { toast: true });
+    return;
+  }
+  setActionButtonBusy(els.categoryCsvImportReadBtn, true, "Prüft CSV...");
+  try {
+    const parsed = getCategoryCsvImportEntries(await readFileAsText(file), category.name);
+    const draft = buildCategoryCsvImportDraft(category.id, parsed.entries);
+    draft.errors = Array.from(new Set([...(parsed.errors || []), ...(draft.errors || [])]));
+    categoryCsvImportDraft = draft;
+    if (draft.errors.length) {
+      renderCategoryCsvImportPreview(`<strong>CSV kann noch nicht übernommen werden.</strong><ul>${draft.errors.map((error) => `<li>${escapeHtml(error)}</li>`).join("")}</ul>`, true);
+    } else {
+      renderCategoryCsvImportPreview(formatCategoryCsvImportPreview(draft));
+    }
+  } catch (error) {
+    console.warn("Kategorie-CSV konnte nicht gelesen werden.", error);
+    categoryCsvImportDraft = null;
+    renderCategoryCsvImportPreview("<strong>Die CSV-Datei konnte nicht gelesen werden.</strong>", true);
+  } finally {
+    setActionButtonBusy(els.categoryCsvImportReadBtn, false);
+    const draftIsValid = categoryCsvImportDraft?.categoryId === categoryId && !categoryCsvImportDraft?.errors?.length;
+    els.categoryCsvImportApplyBtn.disabled = !draftIsValid;
+  }
+}
+
+async function applyCategoryCsvImport() {
+  const draft = categoryCsvImportDraft;
+  if (!isAdmin() || !draft || draft.errors?.length) {
+    return;
+  }
+  const refreshed = await refreshManagementCategoriesFromRemote({ render: false });
+  if (!refreshed) {
+    return;
+  }
+  const currentDraft = buildCategoryCsvImportDraft(draft.categoryId, draft.entries);
+  if (currentDraft.errors.length) {
+    categoryCsvImportDraft = currentDraft;
+    renderCategoryCsvImportPreview(`<strong>Der Katalog wurde inzwischen geändert.</strong><ul>${currentDraft.errors.map((error) => `<li>${escapeHtml(error)}</li>`).join("")}</ul>`, true);
+    els.categoryCsvImportApplyBtn.disabled = true;
+    return;
+  }
+  const categoryIndex = state.categories.findIndex((category) => category.id === currentDraft.categoryId);
+  if (categoryIndex < 0) {
+    return;
+  }
+  const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
+  const previousSelection = { categoryId: selectedCategoryId, subcategoryId: selectedSubcategoryId };
+  const nextCategory = JSON.parse(JSON.stringify(state.categories[categoryIndex]));
+  const topicById = new Map();
+  nextCategory.subcategories.forEach((subcategory) => {
+    subcategory.topics.forEach((topic) => topicById.set(String(topic.id || ""), topic));
+  });
+  const subcategoryByName = new Map(
+    nextCategory.subcategories.map((subcategory) => [normalizeText(subcategory.name), subcategory])
+  );
+
+  currentDraft.entries.forEach((entry) => {
+    let topic = null;
+    if (entry.topicId) {
+      topic = topicById.get(entry.topicId);
+      nextCategory.subcategories.forEach((subcategory) => {
+        subcategory.topics = subcategory.topics.filter((candidate) => String(candidate.id || "") !== entry.topicId);
+      });
+    }
+    if (!topic) {
+      topic = { id: createId("topic"), name: entry.topicName };
+    }
+    topic.name = entry.topicName;
+    const subcategoryKey = normalizeText(entry.subcategoryName);
+    let targetSubcategory = subcategoryByName.get(subcategoryKey);
+    if (!targetSubcategory) {
+      targetSubcategory = { id: createId("sub"), name: entry.subcategoryName, topics: [] };
+      nextCategory.subcategories.push(targetSubcategory);
+      subcategoryByName.set(subcategoryKey, targetSubcategory);
+    }
+    targetSubcategory.topics.push(topic);
+  });
+
+  state.categories[categoryIndex] = nextCategory;
+  selectedCategoryId = nextCategory.id;
+  managementCategorySaveRevision += 1;
+  const revision = managementCategorySaveRevision;
+  setActionButtonBusy(els.categoryCsvImportApplyBtn, true, "Übernimmt...");
+  const persisted = await persistManagementCategoryStructureChange(
+    previousCategoriesSnapshot,
+    previousSelection,
+    "Kategorie-Import konnte nicht dauerhaft gespeichert werden. Bitte erneut versuchen.",
+    revision
+  );
+  setActionButtonBusy(els.categoryCsvImportApplyBtn, false);
+  if (!persisted) {
+    return;
+  }
+  categoryCsvImportDraft = null;
+  if (els.categoryCsvImportFile) {
+    els.categoryCsvImportFile.value = "";
+  }
+  renderAll({ preserveProvidersTable: true });
+  showSuccessFeedback(`Kategorie „${nextCategory.name}“ übernommen. Anbieter-Zuordnungen wurden beibehalten.`);
 }
 
 function getManagementSearchQuery() {
