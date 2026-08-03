@@ -9356,6 +9356,53 @@ body.provider-form-open .topbar {
   font-weight: 800;
 }
 
+.topic-synonyms-hover-card {
+  position: fixed;
+  z-index: 11000;
+  width: min(420px, calc(100vw - 28px));
+  box-sizing: border-box;
+  padding: 18px;
+  border: 1px solid rgba(202, 210, 220, 0.88);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 46px rgba(26, 39, 56, 0.18), 0 2px 8px rgba(26, 39, 56, 0.08);
+  backdrop-filter: blur(20px) saturate(145%);
+  pointer-events: none;
+}
+
+.topic-synonyms-hover-card-label {
+  margin: 0 0 12px;
+  color: #627083;
+  font-size: 0.76rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+}
+
+.topic-synonyms-hover-card-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.topic-synonyms-hover-card-list span {
+  padding: 7px 10px;
+  border: 1px solid #e2e7ed;
+  border-radius: 999px;
+  background: rgba(247, 249, 252, 0.92);
+  color: #38485d;
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.topic-synonyms-hover-card-list span.is-empty {
+  border: 0;
+  background: transparent;
+  padding: 2px 0;
+  color: #8491a2;
+}
+
 .topic-subtopics-modal {
   position: fixed;
   z-index: 10000;
@@ -15848,6 +15895,25 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   color: #314154;
   font: inherit;
   font-size: 0.73rem;
+}
+
+.lane-item.topic-item.is-pending-csv-deletion {
+  border-color: #e6bf68;
+  background: #fff8e7;
+}
+
+.csv-import-delete-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: #f0bd4f;
+  color: #5b3b00;
+  font-size: 0.61rem;
+  font-weight: 800;
+  line-height: 1.1;
+  vertical-align: middle;
 }
 
 .management-import-panel #category-csv-import-apply-btn {
