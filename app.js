@@ -939,6 +939,7 @@ let providerCompetitorSyncInFlight = false;
 let supabaseClient = null;
 const TOPIC_REQUESTS_TABLE = "topic_requests";
 const TOPIC_SUBTOPICS_TABLE = "topic_subtopics";
+const NO_TOPIC_REASSIGNMENT = "__no_topic_reassignment__";
 let topicSubtopics = [];
 let storageMode = "local";
 let remoteSaveTimeoutId = null;
@@ -59480,7 +59481,8 @@ async function promptTopicMoveTarget(topicName, sourceLabel, targetSubcategories
 
 async function promptCategoryDeleteReassignment(options = {}) {
   const targets = Array.isArray(options.targets) ? options.targets.filter((entry) => entry?.id && entry?.label) : [];
-  if (!targets.length) {
+  const allowNoAssignment = options.allowNoAssignment === true;
+  if (!targets.length && !allowNoAssignment) {
     return "";
   }
 
@@ -59491,11 +59493,14 @@ async function promptCategoryDeleteReassignment(options = {}) {
   const panel = els.categoryDeleteReassignmentPanel;
   const select = els.categoryDeleteReassignmentSelect;
   const fallback = () => {
+    const fallbackTargets = allowNoAssignment
+      ? [...targets, { id: NO_TOPIC_REASSIGNMENT, label: "Keine Zuordnung – Anbieter-Thema entfernen" }]
+      : targets;
     const selectedIndex = promptForManagementMoveTarget(
       `${title}\n\n${description}\n\nNeue Zuordnung:`,
-      targets.map((entry) => entry.label)
+      fallbackTargets.map((entry) => entry.label)
     );
-    return selectedIndex === null ? "" : String(targets[selectedIndex]?.id || "").trim();
+    return selectedIndex === null ? "" : String(fallbackTargets[selectedIndex]?.id || "").trim();
   };
 
   if (
@@ -59515,7 +59520,10 @@ async function promptCategoryDeleteReassignment(options = {}) {
   }
   els.categoryDeleteReassignmentText.textContent = description;
   els.categoryDeleteReassignmentLabelText.textContent = fieldLabel;
-  select.innerHTML = targets
+  const selectTargets = allowNoAssignment
+    ? [...targets, { id: NO_TOPIC_REASSIGNMENT, label: "Keine Zuordnung – Anbieter-Thema entfernen" }]
+    : targets;
+  select.innerHTML = selectTargets
     .map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.label)}</option>`)
     .join("");
   els.categoryDeleteReassignmentYes.textContent = confirmLabel;
@@ -60118,16 +60126,13 @@ async function handleDeleteTopic(topicId) {
         label: `${topic.categoryName} > ${topic.subcategoryName} > ${topic.name}`,
       }))
       .sort((left, right) => left.label.localeCompare(right.label, "de"));
-    if (!targetTopics.length) {
-      showWarningFeedback("Dieses Thema ist noch mit Datensätzen verbunden. Bitte zuerst ein weiteres Thema anlegen.");
-      return;
-    }
     targetTopicId = await promptCategoryDeleteReassignment({
       title: "Thema löschen",
-      description: `${linkedProviders.length} ${linkedProviders.length === 1 ? "Anbieter-Datensatz verwendet" : "Anbieter-Datensätze verwenden"} „${source.topic.name}“. Bitte wählen Sie das Thema, dem diese Datensätze künftig zugeordnet werden sollen.`,
-      fieldLabel: "Neues Thema",
+      description: `${linkedProviders.length} ${linkedProviders.length === 1 ? "Anbieter-Datensatz verwendet" : "Anbieter-Datensätze verwenden"} „${source.topic.name}“. Sie können ein neues Thema wählen oder die Themen-Zuordnung vollständig entfernen.`,
+      fieldLabel: "Neues Thema oder keine Zuordnung",
       confirmLabel: "Zuordnen und löschen",
       targets: targetTopics,
+      allowNoAssignment: true,
     });
     if (!targetTopicId) {
       return;
@@ -60146,7 +60151,7 @@ async function handleDeleteTopic(topicId) {
     subcategoryId: selectedSubcategoryId,
   };
   source.subcategory.topics.splice(source.topicIndex, 1);
-  if (targetTopicId) {
+  if (targetTopicId && targetTopicId !== NO_TOPIC_REASSIGNMENT) {
     replaceTopicIdsForProviders([topicId], targetTopicId);
   } else {
     removeTopicIdsFromProviders([topicId]);
