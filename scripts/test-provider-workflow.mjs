@@ -531,10 +531,15 @@ assert.match(
   /async function syncProviderDashboardCreatedToggle[\s\S]*localChangesPendingRemoteSync = true;[\s\S]*renderProvidersTable\(\)[\s\S]*persistCriticalStateSnapshot\(\{[\s\S]*providersSync/,
   "Der Dashboard-Status aktualisiert die Anbieterübersicht sofort und wird anschließend synchronisiert."
 );
-assert.doesNotMatch(
+assert.match(
   extractFunction("syncProviderDashboardCreatedToggle"),
   /deferAppState: true/,
-  "Der Dashboard-Schalter wartet auf den vollständig bestätigten Server-Speichervorgang."
+  "Der Dashboard-Schalter bestätigt den selektiven, geprüften Anbieter-Save sofort und gleicht app_state im Hintergrund ab."
+);
+assert.doesNotMatch(
+  extractFunction("syncProviderDashboardCreatedToggle"),
+  /pullWaitDeadline/,
+  "Der Dashboard-Schalter wartet nicht auf einen laufenden Hintergrund-Pull."
 );
 assert.match(
   indexSource,

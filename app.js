@@ -3256,48 +3256,6 @@ async function syncProviderDashboardCreatedToggle(nextValue) {
     return false;
   }
 
-  // Ein bereits laufender Pull könnte sonst noch den alten Tabellenstand über
-  // den gerade bearbeiteten Datensatz legen. Erst dessen Abschluss abwarten,
-  // danach wird der neue Wert exklusiv gespeichert.
-  if (remoteStatePullInFlight) {
-    providerDashboardCreatedSyncInFlight = true;
-    setProviderDashboardCreatedSyncState(true);
-    try {
-      const pullWaitDeadline = Date.now() + 5000;
-      while (remoteStatePullInFlight && Date.now() < pullWaitDeadline) {
-        await new Promise((resolve) => window.setTimeout(resolve, 40));
-      }
-      if (remoteStatePullInFlight) {
-        toggle.checked = isProviderDashboardCreated(provider);
-        showActionFeedback("Die Hintergrundsynchronisierung läuft noch. Bitte erneut versuchen.", {
-          tone: "error",
-          toast: true,
-          statusPersistMs: 4000,
-        });
-        return false;
-      }
-      provider = getEditingProviderRecord();
-      if (!provider) {
-        return false;
-      }
-      if (isProviderCompetitor(provider)) {
-        toggle.checked = false;
-        showWarningFeedback(
-          `Dieser Anbieter ist bereits bei „${getProviderCompetitorName(provider) || "einem Mitbewerb"}“ platziert und bis zur Klärung durch den Admin gesperrt.`
-        );
-        return false;
-      }
-      if (isProviderInProgressLockedForCurrentUser(provider)) {
-        toggle.checked = isProviderDashboardCreated(provider);
-        showProviderLockedFeedback(provider);
-        return false;
-      }
-    } finally {
-      providerDashboardCreatedSyncInFlight = false;
-      setProviderDashboardCreatedSyncState(false);
-    }
-  }
-
   const dashboardCreated = Boolean(nextValue);
   const previousDashboardCreated = isProviderDashboardCreated(provider);
   if (dashboardCreated === previousDashboardCreated) {
@@ -3348,8 +3306,11 @@ async function syncProviderDashboardCreatedToggle(nextValue) {
 
   try {
     const persistence = await persistCriticalStateSnapshot({
-      retries: 3,
       providersSync: { upsertProviderIds: [provider.id] },
+      // Der Status ist für die Anbieterübersicht sofort relevant. Nur diesen
+      // Datensatz priorisiert schreiben; app_state folgt ohne den Schalter
+      // oder die Bearbeitung zu blockieren im Hintergrund.
+      deferAppState: true,
     });
     if (!persistence?.ok) {
       throw persistence?.error || new Error(String(persistence?.reason || "sync_failed"));
@@ -67287,6 +67248,12 @@ async function pullRemoteStateIfChanged() {
       // Ein aktualisierter app_state kann inhaltlich identisch sein, während
       // die dedizierte Anbietertabelle inzwischen geändert wurde.
       await refreshProviderOverviewFromSupabase({ force: true });
+      return;
+    }
+
+    // Während ein lokaler Anbieter-Save läuft, darf ein bereits gestarteter
+    // Pull seinen älteren Snapshot nicht mehr in den Editor zurückschreiben.
+    if (localChangesPendingRemoteSync) {
       return;
     }
 
