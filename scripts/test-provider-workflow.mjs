@@ -48,6 +48,11 @@ assert.match(
 );
 assert.match(
   appSource,
+  /function openTopicSubtopicsModal[\s\S]*?topicSubtopics\.push\(inserted\);[\s\S]*?renderModal\(\);[\s\S]*?focusNewSubtopicInput\(\)/,
+  "Nach dem Hinzufügen eines Sub-Themas ist das Eingabefeld sofort wieder fokussiert."
+);
+assert.match(
+  appSource,
   /function handleEditCategory[\s\S]*?managementCategorySaveRevision \+= 1;[\s\S]*?persistManagementCategoryStructureChange/,
   "Das Bearbeiten einer Kategorie nutzt den geschützten Stammdaten-Speicherweg statt des verzögerten Autosaves."
 );

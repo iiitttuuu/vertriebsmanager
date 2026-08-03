@@ -12640,6 +12640,11 @@ async function openTopicSubtopicsModal(topicId) {
     const entries = getTopicSubtopics(normalizedTopicId);
     modal.innerHTML = `<section class="topic-subtopics-dialog"><header><div><p>SUB-THEMEN</p><h3>${escapeHtml(topic.name)}</h3><span>Sub-Themen verbessern die Suche bei der Anbieter-Zuordnung. Anbieter bleiben dem Hauptthema zugeordnet.</span></div><button type="button" class="mini-btn" data-close-subtopics aria-label="Popup schließen">✕</button></header><form data-subtopic-form><label>Neues Sub-Thema<input name="name" maxlength="120" autocomplete="off" placeholder="z. B. Fitnesstraining" required /></label><button type="submit" class="btn btn-success">Hinzufügen</button></form><div class="topic-subtopics-list">${entries.length ? entries.map((entry) => `<div><span>${escapeHtml(entry.name)}</span><button type="button" class="mini-btn danger" data-delete-subtopic="${escapeHtml(entry.id)}" aria-label="${escapeHtml(`${entry.name} löschen`)}" title="Sub-Thema löschen">✕</button></div>`).join("") : "<p>Noch keine Sub-Themen erfasst.</p>"}</div></section>`;
   };
+  const focusNewSubtopicInput = () => {
+    window.requestAnimationFrame(() => {
+      modal.querySelector("input[name='name']")?.focus();
+    });
+  };
   const close = () => {
     document.removeEventListener("keydown", onKeyDown);
     modal.remove();
@@ -12719,6 +12724,7 @@ async function openTopicSubtopicsModal(topicId) {
     }
     topicSubtopics.push(inserted);
     renderModal();
+    focusNewSubtopicInput();
     renderManagementSection();
     renderProviderTopicPicker();
   });
