@@ -2836,6 +2836,12 @@ function isProviderFormDirtyRelevantTarget(target) {
   if (target.id === "provider-topic-search") {
     return false;
   }
+  // Der Dashboard-Schalter eines bestehenden Anbieters wird direkt gespeichert.
+  // Sein input-Event darf deshalb keinen ungespeicherten Formularzustand setzen,
+  // sonst erscheint beim Schließen fälschlich nochmals der Speicherdialog.
+  if (editingProviderId && target.matches('input[name="dashboardCreated"]')) {
+    return false;
+  }
   if (target.closest("#provider-notes-tab-panel")) {
     return false;
   }
