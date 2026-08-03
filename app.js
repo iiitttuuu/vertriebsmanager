@@ -934,8 +934,7 @@ let providerPendingCloseAfterSave = false;
 // markieren.
 let providerSaveCompletionResolvers = [];
 let providerSaveInFlight = false;
-let providerDashboardCreatedSyncInFlight = false;
-let providerCompetitorSyncInFlight = false;
+let providerFormInitialFingerprint = "";
 let supabaseClient = null;
 const TOPIC_REQUESTS_TABLE = "topic_requests";
 const TOPIC_SUBTOPICS_TABLE = "topic_subtopics";
@@ -2836,12 +2835,6 @@ function isProviderFormDirtyRelevantTarget(target) {
   if (target.id === "provider-topic-search") {
     return false;
   }
-  // Der Dashboard-Schalter eines bestehenden Anbieters wird direkt gespeichert.
-  // Sein input-Event darf deshalb keinen ungespeicherten Formularzustand setzen,
-  // sonst erscheint beim Schließen fälschlich nochmals der Speicherdialog.
-  if (editingProviderId && target.matches('input[name="dashboardCreated"]')) {
-    return false;
-  }
   if (target.closest("#provider-notes-tab-panel")) {
     return false;
   }
@@ -2868,6 +2861,38 @@ function markProviderFormDirty(target = null) {
   }
   providerFormDirty = true;
   providerDraftPendingResume = true;
+}
+
+function getProviderFormChangeFingerprint() {
+  const form = els.providerForm;
+  if (!form) {
+    return "";
+  }
+  const controls = Array.from(form.querySelectorAll("input[name], select[name], textarea[name]"))
+    .filter((control) => control.id !== "provider-topic-search")
+    .flatMap((control) => {
+      const name = String(control.name || "").trim();
+      if (!name) {
+        return [];
+      }
+      if (control instanceof HTMLInputElement && control.type === "radio") {
+        return control.checked ? [[name, control.value]] : [];
+      }
+      if (control instanceof HTMLInputElement && control.type === "checkbox") {
+        return [[name, control.checked]];
+      }
+      return [[name, control.value]];
+    });
+  return JSON.stringify({
+    controls,
+    additionalLocations: providerAdditionalLocationsDraft,
+    coverageStates: providerCoverageStatesDraft,
+    topicIds: Array.from(providerTopicSelection).sort(),
+  });
+}
+
+function captureProviderFormInitialFingerprint() {
+  providerFormInitialFingerprint = getProviderFormChangeFingerprint();
 }
 
 function resolveProviderUnsavedChanges(decision) {
@@ -2989,20 +3014,6 @@ function syncProviderCompetitorLockUi(provider = getEditingProviderRecord()) {
   });
 }
 
-function setProviderCompetitorSyncState(isSyncing) {
-  const toggle = els.providerForm?.elements?.competitor;
-  if (!(toggle instanceof HTMLInputElement)) {
-    return;
-  }
-  const toggleContainer = toggle.closest(".provider-meta-competitor-toggle");
-  const provider = getEditingProviderRecord();
-  const lockedForAdminClarification = Boolean(
-    editingProviderId && isProviderCompetitor(provider) && !isRoleAdmin(getCurrentUser())
-  );
-  toggle.disabled = Boolean(isSyncing) || lockedForAdminClarification;
-  toggleContainer?.classList.toggle("is-syncing", Boolean(isSyncing));
-}
-
 async function requestProviderCompetitorName(providerName = "", initialName = "") {
   const titleName = String(providerName || "diesen Anbieter").trim() || "diesen Anbieter";
   if (
@@ -3066,15 +3077,26 @@ async function requestProviderCompetitorName(providerName = "", initialName = ""
 
 async function syncProviderCompetitorToggle(nextValue) {
   const toggle = els.providerForm?.elements?.competitor;
-  if (!(toggle instanceof HTMLInputElement) || providerCompetitorSyncInFlight) {
+  if (!(toggle instanceof HTMLInputElement)) {
     return false;
   }
 
   const shouldMarkCompetitor = Boolean(nextValue);
-  let provider = getEditingProviderRecord();
+  const provider = getEditingProviderRecord();
   const currentCompetitor = provider ? isProviderCompetitor(provider) : false;
   const currentCompetitorName = provider ? getProviderCompetitorName(provider) : "";
   let competitorName = currentCompetitorName;
+
+  if (provider && isProviderInProgressLockedForCurrentUser(provider)) {
+    setProviderCompetitorFormValues(currentCompetitor, currentCompetitorName);
+    showProviderLockedFeedback(provider);
+    return false;
+  }
+  if (provider && currentCompetitor && !isRoleAdmin(getCurrentUser())) {
+    setProviderCompetitorFormValues(currentCompetitor, currentCompetitorName);
+    showProviderLockedFeedback(provider);
+    return false;
+  }
 
   if (shouldMarkCompetitor) {
     competitorName = await requestProviderCompetitorName(
@@ -3089,262 +3111,19 @@ async function syncProviderCompetitorToggle(nextValue) {
     competitorName = "";
   }
 
-  // Neue Anbieter werden mit dem regulären Speichern angelegt. Bei bestehenden
-  // Datensätzen wird die Kennzeichnung sofort und vollständig synchronisiert.
-  if (!editingProviderId) {
-    setProviderCompetitorFormValues(shouldMarkCompetitor, competitorName);
-    const dashboardToggle = els.providerForm?.elements?.dashboardCreated;
-    if (dashboardToggle instanceof HTMLInputElement) {
-      if (shouldMarkCompetitor) {
-        if (!Object.prototype.hasOwnProperty.call(dashboardToggle.dataset, "competitorLockPreviousDisabled")) {
-          dashboardToggle.dataset.competitorLockPreviousDisabled = dashboardToggle.disabled ? "true" : "false";
-        }
-        dashboardToggle.checked = false;
-        dashboardToggle.disabled = true;
-      } else if (Object.prototype.hasOwnProperty.call(dashboardToggle.dataset, "competitorLockPreviousDisabled")) {
-        dashboardToggle.disabled = dashboardToggle.dataset.competitorLockPreviousDisabled === "true";
-        delete dashboardToggle.dataset.competitorLockPreviousDisabled;
-      }
-    }
-    markProviderFormDirty(toggle);
-    return true;
-  }
-
-  // Ein laufender Hintergrund-Pull kann sonst den gerade gewählten Wert mit
-  // einem älteren Stand überschreiben. Der Schalter bleibt bis zum Abschluss
-  // gesperrt, danach wird der aktuelle Datensatz erst gelesen und gespeichert.
-  if (remoteStatePullInFlight) {
-    providerCompetitorSyncInFlight = true;
-    setProviderCompetitorSyncState(true);
-    try {
-      const pullWaitDeadline = Date.now() + 5000;
-      while (remoteStatePullInFlight && Date.now() < pullWaitDeadline) {
-        await new Promise((resolve) => window.setTimeout(resolve, 40));
-      }
-      if (remoteStatePullInFlight) {
-        setProviderCompetitorFormValues(currentCompetitor, currentCompetitorName);
-        showActionFeedback("Die Hintergrundsynchronisierung läuft noch. Bitte erneut versuchen.", {
-          tone: "error",
-          toast: true,
-          statusPersistMs: 4000,
-        });
-        return false;
-      }
-    } finally {
-      providerCompetitorSyncInFlight = false;
-      setProviderCompetitorSyncState(false);
-    }
-  }
-
-  provider = getEditingProviderRecord();
-  if (!provider) {
-    setProviderCompetitorFormValues(false, "");
-    return false;
-  }
-  if (!canCurrentUserOpenProvider(provider, getCurrentUser()) || isProviderInProgressLockedForCurrentUser(provider)) {
-    setProviderCompetitorFormValues(isProviderCompetitor(provider), getProviderCompetitorName(provider));
-    showProviderLockedFeedback(provider);
-    return false;
-  }
-
-  const previousCompetitor = isProviderCompetitor(provider);
-  const previousCompetitorName = getProviderCompetitorName(provider);
-  if (shouldMarkCompetitor === previousCompetitor && competitorName === previousCompetitorName) {
-    setProviderCompetitorFormValues(previousCompetitor, previousCompetitorName);
-    return true;
-  }
-
-  const previousProviderSnapshot = JSON.parse(JSON.stringify(provider));
-  const actor = getCurrentActorInfo();
-  const nowIso = new Date().toISOString();
-  const dashboardCreated = shouldMarkCompetitor ? false : isProviderDashboardCreated(provider);
-  const hadPendingRemoteChanges = localChangesPendingRemoteSync;
-  providerCompetitorSyncInFlight = true;
-  setProviderCompetitorSyncState(true);
-  if (!hadPendingRemoteChanges) {
-    localChangesPendingRemoteSync = true;
-  }
-
-  Object.assign(provider, {
-    competitor: shouldMarkCompetitor,
-    isCompetitor: shouldMarkCompetitor,
-    competitorName,
-    competitor_name: competitorName,
-    dashboardCreated,
-    dashboard_created: dashboardCreated,
-    updatedAt: nowIso,
-    updatedByName: actor.name,
-    updatedByRole: actor.role,
-    updatedByUserId: actor.userId,
-  });
-  Object.assign(provider, normalizeProviderRecord(provider) || provider);
   setProviderCompetitorFormValues(shouldMarkCompetitor, competitorName);
-  renderProvidersTable();
-
-  try {
-    const persistence = await persistCriticalStateSnapshot({
-      retries: 3,
-      providersSync: { upsertProviderIds: [provider.id] },
-    });
-    if (!persistence?.ok) {
-      throw persistence?.error || new Error(String(persistence?.reason || "sync_failed"));
+  const dashboardToggle = els.providerForm?.elements?.dashboardCreated;
+  if (dashboardToggle instanceof HTMLInputElement) {
+    if (shouldMarkCompetitor) {
+      dashboardToggle.checked = false;
+      dashboardToggle.disabled = true;
+    } else {
+      dashboardToggle.disabled = false;
     }
-    if (els.providerUpdatedMeta) {
-      els.providerUpdatedMeta.textContent = formatAuditStamp(
-        provider.updatedAt,
-        provider.updatedByRole,
-        provider.updatedByName
-      );
-    }
-    fillProviderForm(provider);
-    showSuccessFeedback("Mitbewerb-Markierung synchronisiert.", { toast: false, statusPersistMs: 1400 });
-    return true;
-  } catch (error) {
-    Object.keys(provider).forEach((key) => {
-      delete provider[key];
-    });
-    Object.assign(provider, previousProviderSnapshot);
-    setProviderCompetitorFormValues(previousCompetitor, previousCompetitorName);
-    if (!hadPendingRemoteChanges) {
-      localChangesPendingRemoteSync = false;
-    }
-    persistLocalBackup();
-    renderProvidersTable();
-    console.warn("Mitbewerb-Markierung konnte nicht synchronisiert werden.", error);
-    showActionFeedback(
-      "Mitbewerb-Markierung konnte nicht synchronisiert werden. Der bisherige Wert wurde wiederhergestellt.",
-      { tone: "error", toast: true, statusPersistMs: 5000, toastDurationMs: 5000 }
-    );
-    return false;
-  } finally {
-    providerCompetitorSyncInFlight = false;
-    setProviderCompetitorSyncState(false);
   }
-}
-
-function setProviderDashboardCreatedSyncState(isSyncing) {
-  const toggle = els.providerForm?.elements?.dashboardCreated;
-  if (!(toggle instanceof HTMLInputElement)) {
-    return;
-  }
-  const toggleContainer = toggle.closest(".provider-meta-dashboard-toggle");
-  const provider = getEditingProviderRecord();
-  toggle.disabled = Boolean(isSyncing) || Boolean(editingProviderId && isProviderCompetitor(provider));
-  toggleContainer?.classList.toggle("is-syncing", Boolean(isSyncing));
-}
-
-async function syncProviderDashboardCreatedToggle(nextValue) {
-  let provider = getEditingProviderRecord();
-  const toggle = els.providerForm?.elements?.dashboardCreated;
-  if (!(toggle instanceof HTMLInputElement) || !provider || providerDashboardCreatedSyncInFlight) {
-    return false;
-  }
-  if (!canCurrentUserSetProviderDashboardCreated(getCurrentUser())) {
-    toggle.checked = isProviderDashboardCreated(provider);
-    return false;
-  }
-  if (isProviderCompetitor(provider)) {
-    toggle.checked = false;
-    showWarningFeedback(
-      `Dieser Anbieter ist bereits bei „${getProviderCompetitorName(provider) || "einem Mitbewerb"}“ platziert und bis zur Klärung durch den Admin gesperrt.`
-    );
-    return false;
-  }
-  if (isProviderInProgressLockedForCurrentUser(provider)) {
-    toggle.checked = isProviderDashboardCreated(provider);
-    showProviderLockedFeedback(provider);
-    return false;
-  }
-
-  const dashboardCreated = Boolean(nextValue);
-  const previousDashboardCreated = isProviderDashboardCreated(provider);
-  if (dashboardCreated === previousDashboardCreated) {
-    return true;
-  }
-
-  if (dashboardCreated && isProviderCompetitor(provider)) {
-    const competitorName = getProviderCompetitorName(provider) || "einem Mitbewerb";
-    const confirmed = await confirmAction(
-      `Dieser Anbieter ist bereits bei „${competitorName}“ angelegt. Trotzdem als im Dashboard angelegt markieren?`,
-      {
-        title: "Mitbewerb-Hinweis",
-        confirmLabel: "Trotzdem aktivieren",
-        danger: true,
-      }
-    );
-    if (!confirmed) {
-      toggle.checked = previousDashboardCreated;
-      return false;
-    }
-    provider = getEditingProviderRecord() || provider;
-  }
-
-  const previousProviderSnapshot = JSON.parse(JSON.stringify(provider));
-  const actor = getCurrentActorInfo();
-  const nowIso = new Date().toISOString();
-  const hadPendingRemoteChanges = localChangesPendingRemoteSync;
-  providerDashboardCreatedSyncInFlight = true;
-  setProviderDashboardCreatedSyncState(true);
-
-  // Ab hier darf kein Hintergrund-Pull den optimistisch gesetzten Wert mit
-  // einem älteren Snapshot überschreiben. Der Flag wird nach dem bestätigten
-  // Vollspeichern wieder von persistStateToSupabase zurückgesetzt.
-  if (!hadPendingRemoteChanges) {
-    localChangesPendingRemoteSync = true;
-  }
-
-  Object.assign(provider, {
-    dashboardCreated,
-    dashboard_created: dashboardCreated,
-    updatedAt: nowIso,
-    updatedByName: actor.name,
-    updatedByRole: actor.role,
-    updatedByUserId: actor.userId,
-  });
-  Object.assign(provider, normalizeProviderRecord(provider) || provider);
-  renderProvidersTable();
-
-  try {
-    const persistence = await persistCriticalStateSnapshot({
-      providersSync: { upsertProviderIds: [provider.id] },
-      // Der Status ist für die Anbieterübersicht sofort relevant. Nur diesen
-      // Datensatz priorisiert schreiben; app_state folgt ohne den Schalter
-      // oder die Bearbeitung zu blockieren im Hintergrund.
-      deferAppState: true,
-    });
-    if (!persistence?.ok) {
-      throw persistence?.error || new Error(String(persistence?.reason || "sync_failed"));
-    }
-    if (els.providerUpdatedMeta) {
-      els.providerUpdatedMeta.textContent = formatAuditStamp(
-        provider.updatedAt,
-        provider.updatedByRole,
-        provider.updatedByName
-      );
-    }
-    showSuccessFeedback("Dashboard-Status synchronisiert.", { toast: false, statusPersistMs: 1400 });
-    return true;
-  } catch (error) {
-    Object.keys(provider).forEach((key) => {
-      delete provider[key];
-    });
-    Object.assign(provider, previousProviderSnapshot);
-    toggle.checked = previousDashboardCreated;
-    if (!hadPendingRemoteChanges) {
-      localChangesPendingRemoteSync = false;
-    }
-    persistLocalBackup();
-    renderProvidersTable();
-    console.warn("Dashboard-Status konnte nicht synchronisiert werden.", error);
-    showActionFeedback(
-      "Dashboard-Status konnte nicht synchronisiert werden. Der bisherige Wert wurde wiederhergestellt.",
-      { tone: "error", toast: true, statusPersistMs: 5000, toastDurationMs: 5000 }
-    );
-    return false;
-  } finally {
-    providerDashboardCreatedSyncInFlight = false;
-    setProviderDashboardCreatedSyncState(false);
-  }
+  syncProviderCompetitorLockUi({ ...(provider || {}), competitor: shouldMarkCompetitor, isCompetitor: shouldMarkCompetitor });
+  markProviderFormDirty(toggle);
+  return true;
 }
 
 function isProviderStatusDirtyInForm() {
@@ -3366,23 +3145,14 @@ function isProviderStatusDirtyInForm() {
 }
 
 function hasUnsavedProviderFormChanges() {
-  return providerFormDirty || isProviderStatusDirtyInForm();
+  const currentFingerprint = getProviderFormChangeFingerprint();
+  const fingerprintChanged = Boolean(providerFormInitialFingerprint) && currentFingerprint !== providerFormInitialFingerprint;
+  return fingerprintChanged || isProviderStatusDirtyInForm() || (!providerFormInitialFingerprint && providerFormDirty);
 }
 
 async function leaveProviderForm({ nextTab = "", close = false } = {}) {
   const normalizedNextTab = nextTab ? normalizeProviderDetailTab(nextTab) : "";
   const fallbackTab = normalizedNextTab || providerDetailTab;
-  const activeProvider = getEditingProviderRecord();
-  // Die Mitbewerb-Kennzeichnung wurde bereits sofort gespeichert. Sie darf den
-  // Rückweg zur Übersicht niemals über einen alten Entwurfszustand blockieren.
-  if (close && isProviderCompetitor(activeProvider)) {
-    providerFormDirty = false;
-    providerDraftPendingResume = false;
-    clearProviderForm();
-    setProvidersView("list");
-    restoreProviderAnalyticsAfterEditor();
-    return;
-  }
   if (!hasUnsavedProviderFormChanges()) {
     if (close) {
       clearProviderForm();
@@ -7066,7 +6836,7 @@ function bindEvents() {
         showWarningFeedback("Bitte den Namen des Mitbewerbs eingeben.");
         return;
       }
-      if (previousProvider && isProviderCompetitor(previousProvider)) {
+      if (previousProvider && isProviderCompetitor(previousProvider) && competitor) {
         showProviderLockedFeedback(previousProvider);
         return;
       }
@@ -7521,10 +7291,6 @@ function bindEvents() {
   els.providerForm.addEventListener("change", async (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
-      return;
-    }
-    if (target.matches('input[name="dashboardCreated"]') && editingProviderId) {
-      await syncProviderDashboardCreatedToggle(target.checked);
       return;
     }
     if (target.matches('input[name="competitor"]')) {
@@ -54496,6 +54262,7 @@ function fillProviderForm(provider) {
   void fetchProviderNotesForProvider(provider.id, { force: true });
   providerFormDirty = false;
   providerDraftPendingResume = false;
+  captureProviderFormInitialFingerprint();
 }
 
 function normalizeUserFormTab(value) {
@@ -57499,6 +57266,7 @@ function clearProviderForm() {
   }
   setProviderDetailTab("master");
   els.providerSaveBtn.textContent = "Speichern";
+  captureProviderFormInitialFingerprint();
 }
 
 function clearProviderCoordinates() {

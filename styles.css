@@ -11150,40 +11150,6 @@ body.provider-form-open .topbar {
   white-space: nowrap;
 }
 
-.provider-dashboard-created-sync {
-  display: none;
-  width: 15px;
-  height: 15px;
-  border: 2px solid rgba(211, 149, 34, 0.25);
-  border-top-color: #b97808;
-  border-radius: 50%;
-  animation: provider-dashboard-created-sync-spin 720ms linear infinite;
-}
-
-.provider-meta-dashboard-toggle.is-syncing .provider-dashboard-created-sync {
-  display: inline-block;
-}
-
-.provider-competitor-sync {
-  display: none;
-  width: 15px;
-  height: 15px;
-  border: 2px solid rgba(199, 44, 44, 0.22);
-  border-top-color: #c52d2d;
-  border-radius: 50%;
-  animation: provider-dashboard-created-sync-spin 720ms linear infinite;
-}
-
-.provider-meta-competitor-toggle.is-syncing .provider-competitor-sync {
-  display: inline-block;
-}
-
-@keyframes provider-dashboard-created-sync-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .provider-meta-admin-toggle input[type="checkbox"],
 .provider-meta-dashboard-toggle input[type="checkbox"],
 .provider-meta-competitor-toggle input[type="checkbox"],

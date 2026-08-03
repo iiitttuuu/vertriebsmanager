@@ -43,10 +43,10 @@ assert.match(
   /App-Status weicht nach dem erneuten Laden vom gespeicherten Stand ab/,
   "App-State-Write benötigt eine Read-after-write-Prüfung."
 );
-assert.match(
+assert.doesNotMatch(
   appSource,
-  /async function syncProviderDashboardCreatedToggle[\s\S]*?providersSync: \{ upsertProviderIds: \[provider\.id\] \}[\s\S]*?deferAppState:\s*true/,
-  "Der Dashboard-Schalter darf nach dem geprüften selektiven Anbieter-Save unmittelbar reagieren; app_state wird nachgelagert abgeglichen."
+  /syncProviderDashboardCreatedToggle/,
+  "Der Dashboard-Schalter darf keinen eigenen direkten Speicherweg mehr verwenden."
 );
 assert.match(
   appSource,

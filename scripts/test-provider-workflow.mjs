@@ -528,23 +528,18 @@ assert.match(
 );
 assert.match(
   appSource,
-  /async function syncProviderDashboardCreatedToggle[\s\S]*localChangesPendingRemoteSync = true;[\s\S]*renderProvidersTable\(\)[\s\S]*persistCriticalStateSnapshot\(\{[\s\S]*providersSync/,
-  "Der Dashboard-Status aktualisiert die Anbieterübersicht sofort und wird anschließend synchronisiert."
-);
-assert.match(
-  extractFunction("syncProviderDashboardCreatedToggle"),
-  /deferAppState: true/,
-  "Der Dashboard-Schalter bestätigt den selektiven, geprüften Anbieter-Save sofort und gleicht app_state im Hintergrund ab."
+  /function getProviderFormChangeFingerprint\(\)[\s\S]*?dashboardCreated[\s\S]*?function hasUnsavedProviderFormChanges\(\)[\s\S]*?currentFingerprint !== providerFormInitialFingerprint/,
+  "Der Dashboard-Schalter wird als Formularänderung erfasst und erst beim regulären Speichern übernommen."
 );
 assert.doesNotMatch(
-  extractFunction("syncProviderDashboardCreatedToggle"),
-  /pullWaitDeadline/,
-  "Der Dashboard-Schalter wartet nicht auf einen laufenden Hintergrund-Pull."
+  appSource,
+  /syncProviderDashboardCreatedToggle/,
+  "Der Dashboard-Schalter speichert nicht mehr unmittelbar beim Umschalten."
 );
 assert.match(
   indexSource,
-  /class="provider-dashboard-created-sync"[\s\S]*aria-label="Dashboard-Status wird synchronisiert"/,
-  "Der Dashboard-Schalter enthält einen Ladeindikator für die Synchronisierung."
+  /id="provider-unsaved-changes-panel"[\s\S]*?Speichern[\s\S]*?Nicht speichern[\s\S]*?Abbrechen/,
+  "Beim Verlassen mit Änderungen steht der Dialog Speichern, Nicht speichern und Abbrechen bereit."
 );
 assert.match(
   indexSource,
@@ -554,18 +549,13 @@ assert.match(
 assert.doesNotMatch(indexSource, /provider-competitor-symbol/, "Der Mitbewerb-Schalter enthält kein Einbahnzeichen.");
 assert.match(
   appSource,
-  /async function syncProviderCompetitorToggle[\s\S]*requestProviderCompetitorName[\s\S]*persistCriticalStateSnapshot/,
-  "Mitbewerb-Markierungen werden mit Namensabfrage sofort synchronisiert."
-);
-assert.match(
-  extractFunction("syncProviderCompetitorToggle"),
-  /remoteStatePullInFlight[\s\S]*pullWaitDeadline[\s\S]*persistCriticalStateSnapshot/,
-  "Der Mitbewerb-Schalter wartet auf laufende Hintergrund-Pulls und speichert anschließend exklusiv."
+  /async function syncProviderCompetitorToggle[\s\S]*requestProviderCompetitorName[\s\S]*markProviderFormDirty\(toggle\)/,
+  "Mitbewerb-Markierungen werden mit Namensabfrage als Formularänderung vorgemerkt."
 );
 assert.doesNotMatch(
   extractFunction("syncProviderCompetitorToggle"),
-  /Mitbewerb entfernen/,
-  "Das Deaktivieren der Mitbewerb-Markierung benötigt keine zweite Bestätigung."
+  /persistCriticalStateSnapshot/,
+  "Mitbewerb-Markierungen speichern nicht mehr unmittelbar beim Umschalten."
 );
 assert.match(
   stylesSource,
@@ -576,11 +566,6 @@ assert.match(
   stylesSource,
   /\.provider-status-slider\.status-live \.provider-status-slider-indicator \{[\s\S]*linear-gradient\(135deg, #0a8b47 0%, #16bf67 50%, #7ce49d 100%\)/,
   "Der Live-Status ist als deutlicher grüner Verlauf gestaltet."
-);
-assert.match(
-  appSource,
-  /Mitbewerb-Hinweis[\s\S]*Trotzdem aktivieren/,
-  "Das Aktivieren von Dashboard angelegt warnt bei Mitbewerb-Datensätzen."
 );
 assert.match(
   appSource,
@@ -609,13 +594,8 @@ assert.match(
 );
 assert.match(
   appSource,
-  /async function syncProviderDashboardCreatedToggle[\s\S]*if \(isProviderCompetitor\(provider\)\)[\s\S]*zur Klärung durch den Admin gesperrt/,
-  "Bei Mitbewerb kann der Dashboard-Schalter nicht aktiviert werden."
-);
-assert.match(
-  appSource,
-  /async function leaveProviderForm[\s\S]*close && isProviderCompetitor\(activeProvider\)[\s\S]*clearProviderForm\(\)[\s\S]*setProvidersView\("list"\)/,
-  "Ein bereits synchronisierter Mitbewerb-Datensatz lässt sich immer zurück zur Übersicht schließen."
+  /async function leaveProviderForm[\s\S]*hasUnsavedProviderFormChanges\(\)[\s\S]*openProviderUnsavedChangesDialog\(\)/,
+  "Auch nach Kennzeichnungsänderungen fragt das Schließen nach Speichern, Verwerfen oder Abbrechen."
 );
 assert.match(appSource, /function canSalesRepresentativeSetProviderStatus/, "Statuswechsel für Vertriebsmitarbeiter werden separat eingeschränkt.");
 assert.match(appSource, /Anbieter bereits im Dashboard angelegt/, "Bereits angelegte Anbieter erhalten einen eindeutigen Hinweis.");
