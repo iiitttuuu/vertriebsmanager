@@ -2484,6 +2484,7 @@ const els = {
   categoryCsvImportFile: document.getElementById("category-csv-import-file"),
   categoryCsvImportReadBtn: document.getElementById("category-csv-import-read-btn"),
   categoryCsvImportPreview: document.getElementById("category-csv-import-preview"),
+  categoryCsvImportMappings: document.getElementById("category-csv-import-mappings"),
   categoryCsvImportApplyBtn: document.getElementById("category-csv-import-apply-btn"),
   categoriesList: document.getElementById("categories-list"),
   subcategoriesList: document.getElementById("subcategories-list"),
@@ -10756,6 +10757,10 @@ function bindEvents() {
 
   els.categoryCsvImportApplyBtn?.addEventListener("click", () => {
     void applyCategoryCsvImport();
+  });
+
+  els.categoryCsvImportMappings?.addEventListener("change", () => {
+    updateCategoryCsvImportApplyButton();
   });
 
   els.categoriesList.addEventListener("click", (event) => {
@@ -58081,6 +58086,32 @@ function parseCategoryCsvSynonyms(value) {
     });
 }
 
+function getCategoryCsvImportTokens(value) {
+  const ignored = new Set(["und", "oder", "mit", "fur", "von", "im", "in", "am", "an", "der", "die", "das", "ein", "eine", "erlebnis", "erlebnisse"]);
+  return new Set(
+    normalizeText(value)
+      .split(/[^a-z0-9]+/)
+      .filter((token) => token.length > 2 && !ignored.has(token))
+  );
+}
+
+function getCategoryCsvImportTargetSuggestion(sourceTopic, targets) {
+  const sourceTokens = getCategoryCsvImportTokens(sourceTopic?.name || "");
+  if (!sourceTokens.size) {
+    return "";
+  }
+  let best = { key: "", score: 0 };
+  (Array.isArray(targets) ? targets : []).forEach((target) => {
+    const targetTokens = getCategoryCsvImportTokens(`${target.topicName || ""} ${(target.synonyms || []).join(" ")}`);
+    const overlap = [...sourceTokens].filter((token) => targetTokens.has(token)).length;
+    const score = overlap / sourceTokens.size;
+    if (score > best.score) {
+      best = { key: target.targetKey, score };
+    }
+  });
+  return best.score >= 0.34 ? best.key : "";
+}
+
 function getCategoryCsvImportEntries(csvText, expectedCategoryName = "") {
   const rows = parseCategoryCsvImportText(csvText);
   if (rows.length < 2) {
@@ -58166,6 +58197,11 @@ function buildCategoryCsvImportDraft(categoryId, entries) {
   const plannedEntries = entries.filter((entry) => !entry.isSubcategoryOnly).map((entry, index) => {
     let topicId = entry.topicId;
     let autoMatched = false;
+    let externalTopicId = "";
+    if (topicId && !existingById.has(topicId)) {
+      externalTopicId = topicId;
+      topicId = "";
+    }
     if (!topicId) {
       const pathKey = `${normalizeText(entry.subcategoryName)}|${normalizeText(entry.topicName)}`;
       const matchingPathIds = existingIdsByPath.get(pathKey) || [];
@@ -58181,15 +58217,19 @@ function buildCategoryCsvImportDraft(categoryId, entries) {
       }
     }
     if (topicId) {
-      const existing = existingById.get(topicId);
-      if (!existing) {
-        errors.push(`Zeile ${entry.rowNumber}: Die Themen-ID ist in dieser Kategorie nicht vorhanden.`);
-      } else if (seenIds.has(topicId)) {
+      if (seenIds.has(topicId)) {
         errors.push(`Zeile ${entry.rowNumber}: Dieselbe Themen-ID kommt mehrfach vor.`);
       }
       seenIds.add(topicId);
     }
-    return { ...entry, topicId, autoMatched, plannedId: topicId || `new-${index}` };
+    return {
+      ...entry,
+      topicId,
+      externalTopicId,
+      autoMatched,
+      targetKey: `row-${entry.rowNumber}`,
+      plannedId: topicId || `new-${index}`,
+    };
   });
 
   const finalTopics = new Map(existingTopics.map((topic) => [topic.id, { ...topic }]));
@@ -58225,6 +58265,24 @@ function buildCategoryCsvImportDraft(categoryId, entries) {
     (count, entry) => count + (entry.syncSynonyms ? entry.synonyms.length : 0),
     0
   );
+  const usedExistingTopicIds = new Set(plannedEntries.map((entry) => entry.topicId).filter(Boolean));
+  const migrationTargets = plannedEntries.map((entry) => ({
+    targetKey: entry.targetKey,
+    topicName: entry.topicName,
+    subcategoryName: entry.subcategoryName,
+    synonyms: entry.synonyms || [],
+  }));
+  const migrationSources = existingTopics
+    .filter((topic) => !usedExistingTopicIds.has(topic.id))
+    .map((topic) => ({
+      ...topic,
+      providerCount: getProvidersLinkedToTopicIds([topic.id]).length,
+    }))
+    .filter((topic) => topic.providerCount > 0)
+    .map((topic) => ({
+      ...topic,
+      suggestedTargetKey: getCategoryCsvImportTargetSuggestion(topic, migrationTargets),
+    }));
 
   return {
     categoryId: category.id,
@@ -58243,6 +58301,8 @@ function buildCategoryCsvImportDraft(categoryId, entries) {
     unchangedTopicCount: Math.max(0, existingTopics.length - seenIds.size),
     synonymTopicCount,
     synonymCount,
+    migrationTargets,
+    migrationSources,
   };
 }
 
@@ -58254,6 +58314,62 @@ function renderCategoryCsvImportPreview(message = "", isError = false) {
   preview.classList.toggle("hidden", !message);
   preview.classList.toggle("is-error", Boolean(message && isError));
   preview.innerHTML = message;
+}
+
+function renderCategoryCsvImportMappings(draft = null) {
+  const container = els.categoryCsvImportMappings;
+  if (!container) {
+    return;
+  }
+  const sources = Array.isArray(draft?.migrationSources) ? draft.migrationSources : [];
+  const targets = Array.isArray(draft?.migrationTargets) ? draft.migrationTargets : [];
+  if (!sources.length || !targets.length) {
+    container.classList.add("hidden");
+    container.innerHTML = "";
+    return;
+  }
+  const options = targets
+    .map(
+      (target) =>
+        `<option value="${escapeHtml(target.targetKey)}">${escapeHtml(`${target.subcategoryName} › ${target.topicName}`)}</option>`
+    )
+    .join("");
+  container.classList.remove("hidden");
+  container.innerHTML = `<p><strong>Anbieter-Zuordnungen übertragen:</strong> Diese bisherigen Themen haben noch Anbieter. Bitte für jedes ein Ziel-Thema wählen. Die alten Themen bleiben danach zunächst zur Kontrolle bestehen.</p>${sources
+    .map((source) => {
+      const suggestion = targets.find((target) => target.targetKey === source.suggestedTargetKey);
+      const suggestionHint = suggestion
+        ? `Vorschlag: ${suggestion.subcategoryName} › ${suggestion.topicName}`
+        : "Kein sicherer Vorschlag verfügbar";
+      return `<label class="management-import-mapping-row"><span class="management-import-mapping-source">${escapeHtml(source.name)}<small>${escapeHtml(String(source.providerCount))} Anbieter · ${escapeHtml(suggestionHint)}</small></span><select data-category-csv-import-map-source="${escapeHtml(source.id)}"><option value="">Ziel-Thema auswählen</option>${options}<option value="keep">Altes Thema vorerst beibehalten</option></select></label>`;
+    })
+    .join("")}`;
+}
+
+function getCategoryCsvImportMappings(draft = categoryCsvImportDraft) {
+  const sources = Array.isArray(draft?.migrationSources) ? draft.migrationSources : [];
+  const targetKeys = new Set((Array.isArray(draft?.migrationTargets) ? draft.migrationTargets : []).map((target) => target.targetKey));
+  const mappings = new Map();
+  for (const source of sources) {
+    const select = Array.from(
+      els.categoryCsvImportMappings?.querySelectorAll("select[data-category-csv-import-map-source]") || []
+    ).find((entry) => String(entry.dataset.categoryCsvImportMapSource || "") === source.id);
+    const targetKey = String(select?.value || "").trim();
+    if (!targetKey || (targetKey !== "keep" && !targetKeys.has(targetKey))) {
+      return null;
+    }
+    mappings.set(source.id, targetKey);
+  }
+  return mappings;
+}
+
+function updateCategoryCsvImportApplyButton() {
+  if (!els.categoryCsvImportApplyBtn) {
+    return;
+  }
+  const categoryId = String(els.categoryCsvImportCategorySelect?.value || "").trim();
+  const draftIsCurrent = categoryCsvImportDraft?.categoryId === categoryId && !categoryCsvImportDraft?.errors?.length;
+  els.categoryCsvImportApplyBtn.disabled = !isAdmin() || !draftIsCurrent || !getCategoryCsvImportMappings();
 }
 
 function renderCategoryCsvImportControls() {
@@ -58271,9 +58387,10 @@ function renderCategoryCsvImportControls() {
   const readyToRead = isAdmin() && Boolean(select.value) && Boolean(els.categoryCsvImportFile?.files?.[0]);
   els.categoryCsvImportReadBtn.disabled = !readyToRead;
   const draftIsCurrent = categoryCsvImportDraft?.categoryId === select.value && !categoryCsvImportDraft?.errors?.length;
-  els.categoryCsvImportApplyBtn.disabled = !isAdmin() || !draftIsCurrent;
+  updateCategoryCsvImportApplyButton();
   if (!draftIsCurrent) {
     renderCategoryCsvImportPreview();
+    renderCategoryCsvImportMappings();
   }
 }
 
@@ -58290,7 +58407,10 @@ function formatCategoryCsvImportPreview(draft) {
   const skippedCategoryHint = draft.skippedCategoryRows
     ? `<li>${escapeHtml(String(draft.skippedCategoryRows))} Zeilen anderer Kategorien wurden nicht berücksichtigt.</li>`
     : "";
-  return `<strong>Vorschau für „${escapeHtml(draft.categoryName)}“</strong><ul><li>${escapeHtml(String(draft.changedTopicCount))} Themen werden umbenannt oder verschoben; Anbieter bleiben dabei zugeordnet.</li><li>${escapeHtml(String(draft.newTopicCount))} neue Themen werden angelegt.</li><li>${escapeHtml(String(draft.newSubcategoryCount))} neue Themenbereiche werden angelegt.</li>${autoMatchedHint}${synonymHint}${unchangedHint}${skippedCategoryHint}</ul>`;
+  const migrationHint = draft.migrationSources?.length
+    ? `<li>${escapeHtml(String(draft.migrationSources.length))} bisherige Themen mit Anbietern müssen einem Ziel-Thema zugeordnet werden.</li>`
+    : "";
+  return `<strong>Vorschau für „${escapeHtml(draft.categoryName)}“</strong><ul><li>${escapeHtml(String(draft.changedTopicCount))} Themen werden umbenannt oder verschoben; Anbieter bleiben dabei zugeordnet.</li><li>${escapeHtml(String(draft.newTopicCount))} neue Themen werden angelegt.</li><li>${escapeHtml(String(draft.newSubcategoryCount))} neue Themenbereiche werden angelegt.</li>${autoMatchedHint}${synonymHint}${migrationHint}${unchangedHint}${skippedCategoryHint}</ul>`;
 }
 
 async function replaceCategoryCsvImportSynonyms(plans) {
@@ -58372,8 +58492,10 @@ async function prepareCategoryCsvImport() {
     categoryCsvImportDraft = draft;
     if (draft.errors.length) {
       renderCategoryCsvImportPreview(`<strong>CSV kann noch nicht übernommen werden.</strong><ul>${draft.errors.map((error) => `<li>${escapeHtml(error)}</li>`).join("")}</ul>`, true);
+      renderCategoryCsvImportMappings();
     } else {
       renderCategoryCsvImportPreview(formatCategoryCsvImportPreview(draft));
+      renderCategoryCsvImportMappings(draft);
     }
   } catch (error) {
     console.warn("Kategorie-CSV konnte nicht gelesen werden.", error);
@@ -58381,14 +58503,18 @@ async function prepareCategoryCsvImport() {
     renderCategoryCsvImportPreview("<strong>Die CSV-Datei konnte nicht gelesen werden.</strong>", true);
   } finally {
     setActionButtonBusy(els.categoryCsvImportReadBtn, false);
-    const draftIsValid = categoryCsvImportDraft?.categoryId === categoryId && !categoryCsvImportDraft?.errors?.length;
-    els.categoryCsvImportApplyBtn.disabled = !draftIsValid;
+    updateCategoryCsvImportApplyButton();
   }
 }
 
 async function applyCategoryCsvImport() {
   const draft = categoryCsvImportDraft;
   if (!isAdmin() || !draft || draft.errors?.length) {
+    return;
+  }
+  const migrationMappings = getCategoryCsvImportMappings(draft);
+  if (!migrationMappings) {
+    showWarningFeedback("Bitte für jedes bisherige Thema mit Anbietern ein Ziel-Thema auswählen.", { toast: true });
     return;
   }
   const refreshed = await refreshManagementCategoriesFromRemote({ render: false });
@@ -58399,7 +58525,20 @@ async function applyCategoryCsvImport() {
   if (currentDraft.errors.length) {
     categoryCsvImportDraft = currentDraft;
     renderCategoryCsvImportPreview(`<strong>Der Katalog wurde inzwischen geändert.</strong><ul>${currentDraft.errors.map((error) => `<li>${escapeHtml(error)}</li>`).join("")}</ul>`, true);
-    els.categoryCsvImportApplyBtn.disabled = true;
+    renderCategoryCsvImportMappings();
+    updateCategoryCsvImportApplyButton();
+    return;
+  }
+  const currentTargetKeys = new Set(currentDraft.migrationTargets.map((target) => target.targetKey));
+  const mappingsAreCurrent = currentDraft.migrationSources.every((source) => {
+    const targetKey = migrationMappings.get(source.id);
+    return targetKey === "keep" || currentTargetKeys.has(targetKey);
+  });
+  if (!mappingsAreCurrent) {
+    categoryCsvImportDraft = currentDraft;
+    renderCategoryCsvImportPreview("<strong>Der Katalog wurde inzwischen geändert. Bitte CSV erneut prüfen und die Zuordnungen neu auswählen.</strong>", true);
+    renderCategoryCsvImportMappings(currentDraft);
+    updateCategoryCsvImportApplyButton();
     return;
   }
   const categoryIndex = state.categories.findIndex((category) => category.id === currentDraft.categoryId);
@@ -58407,6 +58546,7 @@ async function applyCategoryCsvImport() {
     return;
   }
   const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
+  const previousProvidersSnapshot = JSON.parse(JSON.stringify(state.providers));
   const previousSelection = { categoryId: selectedCategoryId, subcategoryId: selectedSubcategoryId };
   const previousTopicSubtopicsSnapshot = topicSubtopics.map((entry) => ({ ...entry }));
   const nextCategory = JSON.parse(JSON.stringify(state.categories[categoryIndex]));
@@ -58418,6 +58558,7 @@ async function applyCategoryCsvImport() {
     nextCategory.subcategories.map((subcategory) => [normalizeText(subcategory.name), subcategory])
   );
   const synonymPlans = [];
+  const targetTopicIdsByKey = new Map();
 
   currentDraft.entries.forEach((entry) => {
     const subcategoryKey = normalizeText(entry.subcategoryName);
@@ -58442,15 +58583,32 @@ async function applyCategoryCsvImport() {
     }
     topic.name = entry.topicName;
     targetSubcategory.topics.push(topic);
+    targetTopicIdsByKey.set(entry.targetKey, topic.id);
     if (entry.syncSynonyms) {
       synonymPlans.push({ topicId: topic.id, names: entry.synonyms });
     }
   });
 
+  let reassignedProviderCount = 0;
+  for (const source of currentDraft.migrationSources) {
+    const targetKey = migrationMappings.get(source.id);
+    if (!targetKey || targetKey === "keep") {
+      continue;
+    }
+    const targetTopicId = targetTopicIdsByKey.get(targetKey);
+    if (!targetTopicId) {
+      state.providers = previousProvidersSnapshot;
+      showErrorFeedback("Ein ausgewähltes Ziel-Thema ist nicht mehr verfügbar. Bitte CSV erneut prüfen.", { toast: true });
+      return;
+    }
+    reassignedProviderCount += replaceTopicIdsForProviders([source.id], targetTopicId);
+  }
+
   state.categories[categoryIndex] = nextCategory;
   selectedCategoryId = nextCategory.id;
   if (!(await replaceCategoryCsvImportSynonyms(synonymPlans))) {
     state.categories = previousCategoriesSnapshot;
+    state.providers = previousProvidersSnapshot;
     selectedCategoryId = previousSelection.categoryId;
     selectedSubcategoryId = previousSelection.subcategoryId;
     renderAll({ preserveProvidersTable: true });
@@ -58464,7 +58622,8 @@ async function applyCategoryCsvImport() {
     previousCategoriesSnapshot,
     previousSelection,
     "Kategorie-Import konnte nicht dauerhaft gespeichert werden. Bitte erneut versuchen.",
-    revision
+    revision,
+    reassignedProviderCount ? { providersSync: { forceFullSync: true }, previousProvidersSnapshot } : {}
   );
   setActionButtonBusy(els.categoryCsvImportApplyBtn, false);
   if (!persisted) {
@@ -58484,7 +58643,7 @@ async function applyCategoryCsvImport() {
     els.categoryCsvImportFile.value = "";
   }
   renderAll({ preserveProvidersTable: true });
-  showSuccessFeedback(`Kategorie „${nextCategory.name}“ inklusive Synonymen übernommen. Anbieter-Zuordnungen wurden beibehalten.`);
+  showSuccessFeedback(`Kategorie „${nextCategory.name}“ inklusive Synonymen übernommen. ${reassignedProviderCount} Anbieter-Zuordnungen wurden übertragen.`);
 }
 
 function getManagementSearchQuery() {

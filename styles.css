@@ -15800,6 +15800,56 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   padding-left: 17px;
 }
 
+.management-import-mappings {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #e8c97f;
+  border-radius: 5px;
+  background: #fffaf0;
+}
+
+.management-import-mappings > p {
+  margin: 0;
+  color: #755019;
+  font-size: 0.73rem;
+  line-height: 1.4;
+}
+
+.management-import-mapping-row {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.9fr) minmax(220px, 1.1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.management-import-mapping-source {
+  color: #4c3b1d;
+  font-size: 0.73rem;
+  font-weight: 700;
+}
+
+.management-import-mapping-source small {
+  display: block;
+  margin-top: 2px;
+  color: #896d36;
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
+.management-import-mapping-row select {
+  min-width: 0;
+  height: 32px;
+  border: 1px solid #d9bd77;
+  border-radius: 5px;
+  background: #fff;
+  padding: 0 8px;
+  color: #314154;
+  font: inherit;
+  font-size: 0.73rem;
+}
+
 .management-import-panel #category-csv-import-apply-btn {
   grid-column: 1 / -1;
   justify-self: start;
@@ -18737,6 +18787,10 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   }
 
   .management-import-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .management-import-mapping-row {
     grid-template-columns: 1fr;
   }
 
