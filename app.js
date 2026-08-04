@@ -12596,7 +12596,12 @@ async function renameTopicSubtopicWithRetry(subtopicId, topicId, name, normalize
         .single();
       if (!error) {
         const saved = normalizeTopicSubtopicRows([data])[0];
-        if (saved?.id === subtopicId) {
+        if (
+          saved?.id === subtopicId &&
+          saved.topicId === topicId &&
+          saved.name === name &&
+          saved.normalizedName === normalizedName
+        ) {
           return { ok: true, entry: saved };
         }
       }
@@ -12604,7 +12609,11 @@ async function renameTopicSubtopicWithRetry(subtopicId, topicId, name, normalize
       // Bei einem abgebrochenen Request kann die Umbenennung bereits erfolgt
       // sein. Der Serverstand verhindert dann einen unnötigen zweiten Write.
       const confirmed = await findTopicSubtopicOnServer(topicId, normalizedName);
-      if (confirmed?.id === subtopicId) {
+      if (
+        confirmed?.id === subtopicId &&
+        confirmed.name === name &&
+        confirmed.normalizedName === normalizedName
+      ) {
         return { ok: true, entry: confirmed };
       }
       if (String(lastError?.code || "") === "23505" || !isRetryableSupabaseWriteError(lastError)) {
@@ -12613,7 +12622,11 @@ async function renameTopicSubtopicWithRetry(subtopicId, topicId, name, normalize
     } catch (error) {
       lastError = error;
       const confirmed = await findTopicSubtopicOnServer(topicId, normalizedName);
-      if (confirmed?.id === subtopicId) {
+      if (
+        confirmed?.id === subtopicId &&
+        confirmed.name === name &&
+        confirmed.normalizedName === normalizedName
+      ) {
         return { ok: true, entry: confirmed };
       }
       if (!isRetryableSupabaseWriteError(error)) {
