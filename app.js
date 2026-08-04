@@ -938,6 +938,7 @@ let providerFormInitialFingerprint = "";
 let supabaseClient = null;
 const TOPIC_REQUESTS_TABLE = "topic_requests";
 const TOPIC_SUBTOPICS_TABLE = "topic_subtopics";
+const TOPIC_SUBTOPIC_RENAME_ENDPOINT = "/api/topic-subtopics/rename";
 const NO_TOPIC_REASSIGNMENT = "__no_topic_reassignment__";
 let topicSubtopics = [];
 let storageMode = "local";
@@ -12576,68 +12577,39 @@ async function insertTopicSubtopicWithRetry(topicId, name, normalizedName) {
 }
 
 async function renameTopicSubtopicWithRetry(subtopicId, topicId, name, normalizedName) {
-  const client = getSupabaseClient();
-  if (!client) {
-    return { ok: false, reason: "no_client", error: null };
+  const accessToken = await getAuthAccessToken({ forceRefresh: true });
+  if (!accessToken) {
+    return { ok: false, reason: "auth_session_unavailable", error: new Error("Login-Token fehlt.") };
   }
-  const sessionCheck = await ensureFreshSupabaseSessionForWrite();
-  if (!sessionCheck.ok) {
-    return { ok: false, reason: "auth_session_unavailable", error: sessionCheck.error || null };
-  }
-
-  let lastError = null;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    try {
-      const { data, error } = await client
-        .from(TOPIC_SUBTOPICS_TABLE)
-        .update({ name, normalized_name: normalizedName })
-        .eq("id", subtopicId)
-        .select("id, topic_id, name, normalized_name")
-        .single();
-      if (!error) {
-        const saved = normalizeTopicSubtopicRows([data])[0];
-        if (
-          saved?.id === subtopicId &&
-          saved.topicId === topicId &&
-          saved.name === name &&
-          saved.normalizedName === normalizedName
-        ) {
-          return { ok: true, entry: saved };
-        }
-      }
-      lastError = error || createPersistenceVerificationError("Sub-Thema wurde vom Server nicht bestätigt.");
-      // Bei einem abgebrochenen Request kann die Umbenennung bereits erfolgt
-      // sein. Der Serverstand verhindert dann einen unnötigen zweiten Write.
-      const confirmed = await findTopicSubtopicOnServer(topicId, normalizedName);
-      if (
-        confirmed?.id === subtopicId &&
-        confirmed.name === name &&
-        confirmed.normalizedName === normalizedName
-      ) {
-        return { ok: true, entry: confirmed };
-      }
-      if (String(lastError?.code || "") === "23505" || !isRetryableSupabaseWriteError(lastError)) {
-        return { ok: false, reason: "write_failed", error: lastError };
-      }
-    } catch (error) {
-      lastError = error;
-      const confirmed = await findTopicSubtopicOnServer(topicId, normalizedName);
-      if (
-        confirmed?.id === subtopicId &&
-        confirmed.name === name &&
-        confirmed.normalizedName === normalizedName
-      ) {
-        return { ok: true, entry: confirmed };
-      }
-      if (!isRetryableSupabaseWriteError(error)) {
-        return { ok: false, reason: "exception", error };
-      }
+  try {
+    const response = await fetch(TOPIC_SUBTOPIC_RENAME_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        "X-Supabase-Url": String(window.APP_CONFIG?.SUPABASE_URL || "").trim(),
+      },
+      body: JSON.stringify({ subtopicId, topicId, name }),
+    });
+    const payload = await readApiJsonPayload(response);
+    const entry = normalizeTopicSubtopicRows([payload?.subtopic])[0];
+    if (
+      response.ok &&
+      entry?.id === subtopicId &&
+      entry.topicId === topicId &&
+      entry.name === name &&
+      entry.normalizedName === normalizedName
+    ) {
+      return { ok: true, entry };
     }
-    if (attempt < 3) {
-      await waitForMs(300 * attempt);
-    }
+    return {
+      ok: false,
+      reason: "write_failed",
+      error: new Error(String(payload?.error || "Sub-Thema wurde vom Server nicht bestätigt.")),
+    };
+  } catch (error) {
+    return { ok: false, reason: "exception", error };
   }
-  return { ok: false, reason: "retries_exhausted", error: lastError };
 }
 
 async function hydrateTopicSubtopicsFromSupabase() {
