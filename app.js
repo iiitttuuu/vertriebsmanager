@@ -12575,6 +12575,58 @@ async function insertTopicSubtopicWithRetry(topicId, name, normalizedName) {
   return { ok: false, reason: "retries_exhausted", error: lastError };
 }
 
+async function renameTopicSubtopicWithRetry(subtopicId, topicId, name, normalizedName) {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { ok: false, reason: "no_client", error: null };
+  }
+  const sessionCheck = await ensureFreshSupabaseSessionForWrite();
+  if (!sessionCheck.ok) {
+    return { ok: false, reason: "auth_session_unavailable", error: sessionCheck.error || null };
+  }
+
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const { data, error } = await client
+        .from(TOPIC_SUBTOPICS_TABLE)
+        .update({ name, normalized_name: normalizedName })
+        .eq("id", subtopicId)
+        .select("id, topic_id, name, normalized_name")
+        .single();
+      if (!error) {
+        const saved = normalizeTopicSubtopicRows([data])[0];
+        if (saved?.id === subtopicId) {
+          return { ok: true, entry: saved };
+        }
+      }
+      lastError = error || createPersistenceVerificationError("Sub-Thema wurde vom Server nicht bestätigt.");
+      // Bei einem abgebrochenen Request kann die Umbenennung bereits erfolgt
+      // sein. Der Serverstand verhindert dann einen unnötigen zweiten Write.
+      const confirmed = await findTopicSubtopicOnServer(topicId, normalizedName);
+      if (confirmed?.id === subtopicId) {
+        return { ok: true, entry: confirmed };
+      }
+      if (String(lastError?.code || "") === "23505" || !isRetryableSupabaseWriteError(lastError)) {
+        return { ok: false, reason: "write_failed", error: lastError };
+      }
+    } catch (error) {
+      lastError = error;
+      const confirmed = await findTopicSubtopicOnServer(topicId, normalizedName);
+      if (confirmed?.id === subtopicId) {
+        return { ok: true, entry: confirmed };
+      }
+      if (!isRetryableSupabaseWriteError(error)) {
+        return { ok: false, reason: "exception", error };
+      }
+    }
+    if (attempt < 3) {
+      await waitForMs(300 * attempt);
+    }
+  }
+  return { ok: false, reason: "retries_exhausted", error: lastError };
+}
+
 async function hydrateTopicSubtopicsFromSupabase() {
   const client = getSupabaseClient();
   if (!client) {
@@ -12681,22 +12733,18 @@ async function openTopicSubtopicsModal(topicId) {
           showErrorFeedback("Keine Verbindung zu Supabase. Sub-Thema wurde nicht umbenannt.", { toast: true });
           return;
         }
-        const { data, error } = await client
-          .from(TOPIC_SUBTOPICS_TABLE)
-          .update({ name, normalized_name: normalizedName })
-          .eq("id", subtopicId)
-          .select("id, topic_id, name, normalized_name")
-          .single();
-        if (error) {
+        const persistence = await renameTopicSubtopicWithRetry(subtopicId, normalizedTopicId, name, normalizedName);
+        if (!persistence.ok) {
+          const error = persistence.error;
           showErrorFeedback(
-            error.code === "23505"
+            error?.code === "23505"
               ? "Dieses Sub-Thema ist für dieses Hauptthema bereits vorhanden."
               : "Sub-Thema konnte nicht umbenannt werden.",
             { toast: true }
           );
           return;
         }
-        const updated = normalizeTopicSubtopicRows([data])[0];
+        const updated = persistence.entry;
         if (!updated) {
           showErrorFeedback("Sub-Thema wurde vom Server nicht bestätigt.", { toast: true });
           return;
