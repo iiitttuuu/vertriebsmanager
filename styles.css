@@ -9168,7 +9168,7 @@ body.provider-form-open .topbar {
 }
 
 #delete-confirm-panel {
-  z-index: 2600;
+  z-index: 10100;
 }
 
 #provider-competitor-panel {
@@ -9504,6 +9504,12 @@ body.provider-form-open .topbar {
   background: #f8fbff;
   color: #30496e;
   font-size: 0.86rem;
+}
+
+.topic-subtopics-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 6px;
 }
 
 .topic-subtopics-list > p {

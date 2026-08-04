@@ -12638,7 +12638,7 @@ async function openTopicSubtopicsModal(topicId) {
 
   const renderModal = () => {
     const entries = getTopicSubtopics(normalizedTopicId);
-    modal.innerHTML = `<section class="topic-subtopics-dialog"><header><div><p>SUB-THEMEN</p><h3>${escapeHtml(topic.name)}</h3><span>Sub-Themen verbessern die Suche bei der Anbieter-Zuordnung. Anbieter bleiben dem Hauptthema zugeordnet.</span></div><button type="button" class="mini-btn" data-close-subtopics aria-label="Popup schließen">✕</button></header><form data-subtopic-form><label>Neues Sub-Thema<input name="name" maxlength="120" autocomplete="off" placeholder="z. B. Fitnesstraining" required /></label><button type="submit" class="btn btn-success">Hinzufügen</button></form><div class="topic-subtopics-list">${entries.length ? entries.map((entry) => `<div><span>${escapeHtml(entry.name)}</span><button type="button" class="mini-btn danger" data-delete-subtopic="${escapeHtml(entry.id)}" aria-label="${escapeHtml(`${entry.name} löschen`)}" title="Sub-Thema löschen">✕</button></div>`).join("") : "<p>Noch keine Sub-Themen erfasst.</p>"}</div></section>`;
+    modal.innerHTML = `<section class="topic-subtopics-dialog"><header><div><p>SUB-THEMEN</p><h3>${escapeHtml(topic.name)}</h3><span>Sub-Themen verbessern die Suche bei der Anbieter-Zuordnung. Anbieter bleiben dem Hauptthema zugeordnet.</span></div><button type="button" class="mini-btn" data-close-subtopics aria-label="Popup schließen">✕</button></header><form data-subtopic-form><label>Neues Sub-Thema<input name="name" maxlength="120" autocomplete="off" placeholder="z. B. Fitnesstraining" required /></label><button type="submit" class="btn btn-success">Hinzufügen</button></form><div class="topic-subtopics-list">${entries.length ? entries.map((entry) => `<div><span>${escapeHtml(entry.name)}</span><span class="topic-subtopics-actions"><button type="button" class="mini-btn" data-edit-subtopic="${escapeHtml(entry.id)}" aria-label="${escapeHtml(`${entry.name} umbenennen`)}" title="Sub-Thema umbenennen">✎</button><button type="button" class="mini-btn danger" data-delete-subtopic="${escapeHtml(entry.id)}" aria-label="${escapeHtml(`${entry.name} löschen`)}" title="Sub-Thema löschen">✕</button></span></div>`).join("") : "<p>Noch keine Sub-Themen erfasst.</p>"}</div></section>`;
   };
   const focusNewSubtopicInput = () => {
     window.requestAnimationFrame(() => {
@@ -12657,6 +12657,57 @@ async function openTopicSubtopicsModal(topicId) {
   modal.addEventListener("click", async (event) => {
     if (event.target === modal || event.target.closest("[data-close-subtopics]")) {
       close();
+      return;
+    }
+    const editButton = event.target.closest("[data-edit-subtopic]");
+    if (editButton) {
+      const subtopicId = String(editButton.dataset.editSubtopic || "").trim();
+      const subtopic = topicSubtopics.find((entry) => entry.id === subtopicId);
+      if (!subtopic) {
+        return;
+      }
+      const name = String(window.prompt("Sub-Thema umbenennen", subtopic.name) || "").trim().slice(0, 120);
+      const normalizedName = normalizeText(name);
+      if (!normalizedName || normalizedName === subtopic.normalizedName) {
+        return;
+      }
+      if (getTopicSubtopics(normalizedTopicId).some((entry) => entry.id !== subtopicId && entry.normalizedName === normalizedName)) {
+        showWarningFeedback("Dieses Sub-Thema ist für dieses Hauptthema bereits vorhanden.", { toast: true });
+        return;
+      }
+      const client = getSupabaseClient();
+      if (storageMode === "supabase") {
+        if (!client) {
+          showErrorFeedback("Keine Verbindung zu Supabase. Sub-Thema wurde nicht umbenannt.", { toast: true });
+          return;
+        }
+        const { data, error } = await client
+          .from(TOPIC_SUBTOPICS_TABLE)
+          .update({ name, normalized_name: normalizedName })
+          .eq("id", subtopicId)
+          .select("id, topic_id, name, normalized_name")
+          .single();
+        if (error) {
+          showErrorFeedback(
+            error.code === "23505"
+              ? "Dieses Sub-Thema ist für dieses Hauptthema bereits vorhanden."
+              : "Sub-Thema konnte nicht umbenannt werden.",
+            { toast: true }
+          );
+          return;
+        }
+        const updated = normalizeTopicSubtopicRows([data])[0];
+        if (!updated) {
+          showErrorFeedback("Sub-Thema wurde vom Server nicht bestätigt.", { toast: true });
+          return;
+        }
+        Object.assign(subtopic, updated);
+      } else {
+        Object.assign(subtopic, { name, normalizedName });
+      }
+      renderModal();
+      renderManagementSection();
+      renderProviderTopicPicker();
       return;
     }
     const deleteButton = event.target.closest("[data-delete-subtopic]");
