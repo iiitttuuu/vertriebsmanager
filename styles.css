@@ -9493,7 +9493,8 @@ body.provider-form-open .topbar {
   gap: 7px;
 }
 
-.topic-subtopics-list > div {
+.topic-subtopics-list > div,
+.topic-subtopics-list > .topic-subtopic-rename-form {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -9504,6 +9505,11 @@ body.provider-form-open .topbar {
   background: #f8fbff;
   color: #30496e;
   font-size: 0.86rem;
+}
+
+.topic-subtopic-rename-form input {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .topic-subtopics-actions {

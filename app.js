@@ -12687,14 +12687,22 @@ async function openTopicSubtopicsModal(topicId) {
   modal.setAttribute("role", "dialog");
   modal.setAttribute("aria-modal", "true");
   modal.setAttribute("aria-label", `Sub-Themen für ${topic.name}`);
+  let editingSubtopicId = "";
 
   const renderModal = () => {
     const entries = getTopicSubtopics(normalizedTopicId);
-    modal.innerHTML = `<section class="topic-subtopics-dialog"><header><div><p>SUB-THEMEN</p><h3>${escapeHtml(topic.name)}</h3><span>Sub-Themen verbessern die Suche bei der Anbieter-Zuordnung. Anbieter bleiben dem Hauptthema zugeordnet.</span></div><button type="button" class="mini-btn" data-close-subtopics aria-label="Popup schließen">✕</button></header><form data-subtopic-form><label>Neues Sub-Thema<input name="name" maxlength="120" autocomplete="off" placeholder="z. B. Fitnesstraining" required /></label><button type="submit" class="btn btn-success">Hinzufügen</button></form><div class="topic-subtopics-list">${entries.length ? entries.map((entry) => `<div><span>${escapeHtml(entry.name)}</span><span class="topic-subtopics-actions"><button type="button" class="mini-btn" data-edit-subtopic="${escapeHtml(entry.id)}" aria-label="${escapeHtml(`${entry.name} umbenennen`)}" title="Sub-Thema umbenennen">✎</button><button type="button" class="mini-btn danger" data-delete-subtopic="${escapeHtml(entry.id)}" aria-label="${escapeHtml(`${entry.name} löschen`)}" title="Sub-Thema löschen">✕</button></span></div>`).join("") : "<p>Noch keine Sub-Themen erfasst.</p>"}</div></section>`;
+    modal.innerHTML = `<section class="topic-subtopics-dialog"><header><div><p>SUB-THEMEN</p><h3>${escapeHtml(topic.name)}</h3><span>Sub-Themen verbessern die Suche bei der Anbieter-Zuordnung. Anbieter bleiben dem Hauptthema zugeordnet.</span></div><button type="button" class="mini-btn" data-close-subtopics aria-label="Popup schließen">✕</button></header><form data-subtopic-form><label>Neues Sub-Thema<input name="name" maxlength="120" autocomplete="off" placeholder="z. B. Fitnesstraining" required /></label><button type="submit" class="btn btn-success">Hinzufügen</button></form><div class="topic-subtopics-list">${entries.length ? entries.map((entry) => entry.id === editingSubtopicId ? `<form class="topic-subtopic-rename-form" data-subtopic-rename-form data-subtopic-id="${escapeHtml(entry.id)}"><input name="name" maxlength="120" value="${escapeHtml(entry.name)}" aria-label="Name des Sub-Themas" required /><span class="topic-subtopics-actions"><button type="submit" class="mini-btn" aria-label="${escapeHtml(`${entry.name} speichern`)}" title="Umbenennung speichern">✓</button><button type="button" class="mini-btn" data-cancel-subtopic-edit aria-label="Umbenennen abbrechen" title="Abbrechen">✕</button></span></form>` : `<div><span>${escapeHtml(entry.name)}</span><span class="topic-subtopics-actions"><button type="button" class="mini-btn" data-edit-subtopic="${escapeHtml(entry.id)}" aria-label="${escapeHtml(`${entry.name} umbenennen`)}" title="Sub-Thema umbenennen">✎</button><button type="button" class="mini-btn danger" data-delete-subtopic="${escapeHtml(entry.id)}" aria-label="${escapeHtml(`${entry.name} löschen`)}" title="Sub-Thema löschen">✕</button></span></div>`).join("") : "<p>Noch keine Sub-Themen erfasst.</p>"}</div></section>`;
   };
   const focusNewSubtopicInput = () => {
     window.requestAnimationFrame(() => {
       modal.querySelector("input[name='name']")?.focus();
+    });
+  };
+  const focusRenameSubtopicInput = () => {
+    window.requestAnimationFrame(() => {
+      const input = modal.querySelector("form[data-subtopic-rename-form] input[name='name']");
+      input?.focus();
+      input?.select();
     });
   };
   const close = () => {
@@ -12714,48 +12722,17 @@ async function openTopicSubtopicsModal(topicId) {
     const editButton = event.target.closest("[data-edit-subtopic]");
     if (editButton) {
       const subtopicId = String(editButton.dataset.editSubtopic || "").trim();
-      const subtopic = topicSubtopics.find((entry) => entry.id === subtopicId);
-      if (!subtopic) {
+      if (!topicSubtopics.some((entry) => entry.id === subtopicId)) {
         return;
       }
-      const name = String(window.prompt("Sub-Thema umbenennen", subtopic.name) || "").trim().slice(0, 120);
-      const normalizedName = normalizeText(name);
-      if (!normalizedName || normalizedName === subtopic.normalizedName) {
-        return;
-      }
-      if (getTopicSubtopics(normalizedTopicId).some((entry) => entry.id !== subtopicId && entry.normalizedName === normalizedName)) {
-        showWarningFeedback("Dieses Sub-Thema ist für dieses Hauptthema bereits vorhanden.", { toast: true });
-        return;
-      }
-      const client = getSupabaseClient();
-      if (storageMode === "supabase") {
-        if (!client) {
-          showErrorFeedback("Keine Verbindung zu Supabase. Sub-Thema wurde nicht umbenannt.", { toast: true });
-          return;
-        }
-        const persistence = await renameTopicSubtopicWithRetry(subtopicId, normalizedTopicId, name, normalizedName);
-        if (!persistence.ok) {
-          const error = persistence.error;
-          showErrorFeedback(
-            error?.code === "23505"
-              ? "Dieses Sub-Thema ist für dieses Hauptthema bereits vorhanden."
-              : "Sub-Thema konnte nicht umbenannt werden.",
-            { toast: true }
-          );
-          return;
-        }
-        const updated = persistence.entry;
-        if (!updated) {
-          showErrorFeedback("Sub-Thema wurde vom Server nicht bestätigt.", { toast: true });
-          return;
-        }
-        Object.assign(subtopic, updated);
-      } else {
-        Object.assign(subtopic, { name, normalizedName });
-      }
+      editingSubtopicId = subtopicId;
       renderModal();
-      renderManagementSection();
-      renderProviderTopicPicker();
+      focusRenameSubtopicInput();
+      return;
+    }
+    if (event.target.closest("[data-cancel-subtopic-edit]")) {
+      editingSubtopicId = "";
+      renderModal();
       return;
     }
     const deleteButton = event.target.closest("[data-delete-subtopic]");
@@ -12785,6 +12762,49 @@ async function openTopicSubtopicsModal(topicId) {
     renderProviderTopicPicker();
   });
   modal.addEventListener("submit", async (event) => {
+    const renameForm = event.target.closest("form[data-subtopic-rename-form]");
+    if (renameForm) {
+      event.preventDefault();
+      const subtopicId = String(renameForm.dataset.subtopicId || "").trim();
+      const subtopic = topicSubtopics.find((entry) => entry.id === subtopicId);
+      const name = String(new FormData(renameForm).get("name") || "").trim().slice(0, 120);
+      const normalizedName = normalizeText(name);
+      if (!subtopic || !normalizedName) {
+        return;
+      }
+      if (normalizedName === subtopic.normalizedName) {
+        editingSubtopicId = "";
+        renderModal();
+        return;
+      }
+      if (getTopicSubtopics(normalizedTopicId).some((entry) => entry.id !== subtopicId && entry.normalizedName === normalizedName)) {
+        showWarningFeedback("Dieses Sub-Thema ist für dieses Hauptthema bereits vorhanden.", { toast: true });
+        focusRenameSubtopicInput();
+        return;
+      }
+      if (storageMode === "supabase") {
+        const persistence = await renameTopicSubtopicWithRetry(subtopicId, normalizedTopicId, name, normalizedName);
+        if (!persistence.ok) {
+          const error = persistence.error;
+          showErrorFeedback(
+            error?.code === "23505"
+              ? "Dieses Sub-Thema ist für dieses Hauptthema bereits vorhanden."
+              : "Sub-Thema konnte nicht umbenannt werden.",
+            { toast: true }
+          );
+          focusRenameSubtopicInput();
+          return;
+        }
+        Object.assign(subtopic, persistence.entry);
+      } else {
+        Object.assign(subtopic, { name, normalizedName });
+      }
+      editingSubtopicId = "";
+      renderModal();
+      renderManagementSection();
+      renderProviderTopicPicker();
+      return;
+    }
     const form = event.target.closest("form[data-subtopic-form]");
     if (!form) {
       return;
