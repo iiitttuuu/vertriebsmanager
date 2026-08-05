@@ -8495,6 +8495,7 @@ function bindEvents() {
   });
   els.giftCardProcurementSources?.addEventListener("click", handleGiftCardProcurementClick);
   els.giftCardProcurementSources?.addEventListener("change", handleGiftCardProcurementSourceChange);
+  els.giftCardProcurementSources?.addEventListener("input", handleGiftCardProcurementSourceInput);
   els.giftCardProcurementOrderForm?.addEventListener("submit", (event) => {
     void handleGiftCardProcurementOrderSubmit(event);
   });
@@ -47188,12 +47189,17 @@ function normalizeGiftCardProcurementPriceRecord(entry, index = 0) {
   const costKey = normalizeGiftCardProcurementCostKey(entry.costKey);
   const companyId = String(entry.companyId || "").trim();
   if (!costKey || !companyId) return null;
+  const quantity = Math.max(0.01, sanitizeGiftCardCalculatorNumber(entry.quantity, 1));
+  const unitCost = sanitizeGiftCardCalculatorNumber(entry.unitCost, 0);
+  const totalNet = sanitizeGiftCardCalculatorNumber(entry.totalNet, unitCost * quantity);
   return {
     id: String(entry.id || `gift_card_price_${index + 1}`).trim().slice(0, 180),
     costKey,
     companyId,
     invoiceId: String(entry.invoiceId || "").trim().slice(0, 180),
-    unitCost: sanitizeGiftCardCalculatorNumber(entry.unitCost, 0),
+    quantity,
+    totalNet,
+    unitCost: Math.round((totalNet / quantity) * 10000) / 10000,
     effectiveDate: normalizeGiftCardProcurementDate(entry.effectiveDate) || getTodayDateInputValue(),
     createdAt: String(entry.createdAt || "").trim() || new Date().toISOString(),
     createdByUserId: normalizeUserId(entry.createdByUserId || ""),
@@ -47417,14 +47423,18 @@ function renderGiftCardProcurementSources() {
     const companyId = String(current?.companyId || "");
     const invoiceId = String(current?.invoiceId || "");
     const unitCost = current ? current.unitCost : calculatorValues[item.key];
+    const quantity = current?.quantity || 1;
+    const totalNet = current ? current.totalNet : unitCost * quantity;
     const historyMarkup = history.length
-      ? history.map((entry) => `<li><strong>${escapeHtml(formatGiftCardCalculatorCurrency(entry.unitCost))}</strong><span>${escapeHtml(entry.effectiveDate)} · ${escapeHtml(getGiftCardProcurementCompanyName(entry.companyId))}</span>${entry.invoiceId ? `<button type="button" class="mini-btn" data-gift-card-procurement-open-invoice="${escapeHtml(entry.invoiceId)}">Beleg</button>` : ""}</li>`).join("")
+      ? history.map((entry) => `<li><strong>${escapeHtml(formatGiftCardCalculatorCurrency(entry.unitCost))}/Stk.</strong><span>${escapeHtml(`${entry.quantity} Stk. · ${formatGiftCardCalculatorCurrency(entry.totalNet)} · ${entry.effectiveDate}`)} · ${escapeHtml(getGiftCardProcurementCompanyName(entry.companyId))}</span><div class="gift-card-procurement-history-actions">${entry.invoiceId ? `<button type="button" class="mini-btn" data-gift-card-procurement-open-invoice="${escapeHtml(entry.invoiceId)}">Beleg</button>` : ""}<button type="button" class="mini-btn danger" data-gift-card-procurement-delete-price="${escapeHtml(entry.id)}">Löschen</button></div></li>`).join("")
       : '<li class="gift-card-procurement-empty">Noch kein Preisstand gespeichert.</li>';
     return `<article class="gift-card-procurement-source" data-gift-card-procurement-source="${escapeHtml(item.key)}">
       <div class="gift-card-procurement-source-head"><h4>${escapeHtml(item.label)}</h4><span>${history.length} Preisstände</span></div>
       <label>Lieferant<select data-gift-card-procurement-company>${getGiftCardProcurementCompanyOptions(companyId)}</select></label>
       <label>Rechnung / Beleg<select data-gift-card-procurement-invoice>${getGiftCardProcurementInvoiceOptions(companyId, invoiceId)}</select></label>
-      <label>Netto-Preis je Einheit (€)<input type="number" min="0" step="0.01" value="${escapeHtml(String(unitCost))}" data-gift-card-procurement-unit-cost /></label>
+      <label>Menge auf diesem Beleg<input type="number" min="0.01" step="0.01" value="${escapeHtml(String(quantity))}" data-gift-card-procurement-quantity /></label>
+      <label>Netto-Betrag dieser Position (€)<input type="number" min="0" step="0.01" value="${escapeHtml(String(totalNet))}" data-gift-card-procurement-total-net /></label>
+      <p class="gift-card-procurement-unit-price">Preis je Einheit: <strong data-gift-card-procurement-unit-price>${escapeHtml(formatGiftCardCalculatorCurrency(unitCost))}</strong></p>
       <label>Gültig ab<input type="date" value="${escapeHtml(String(current?.effectiveDate || getTodayDateInputValue()))}" data-gift-card-procurement-effective-date /></label>
       <button type="button" class="mini-btn" data-gift-card-procurement-save-price="${escapeHtml(item.key)}">Preisstand speichern</button>
       <ul class="gift-card-procurement-history">${historyMarkup}</ul>
@@ -47504,10 +47514,12 @@ async function handleGiftCardProcurementPriceSave(costKey, sourceElement) {
     return;
   }
   const invoiceId = String(sourceElement.querySelector("[data-gift-card-procurement-invoice]")?.value || "").trim();
-  const unitCost = sanitizeGiftCardCalculatorNumber(sourceElement.querySelector("[data-gift-card-procurement-unit-cost]")?.value, 0);
+  const quantity = Math.max(0.01, sanitizeGiftCardCalculatorNumber(sourceElement.querySelector("[data-gift-card-procurement-quantity]")?.value, 1));
+  const totalNet = sanitizeGiftCardCalculatorNumber(sourceElement.querySelector("[data-gift-card-procurement-total-net]")?.value, 0);
+  const unitCost = Math.round((totalNet / quantity) * 10000) / 10000;
   const effectiveDate = normalizeGiftCardProcurementDate(sourceElement.querySelector("[data-gift-card-procurement-effective-date]")?.value) || getTodayDateInputValue();
   const procurement = getGiftCardProcurement();
-  const record = { id: createId("gift_card_price"), costKey: normalizedCostKey, companyId, invoiceId, unitCost, effectiveDate, createdAt: new Date().toISOString(), createdByUserId: getAuthUid() };
+  const record = { id: createId("gift_card_price"), costKey: normalizedCostKey, companyId, invoiceId, quantity, totalNet, unitCost, effectiveDate, createdAt: new Date().toISOString(), createdByUserId: getAuthUid() };
   await persistGiftCardProcurement({ ...procurement, priceHistory: [record, ...procurement.priceHistory] }, "Preisstand gespeichert.");
 }
 
@@ -47552,7 +47564,7 @@ async function handleGiftCardProcurementOrderSubmit(event) {
     notes: String(els.giftCardOrderNotes?.value || "").trim(), createdAt: new Date().toISOString(), createdByUserId: getAuthUid(),
   };
   const priceRecord = ["bestellt", "geliefert"].includes(order.status) ? {
-    id: createId("gift_card_price"), costKey, companyId, invoiceId, unitCost, effectiveDate: orderedAt, createdAt: new Date().toISOString(), createdByUserId: getAuthUid(),
+    id: createId("gift_card_price"), costKey, companyId, invoiceId, quantity, totalNet: quantity * unitCost, unitCost, effectiveDate: orderedAt, createdAt: new Date().toISOString(), createdByUserId: getAuthUid(),
   } : null;
   const saved = await persistGiftCardProcurement({
     ...procurement,
@@ -47570,14 +47582,50 @@ function handleGiftCardProcurementSourceChange(event) {
   if (invoiceSelect) invoiceSelect.innerHTML = getGiftCardProcurementInvoiceOptions(companySelect.value, "");
 }
 
+function handleGiftCardProcurementSourceInput(event) {
+  const input = event.target.closest("[data-gift-card-procurement-quantity], [data-gift-card-procurement-total-net]");
+  if (!input) return;
+  const source = input.closest("[data-gift-card-procurement-source]");
+  const quantity = Math.max(0.01, sanitizeGiftCardCalculatorNumber(source?.querySelector("[data-gift-card-procurement-quantity]")?.value, 1));
+  const totalNet = sanitizeGiftCardCalculatorNumber(source?.querySelector("[data-gift-card-procurement-total-net]")?.value, 0);
+  const price = totalNet / quantity;
+  const output = source?.querySelector("[data-gift-card-procurement-unit-price]");
+  if (output) output.textContent = formatGiftCardCalculatorCurrency(price);
+}
+
+async function handleGiftCardProcurementOpenInvoice(invoiceId) {
+  const normalizedInvoiceId = String(invoiceId || "").trim();
+  if (!normalizedInvoiceId) return;
+  if (!getIncomingInvoiceFileForInvoice(normalizedInvoiceId)) {
+    await hydrateIncomingInvoicesFromSupabase({ force: true });
+  }
+  await handleIncomingInvoiceOpenDocument(normalizedInvoiceId);
+}
+
+async function handleGiftCardProcurementPriceDelete(priceId) {
+  if (!isSuperAdmin()) return;
+  const normalizedPriceId = String(priceId || "").trim();
+  const procurement = getGiftCardProcurement();
+  const record = procurement.priceHistory.find((entry) => entry.id === normalizedPriceId);
+  if (!record) return;
+  const item = getGiftCardProcurementCostItem(record.costKey);
+  if (!(await confirmDeleteAction(`Preisstand für „${item?.label || "Kostenstelle"}“ vom ${record.effectiveDate} wirklich löschen?`))) return;
+  await persistGiftCardProcurement({ ...procurement, priceHistory: procurement.priceHistory.filter((entry) => entry.id !== normalizedPriceId) }, "Preisstand gelöscht.");
+}
+
 function handleGiftCardProcurementClick(event) {
   const saveButton = event.target.closest("button[data-gift-card-procurement-save-price]");
   if (saveButton) {
     void handleGiftCardProcurementPriceSave(saveButton.dataset.giftCardProcurementSavePrice, saveButton.closest("[data-gift-card-procurement-source]"));
     return;
   }
+  const deleteButton = event.target.closest("button[data-gift-card-procurement-delete-price]");
+  if (deleteButton) {
+    void handleGiftCardProcurementPriceDelete(deleteButton.dataset.giftCardProcurementDeletePrice);
+    return;
+  }
   const invoiceButton = event.target.closest("button[data-gift-card-procurement-open-invoice]");
-  if (invoiceButton) void handleIncomingInvoiceOpenDocument(invoiceButton.dataset.giftCardProcurementOpenInvoice);
+  if (invoiceButton) void handleGiftCardProcurementOpenInvoice(invoiceButton.dataset.giftCardProcurementOpenInvoice);
 }
 
 function getFinancePaymentMethodOptions() {

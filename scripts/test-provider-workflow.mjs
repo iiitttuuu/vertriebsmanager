@@ -632,8 +632,10 @@ assert.match(indexSource, /Direkte Kosten/, "Die Geschenkkarten-Ansicht zeigt di
 assert.match(indexSource, /id="gift-card-procurement-sources"/, "Die Geschenkkarten-Ansicht bietet Lieferanten- und Belegzuordnungen je Kostenstelle.");
 assert.match(appSource, /function normalizeGiftCardProcurement/, "Preisstände und Bestellpositionen werden strukturiert gespeichert.");
 assert.match(appSource, /function handleGiftCardProcurementPriceSave/, "Preisstände lassen sich je Kostenstelle mit einem Lieferanten sichern.");
+assert.match(appSource, /data-gift-card-procurement-quantity/, "Preisstände erfassen die Stückzahl des jeweiligen Belegs.");
+assert.match(appSource, /function handleGiftCardProcurementPriceDelete/, "Gespeicherte Preisstände können wieder gelöscht werden.");
 assert.match(appSource, /function handleGiftCardProcurementOrderSubmit/, "Bestellpositionen werden als eigene Historie erfasst.");
-assert.match(appSource, /handleIncomingInvoiceOpenDocument\(invoiceButton\.dataset\.giftCardProcurementOpenInvoice\)/, "Verknüpfte Rechnungsbelege werden über die geschützte Belegfunktion geöffnet.");
+assert.match(appSource, /function handleGiftCardProcurementOpenInvoice/, "Verknüpfte Rechnungsbelege werden vor dem Öffnen zuverlässig geladen.");
 assert.match(appSource, /function handleGiftCardProcurementApplyPrices/, "Aktuelle Lieferantenpreise lassen sich in die Kostendeckung übernehmen.");
 assert.match(indexSource, /data-ceo-secretary-message-format="bullet"/, "Glocken-Nachrichten können als Aufzählung formatiert werden.");
 assert.match(indexSource, /data-ceo-secretary-message-format="ordered"/, "Glocken-Nachrichten können nummeriert werden.");

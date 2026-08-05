@@ -11322,6 +11322,16 @@ body.provider-form-open .topbar {
   padding: 8px 9px;
 }
 
+.gift-card-procurement-unit-price {
+  margin: 0;
+  color: #515154;
+  font-size: 0.74rem;
+}
+
+.gift-card-procurement-unit-price strong {
+  color: #1d1d1f;
+}
+
 .gift-card-procurement-order-form textarea {
   min-height: 58px;
   resize: vertical;
@@ -11360,6 +11370,12 @@ body.provider-form-open .topbar {
   min-height: 27px;
   padding: 4px 8px;
   font-size: 0.66rem;
+}
+
+.gift-card-procurement-history-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
 }
 
 .gift-card-procurement-empty {
