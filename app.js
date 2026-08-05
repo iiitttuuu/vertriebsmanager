@@ -60248,13 +60248,20 @@ function getManagementSearchSynonymMatches(query = getManagementSearchQuery()) {
   if (!normalizedQuery) {
     return [];
   }
+  const queryTerms = normalizedQuery.split(/\s+/).filter((term) => term.length >= 2);
   const matches = [];
   state.categories.forEach((category) => {
     (category?.subcategories || []).forEach((subcategory) => {
       (subcategory?.topics || []).forEach((topic) => {
-        if (getTopicSubtopics(topic?.id).some((entry) => entry.normalizedName === normalizedQuery)) {
-          matches.push({ category, subcategory, topic });
-        }
+        getTopicSubtopics(topic?.id).forEach((entry) => {
+          const synonym = normalizeText(entry.normalizedName || entry.name);
+          const matchedTerms = synonym === normalizedQuery
+            ? [normalizedQuery]
+            : queryTerms.filter((term) => synonym.includes(term));
+          if (matchedTerms.length) {
+            matches.push({ category, subcategory, topic, synonym: entry.name, matchedTerms });
+          }
+        });
       });
     });
   });
@@ -60273,13 +60280,16 @@ function renderManagementSearchSynonymMatch(query = getManagementSearchQuery()) 
     return;
   }
   const searchTerm = String(managementSearchTerm || "").trim() || query;
+  const rawSearchTerms = searchTerm.split(/\s+/).filter(Boolean);
+  const getDisplayTerm = (normalizedTerm) => rawSearchTerms.find((term) => normalizeText(term) === normalizedTerm) || normalizedTerm;
   panel.classList.remove("hidden");
   if (matches.length === 1) {
     const match = matches[0];
-    panel.innerHTML = `<strong>Dein Suchbegriff „${escapeHtml(searchTerm)}“ ist dem Thema „${escapeHtml(match.topic.name)}“ zugeordnet.</strong><span>${escapeHtml(match.category.name)} › ${escapeHtml(match.subcategory.name)}</span>`;
+    const matchedSearchTerm = match.matchedTerms[0] === normalizeText(query) ? searchTerm : getDisplayTerm(match.matchedTerms[0]);
+    panel.innerHTML = `<strong>Dein Suchbegriff „${escapeHtml(matchedSearchTerm)}“ ist dem Thema „${escapeHtml(match.topic.name)}“ zugeordnet.</strong><span>Über Synonym „${escapeHtml(match.synonym)}“ · ${escapeHtml(match.category.name)} › ${escapeHtml(match.subcategory.name)}</span>`;
     return;
   }
-  panel.innerHTML = `<strong>Dein Suchbegriff „${escapeHtml(searchTerm)}“ ist als Synonym mehreren Themen zugeordnet.</strong><span>${matches.map((match) => escapeHtml(`${match.category.name} › ${match.subcategory.name} › ${match.topic.name}`)).join(" · ")}</span>`;
+  panel.innerHTML = `<strong>Teile deiner Suche sind über Synonyme Themen zugeordnet.</strong><span>${matches.map((match) => `${escapeHtml(getDisplayTerm(match.matchedTerms[0]))} → ${escapeHtml(match.topic.name)} (${escapeHtml(match.synonym)})`).join(" · ")}</span>`;
 }
 
 function managementSearchTextMatches(searchText, query) {
