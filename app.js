@@ -977,6 +977,7 @@ let supabaseClient = null;
 const TOPIC_REQUESTS_TABLE = "topic_requests";
 const TOPIC_SUBTOPICS_TABLE = "topic_subtopics";
 const TOPIC_SUBTOPIC_RENAME_ENDPOINT = "/api/topic-subtopics/rename";
+const TOPIC_REQUEST_DELETE_ENDPOINT = "/api/topic-requests/delete";
 const NO_TOPIC_REASSIGNMENT = "__no_topic_reassignment__";
 let topicSubtopics = [];
 let storageMode = "local";
@@ -13729,7 +13730,7 @@ function openTopicRequestResolutionModal(requestId) {
     || null;
   const modal = document.createElement("div");
   modal.id = "topic-request-resolution-modal"; modal.className = "topic-request-modal";
-  modal.innerHTML = `<div class="topic-request-modal-card topic-request-resolution-card"><button type="button" data-close-topic-resolution aria-label="Schließen">×</button><p>KATEGORIEANFRAGE · KI-ZUORDNUNG</p><h3>${escapeHtml(request.topic)}</h3><div class="topic-request-ai-context"><strong>${provider ? `Anbieter „${escapeHtml(provider.name)}“ wird automatisch zugeordnet.` : "Kein verknüpfter Anbieter gefunden."}</strong><span>Die KI prüft zuerst bestehende Themen und Synonyme. Änderungen werden erst nach deiner Bestätigung gespeichert.</span></div><button type="button" class="btn btn-primary" data-topic-request-ai-analyze>KI-Zuordnung prüfen</button><div class="topic-request-ai-result hidden" aria-live="polite"></div></div>`;
+  modal.innerHTML = `<div class="topic-request-modal-card topic-request-resolution-card"><button type="button" data-close-topic-resolution aria-label="Schließen">×</button><p>KATEGORIEANFRAGE · KI-ZUORDNUNG</p><h3>${escapeHtml(request.topic)}</h3><div class="topic-request-ai-context"><strong>${provider ? `Anbieter „${escapeHtml(provider.name)}“ wird automatisch zugeordnet.` : "Kein verknüpfter Anbieter gefunden."}</strong><span>Die KI prüft zuerst bestehende Themen und Synonyme. Änderungen werden erst nach deiner Bestätigung gespeichert.</span></div><button type="button" class="btn btn-primary" data-topic-request-ai-analyze>KI-Zuordnung prüfen</button><div class="topic-request-ai-result hidden" aria-live="polite"></div><button type="button" class="topic-request-delete-btn" data-topic-request-delete>Anfrage endgültig löschen</button></div>`;
   document.body.appendChild(modal);
   let suggestion = null;
   const result = modal.querySelector(".topic-request-ai-result");
@@ -13755,6 +13756,15 @@ function openTopicRequestResolutionModal(requestId) {
   };
   modal.addEventListener("click", async (event) => {
     if (event.target === modal || event.target.closest("[data-close-topic-resolution]")) { modal.remove(); return; }
+    const deleteButton = event.target.closest("button[data-topic-request-delete]");
+    if (deleteButton) {
+      const confirmed = await confirmDeleteAction(`Kategorieanfrage „${request.topic}“ wirklich endgültig löschen? Es werden keine Themen oder Anbieter geändert und niemand wird informiert.`);
+      if (!confirmed) return;
+      setActionButtonBusy(deleteButton, true, "Löscht …");
+      if (await deleteTopicRequestPermanently(request.id)) modal.remove();
+      else setActionButtonBusy(deleteButton, false);
+      return;
+    }
     const analyzeButton = event.target.closest("button[data-topic-request-ai-analyze]");
     if (analyzeButton) {
       result.classList.remove("hidden");
@@ -13785,6 +13795,45 @@ function openTopicRequestResolutionModal(requestId) {
       else setActionButtonBusy(applyButton, false);
     }
   });
+}
+
+async function deleteTopicRequestPermanently(requestId) {
+  if (!isSuperAdmin()) {
+    showWarningFeedback("Nur Superadmins können Kategorieanfragen löschen.", { toast: true });
+    return false;
+  }
+  const normalizedRequestId = String(requestId || "").trim();
+  if (!normalizedRequestId) {
+    return false;
+  }
+  try {
+    const accessToken = await getAuthAccessToken({ forceRefresh: true });
+    if (!accessToken) throw new Error("Login-Token fehlt.");
+    const response = await fetch(TOPIC_REQUEST_DELETE_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        "X-Supabase-Url": String(window.APP_CONFIG?.SUPABASE_URL || "").trim(),
+      },
+      body: JSON.stringify({ requestId: normalizedRequestId }),
+    });
+    const payload = await readApiJsonPayload(response);
+    if (!response.ok || !payload?.deleted) {
+      throw new Error(String(payload?.error || "Kategorieanfrage konnte nicht gelöscht werden."));
+    }
+    state.settings = normalizeSettings({
+      ...state.settings,
+      topicRequests: (state.settings?.topicRequests || []).filter((entry) => String(entry?.id || "") !== normalizedRequestId),
+    });
+    await hydrateTopicRequestsFromSupabase();
+    renderAll();
+    showSuccessFeedback("Kategorieanfrage endgültig gelöscht.");
+    return true;
+  } catch (error) {
+    showErrorFeedback(`Kategorieanfrage konnte nicht gelöscht werden: ${String(error?.message || "Bitte erneut versuchen.")}`, { toast: true });
+    return false;
+  }
 }
 
 async function resolveTopicRequestWithAi(request, suggestion, provider) {

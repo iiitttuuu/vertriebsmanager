@@ -112,3 +112,14 @@ with check (
     where p.user_id::text = auth.uid()::text and p.status = 'active' and lower(p.role) = 'superadmin'
   )
 );
+
+-- Endgültiges Verwerfen einer offenen Anfrage ist ausschließlich Superadmins erlaubt.
+drop policy if exists "topic_requests_superadmin_delete" on public.topic_requests;
+create policy "topic_requests_superadmin_delete"
+on public.topic_requests for delete to authenticated
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.user_id::text = auth.uid()::text and p.status = 'active' and lower(p.role) = 'superadmin'
+  )
+);

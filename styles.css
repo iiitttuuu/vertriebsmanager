@@ -14124,6 +14124,7 @@ button:focus {
 .topic-request-ai-result .btn { justify-self: start; margin-top: 4px; }
 .topic-request-ai-synonyms { display: flex; flex-wrap: wrap; gap: 6px; }
 .topic-request-ai-synonyms button { border: 1px solid #b8d3c0; border-radius: 999px; padding: 4px 8px; color: #2e6540; background: #fff; font: inherit; font-size: .72rem; cursor: pointer; }
+.topic-request-delete-btn { justify-self: start; margin-top: 6px; border: 0; padding: 4px 0; color: #a22f2f; background: transparent; font: inherit; font-size: .76rem; font-weight: 700; text-decoration: underline; cursor: pointer; }
 @media (max-width: 720px) { .topic-request-resolution-card { width: min(100%, 560px); padding: 24px 18px; } .topic-request-resolution-card form, .topic-request-resolution-card .topic-request-master-data > div { grid-template-columns: 1fr; } }
 .topic-request-box[open] summary { margin-bottom: 10px; }
 .topic-request-box form { display: grid; gap: 8px; }
