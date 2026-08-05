@@ -1932,6 +1932,7 @@ const els = {
   conversationNotesCreateBtn: document.getElementById("conversation-notes-create-btn"),
   conversationNotesList: document.getElementById("conversation-notes-list"),
   conversationNotesEmpty: document.getElementById("conversation-notes-empty"),
+  conversationNotesSelectedDetail: document.getElementById("conversation-notes-selected-detail"),
   ceoSecretaryCaptureForm: document.getElementById("ceo-secretary-capture-form"),
   ceoSecretaryBodyInput: document.getElementById("ceo-secretary-body-input"),
   ceoSecretaryContextInput: document.getElementById("ceo-secretary-context-input"),
@@ -6139,11 +6140,16 @@ function bindEvents() {
     syncConversationTaskFieldsVisibility();
   });
 
-  els.conversationNoteAddBtn?.addEventListener("click", () => {
+  els.conversationNoteAddBtn?.addEventListener("click", async () => {
     if (!isRoleAdmin()) {
       return;
     }
-    void handleAddConversationNote();
+    setActionButtonBusy(els.conversationNoteAddBtn, true, "Speichert...");
+    try {
+      await handleAddConversationNote();
+    } finally {
+      setActionButtonBusy(els.conversationNoteAddBtn, false);
+    }
   });
 
   els.conversationNoteFeed?.addEventListener("change", (event) => {
@@ -36390,7 +36396,7 @@ function ensureConversationSelection() {
   }
   const selectedExists = threads.some((entry) => entry.id === conversationSelectedThreadId);
   if (!selectedExists) {
-    conversationSelectedThreadId = threads[0].id;
+    conversationSelectedThreadId = "";
   }
 }
 
@@ -37226,6 +37232,7 @@ function renderConversationNotesSection() {
     els.conversationNotesList.innerHTML = "";
     els.conversationNotesDetailBody.classList.add("hidden");
     els.conversationNotesEmpty.classList.remove("hidden");
+    els.conversationNotesSelectedDetail?.classList.add("hidden");
     els.conversationNotesEmpty.textContent = "Nur Admin/Superadmin kann diese Seite verwenden.";
     closeConversationEditModal();
     return;
@@ -37242,8 +37249,8 @@ function renderConversationNotesSection() {
   ensureConversationSelection();
   const filteredThreads = allThreads.filter((thread) => conversationThreadMatchesFilters(thread));
 
-  if (filteredThreads.length && !filteredThreads.some((entry) => entry.id === conversationSelectedThreadId)) {
-    conversationSelectedThreadId = filteredThreads[0].id;
+  if (conversationSelectedThreadId && !filteredThreads.some((entry) => entry.id === conversationSelectedThreadId)) {
+    conversationSelectedThreadId = "";
   }
   if (!filteredThreads.length) {
     els.conversationNotesList.innerHTML = conversationThreadsLoadingRemote
@@ -37253,6 +37260,7 @@ function renderConversationNotesSection() {
       ? "Gespräche werden geladen..."
       : "Keine Gespräche für die aktuelle Filterung gefunden.";
     els.conversationNotesEmpty.classList.remove("hidden");
+    els.conversationNotesSelectedDetail?.classList.add("hidden");
     renderConversationTaskSummary(null);
     renderConversationOverviewInfo(null);
     if (els.conversationNoteFeed) {
@@ -37282,13 +37290,13 @@ function renderConversationNotesSection() {
               data-conversation-select="${escapeHtml(threadId)}"
             >
               <strong>${escapeHtml(thread.title || "Gespräch")}</strong>
-              <span>${escapeHtml(thread.contactName || "Unbekannt")} · ${escapeHtml(
-            isInternal ? "Intern" : "Extern"
-          )}</span>
-              <small>${escapeHtml(secondLineLabel)} · ${escapeHtml(
-            formatEmployeeAdminDate(thread.conversationDate)
-          )}</small>
-              <small>Offene Aufgaben: ${escapeHtml(String(openTasks))} · Überfällig: ${escapeHtml(String(overdueTasks))}</small>
+              <span>${escapeHtml(thread.contactName || "Unbekannt")} · ${escapeHtml(isInternal ? "Intern" : "Extern")}</span>
+              <div class="conversation-thread-summary">
+                <small>${escapeHtml(secondLineLabel)} · ${escapeHtml(formatEmployeeAdminDate(thread.conversationDate))}</small>
+                <small class="conversation-thread-task-count">${escapeHtml(String(openTasks))} offen${
+                  overdueTasks ? ` · ${escapeHtml(String(overdueTasks))} fällig` : ""
+                }</small>
+              </div>
             </button>
             <div class="conversation-thread-actions">
               <button
@@ -37317,6 +37325,7 @@ function renderConversationNotesSection() {
   const selectedThread = getConversationThreadById(conversationSelectedThreadId);
   if (!selectedThread) {
     els.conversationNotesEmpty.classList.remove("hidden");
+    els.conversationNotesSelectedDetail?.classList.add("hidden");
     els.conversationNotesEmpty.textContent = allThreads.length
       ? "Bitte links ein Gespräch auswählen."
       : "Noch keine Gespräche vorhanden. Über \"Neues Gespräch\" starten.";
@@ -37330,6 +37339,7 @@ function renderConversationNotesSection() {
   }
 
   els.conversationNotesEmpty.classList.add("hidden");
+  els.conversationNotesSelectedDetail?.classList.remove("hidden");
   if (conversationDetailTab === "create") {
     renderConversationTaskSummary(null);
     if (els.conversationNoteFeed) {

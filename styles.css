@@ -17252,6 +17252,11 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   align-content: start;
 }
 
+.conversation-notes-selected-detail {
+  display: grid;
+  gap: 12px;
+}
+
 .conversation-block-head {
   display: grid;
   gap: 3px;
@@ -17324,6 +17329,13 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   padding-right: 2px;
 }
 
+.conversation-notes-list-hint {
+  margin: -2px 0 9px;
+  color: #6a809d;
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
 .conversation-thread-item {
   width: 100%;
   border: 1px solid #d4e1f1;
@@ -17333,7 +17345,7 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   text-align: left;
   color: #143a73;
   display: grid;
-  gap: 6px;
+  gap: 5px;
 }
 
 .conversation-thread-item:hover {
@@ -17347,6 +17359,9 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
 
 .conversation-thread-item strong {
   font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .conversation-thread-item span,
@@ -17362,7 +17377,7 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   padding: 0;
   text-align: left;
   display: grid;
-  gap: 4px;
+  gap: 3px;
   color: inherit;
   cursor: pointer;
 }
@@ -17371,6 +17386,30 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   display: flex;
   justify-content: flex-end;
   gap: 6px;
+}
+
+.conversation-thread-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.conversation-thread-summary small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-thread-task-count {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #f1f6fd;
+  color: #48698f !important;
+  padding: 2px 7px;
+  font-size: 0.68rem !important;
+  font-weight: 700;
 }
 
 .conversation-overview-actions {
@@ -17438,14 +17477,83 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   justify-content: flex-start;
 }
 
-.conversation-edit-modal-panel {
-  width: min(920px, 96vw);
-  max-height: 92vh;
+.modal-dialog-panel.conversation-edit-modal-panel {
+  width: min(1360px, calc(100vw - 48px));
+  height: min(880px, calc(100vh - 48px));
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.conversation-edit-modal-panel .modal-dialog-head {
+  flex: 0 0 auto;
+  margin-bottom: 16px;
+}
+
+.conversation-edit-modal-title-wrap {
+  display: grid;
+  gap: 5px;
+}
+
+.conversation-edit-modal-title-wrap p {
+  margin: 0;
+  color: var(--dialog-muted, #6e6e73);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.conversation-edit-modal-body {
+  min-height: 0;
   overflow: auto;
+  display: grid;
+  grid-template-columns: minmax(360px, 0.85fr) minmax(520px, 1.15fr);
+  align-items: start;
+  gap: 18px;
+  padding-right: 3px;
 }
 
 .conversation-meta-form {
   margin-bottom: 0;
+  border: 1px solid #d7e3f2;
+  border-radius: 16px;
+  background: #f8fbff;
+  padding: 14px;
+  align-content: start;
+}
+
+.conversation-modal-section-head {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 3px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #dce7f4;
+}
+
+.conversation-modal-section-head h4 {
+  margin: 0;
+  color: #173f72;
+  font-size: 0.95rem;
+}
+
+.conversation-modal-section-head p {
+  margin: 0;
+  color: #5f7696;
+  font-size: 0.78rem;
+}
+
+.conversation-note-compose-card {
+  min-height: 100%;
+  align-content: start;
+}
+
+.conversation-note-compose-card .conversation-note-create {
+  height: 100%;
+}
+
+.conversation-meta-form > .form-actions,
+.conversation-meta-form > .conversation-danger-zone {
+  grid-column: 1 / -1;
 }
 
 .conversation-danger-zone {
@@ -28297,4 +28405,48 @@ tr.provider-row-created td:first-child {
 
 tr.provider-row-created:hover td {
   background: #e8f6ec;
+}
+
+/* Gespräch bearbeiten: auf kleineren Bildschirmen kontrolliert untereinander,
+   damit weder Felder noch der Speichern-Button aus dem Dialog laufen. */
+@media (max-width: 1050px) {
+  .conversation-edit-modal-body {
+    grid-template-columns: 1fr;
+  }
+
+  .conversation-note-compose-card {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .modal-dialog-panel.conversation-edit-modal-panel {
+    width: 100%;
+    height: min(90svh, 900px);
+    max-height: min(90svh, 900px);
+    padding: 22px 18px;
+  }
+
+  .conversation-edit-modal-panel .modal-dialog-head {
+    margin-bottom: 14px;
+  }
+
+  .conversation-edit-modal-title-wrap p {
+    font-size: 0.8rem;
+  }
+
+  .conversation-edit-modal-body {
+    gap: 12px;
+    overscroll-behavior: contain;
+  }
+
+  .conversation-meta-form {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+
+  .conversation-meta-form > .form-actions,
+  .conversation-meta-form > .conversation-danger-zone {
+    grid-column: auto;
+  }
 }

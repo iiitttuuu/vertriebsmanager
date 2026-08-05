@@ -24,6 +24,7 @@
 \i supabase/patch_employee_management.sql
 \i supabase/patch_firms_extended_fields.sql
 \i supabase/patch_firms_admin_access.sql
+\i supabase/patch_conversation_notes_admin_write.sql
 \i supabase/patch_incoming_invoices.sql
 \i supabase/patch_vertriebsmitarbeiter_role.sql
 \i supabase/patch_supaadmin_role.sql

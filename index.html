@@ -1962,177 +1962,189 @@
                     </label>
                     <button type="button" id="conversation-notes-create-btn" class="btn btn-success">Gespräch anlegen</button>
                   </div>
+                  <p class="conversation-notes-list-hint">Ein Gespräch auswählen, um Details, Notizen und Aufgaben zu öffnen.</p>
                   <div id="conversation-notes-list" class="conversation-notes-list"></div>
                 </aside>
 
                 <section class="conversation-notes-detail">
-                  <p id="conversation-notes-empty" class="empty">Bitte links ein Gespräch auswählen.</p>
-                  <article class="conversation-section-card">
-                    <div class="conversation-block-head">
-                      <h3>Aufgabenstatus</h3>
-                      <p>Offene und überfällige Aufgaben je Gespräch.</p>
-                    </div>
-                    <div class="conversation-overview-actions">
-                      <button type="button" id="conversation-open-edit-modal-btn" class="btn btn-primary">Neue Notiz</button>
-                    </div>
-                    <div id="conversation-task-summary" class="conversation-task-summary"></div>
-                  </article>
-                  <article class="conversation-section-card conversation-details-notes-card">
-                    <div class="conversation-block-head">
-                      <h3>Gesprächsdetails &amp; Notizübersicht</h3>
-                      <p>Stammdaten und Chronik gemeinsam in einem strukturierten Bereich.</p>
-                    </div>
-                    <div class="conversation-details-notes-grid">
-                      <section class="conversation-details-pane">
-                        <div class="conversation-block-subhead">
-                          <h4>Gesprächsdetails</h4>
-                          <p>Alle Kerndaten des ausgewählten Gesprächs.</p>
-                        </div>
-                        <div id="conversation-overview-info" class="conversation-overview-info"></div>
-                      </section>
-                      <section class="conversation-notes-pane">
-                        <div class="conversation-block-subhead">
-                          <h4>Notizübersicht</h4>
-                          <p>Chronologische Übersicht aller Notizen und Aufgabenänderungen.</p>
-                        </div>
-                        <div id="conversation-note-feed" class="conversation-note-feed"></div>
-                      </section>
-                    </div>
-                  </article>
+                  <p id="conversation-notes-empty" class="empty">Wähle links ein Gespräch aus. Erst dann werden die vollständige Notiz, Aufgaben und Stammdaten angezeigt.</p>
+                  <div id="conversation-notes-selected-detail" class="conversation-notes-selected-detail hidden">
+                    <article class="conversation-section-card">
+                      <div class="conversation-block-head">
+                        <h3>Aufgabenstatus</h3>
+                        <p>Offene und überfällige Aufgaben je Gespräch.</p>
+                      </div>
+                      <div class="conversation-overview-actions">
+                        <button type="button" id="conversation-open-edit-modal-btn" class="btn btn-primary">Neue Notiz</button>
+                      </div>
+                      <div id="conversation-task-summary" class="conversation-task-summary"></div>
+                    </article>
+                    <article class="conversation-section-card conversation-details-notes-card">
+                      <div class="conversation-block-head">
+                        <h3>Gesprächsdetails &amp; Notizübersicht</h3>
+                        <p>Stammdaten und Chronik gemeinsam in einem strukturierten Bereich.</p>
+                      </div>
+                      <div class="conversation-details-notes-grid">
+                        <section class="conversation-details-pane">
+                          <div class="conversation-block-subhead">
+                            <h4>Gesprächsdetails</h4>
+                            <p>Alle Kerndaten des ausgewählten Gesprächs.</p>
+                          </div>
+                          <div id="conversation-overview-info" class="conversation-overview-info"></div>
+                        </section>
+                        <section class="conversation-notes-pane">
+                          <div class="conversation-block-subhead">
+                            <h4>Notizübersicht</h4>
+                            <p>Chronologische Übersicht aller Notizen und Aufgabenänderungen.</p>
+                          </div>
+                          <div id="conversation-note-feed" class="conversation-note-feed"></div>
+                        </section>
+                      </div>
+                    </article>
+                  </div>
                 </section>
               </div>
             </div>
 
           </div>
 
-          <div id="conversation-edit-modal" class="modal-overlay-page hidden">
+          <div id="conversation-edit-modal" class="modal-overlay-page hidden" role="dialog" aria-modal="true" aria-labelledby="conversation-edit-modal-title">
             <div class="modal-dialog-panel conversation-edit-modal-panel">
               <div class="modal-dialog-head">
-                <h3>Gespräch bearbeiten</h3>
+                <div class="conversation-edit-modal-title-wrap">
+                  <h3 id="conversation-edit-modal-title">Gespräch bearbeiten</h3>
+                  <p>Stammdaten prüfen und die Gesprächsnotiz direkt dokumentieren.</p>
+                </div>
                 <button type="button" id="conversation-edit-close-btn" class="mini-btn" aria-label="Popup schließen">✕</button>
               </div>
-              <form id="conversation-meta-form" class="form-grid conversation-meta-form">
-                <label>
-                  Titel
-                  <input type="text" name="title" placeholder="z. B. Projektabstimmung Q2" required />
-                </label>
-                <label id="conversation-contact-name-field">
-                  Kontaktname
-                  <select name="contactName" id="conversation-contact-name-select" required>
-                    <option value="">Bitte Ansprechpartner wählen</option>
-                  </select>
-                </label>
-                <label>
-                  Kontaktart
-                  <select name="contactType">
-                    <option value="extern">Extern</option>
-                    <option value="intern">Intern</option>
-                  </select>
-                </label>
-                <div id="conversation-organization-field" class="conversation-meta-group">
+              <div class="conversation-edit-modal-body">
+                <form id="conversation-meta-form" class="form-grid conversation-meta-form">
+                  <div class="conversation-modal-section-head">
+                    <h4>Gesprächsdaten</h4>
+                    <p>Kontakt, Kontext und Zeitpunkt des Gesprächs.</p>
+                  </div>
                   <label>
-                    Organisation
-                    <select name="organizationId" id="conversation-organization-select">
-                      <option value="">Keine Organisation</option>
+                    Titel
+                    <input type="text" name="title" placeholder="z. B. Projektabstimmung Q2" required />
+                  </label>
+                  <label id="conversation-contact-name-field">
+                    Kontaktname
+                    <select name="contactName" id="conversation-contact-name-select" required>
+                      <option value="">Bitte Ansprechpartner wählen</option>
                     </select>
                   </label>
-                  <button
-                    type="button"
-                    id="conversation-organization-new-btn"
-                    class="mini-btn mini-btn-add conversation-inline-add-btn"
-                    title="Organisation anlegen"
-                    aria-label="Organisation anlegen"
-                  >+</button>
-                </div>
-                <div id="conversation-internal-participants-wrap" class="conversation-internal-participants hidden">
-                  <p>Mitarbeiter auswählen (ein oder mehrere)</p>
-                  <div id="conversation-internal-participants-list" class="conversation-internal-participants-list"></div>
-                </div>
-                <label>
-                  Kanal
-                  <select name="channel">
-                    <option value="meeting">Meeting</option>
-                    <option value="telefon">Telefon</option>
-                    <option value="email">E-Mail</option>
-                    <option value="whatsapp">WhatsApp</option>
-                    <option value="sonstiges">Sonstiges</option>
-                  </select>
-                </label>
-                <label>
-                  Gesprächsdatum
-                  <input type="date" name="conversationDate" />
-                </label>
-                <div class="form-actions">
-                  <button type="submit" id="conversation-meta-save-btn" class="btn btn-primary" disabled>Stammdaten speichern</button>
-                </div>
-                <div class="conversation-danger-zone">
-                  <button type="button" id="conversation-delete-btn" class="btn btn-danger">Gespräch löschen</button>
-                </div>
-              </form>
-
-              <article class="conversation-section-card">
-                <div class="conversation-block-head">
-                  <h3 id="conversation-note-compose-title">Notiz erfassen</h3>
-                  <p>Formatiert schreiben und optional direkt eine Aufgabe erzeugen.</p>
-                </div>
-                <div class="conversation-note-create">
                   <label>
-                    <span id="conversation-note-input-label">Neue Notiz</span>
-                    <div class="conversation-note-editor-wrap">
-                      <div class="conversation-note-toolbar" role="group" aria-label="Notiz formatieren">
-                        <button type="button" class="mini-btn" data-conversation-format="bold" title="Fett" aria-label="Fett"><strong>B</strong></button>
-                        <button type="button" class="mini-btn" data-conversation-format="italic" title="Kursiv" aria-label="Kursiv"><em>I</em></button>
-                        <button type="button" class="mini-btn" data-conversation-format="underline" title="Unterstrichen" aria-label="Unterstrichen"><u>U</u></button>
-                        <button type="button" class="mini-btn" data-conversation-format="unorderedList" title="Aufzählung" aria-label="Aufzählung">•</button>
-                      </div>
-                      <div
-                        id="conversation-note-editor"
-                        class="conversation-note-editor"
-                        contenteditable="true"
-                        data-placeholder="Inhalt, Entscheidungen, nächste Schritte..."
-                      ></div>
-                    </div>
+                    Kontaktart
+                    <select name="contactType">
+                      <option value="extern">Extern</option>
+                      <option value="intern">Intern</option>
+                    </select>
                   </label>
-                  <label class="conversation-note-task-toggle">
-                    <input type="checkbox" id="conversation-note-task-toggle" />
-                    Aus dieser Notiz eine Aufgabe erstellen
-                  </label>
-                  <div id="conversation-note-task-fields" class="conversation-note-task-fields hidden">
+                  <div id="conversation-organization-field" class="conversation-meta-group">
                     <label>
-                      Aufgabe
-                      <input type="text" id="conversation-note-task-title" placeholder="Aufgabentitel" />
-                    </label>
-                    <label>
-                      Zuweisungsart
-                      <select id="conversation-note-task-assignee-type">
-                        <option value="organization">Organisation</option>
-                        <option value="employee">Mitarbeiter</option>
-                      </select>
-                    </label>
-                    <label id="conversation-note-task-organization-field">
                       Organisation
-                      <select id="conversation-note-task-organization"></select>
-                    </label>
-                    <label id="conversation-note-task-employee-field" class="hidden">
-                      Mitarbeiter
-                      <select id="conversation-note-task-assignee"></select>
-                    </label>
-                    <label>
-                      Fällig am
-                      <input type="date" id="conversation-note-task-due" />
-                    </label>
-                    <label>
-                      Priorität
-                      <select id="conversation-note-task-priority">
-                        <option value="mittel">Mittel</option>
-                        <option value="hoch">Hoch</option>
-                        <option value="niedrig">Niedrig</option>
+                      <select name="organizationId" id="conversation-organization-select">
+                        <option value="">Keine Organisation</option>
                       </select>
                     </label>
+                    <button
+                      type="button"
+                      id="conversation-organization-new-btn"
+                      class="mini-btn mini-btn-add conversation-inline-add-btn"
+                      title="Organisation anlegen"
+                      aria-label="Organisation anlegen"
+                    >+</button>
                   </div>
-                  <button type="button" id="conversation-note-add-btn" class="btn btn-success">Notiz speichern</button>
-                </div>
-              </article>
+                  <div id="conversation-internal-participants-wrap" class="conversation-internal-participants hidden">
+                    <p>Mitarbeiter auswählen (ein oder mehrere)</p>
+                    <div id="conversation-internal-participants-list" class="conversation-internal-participants-list"></div>
+                  </div>
+                  <label>
+                    Kanal
+                    <select name="channel">
+                      <option value="meeting">Meeting</option>
+                      <option value="telefon">Telefon</option>
+                      <option value="email">E-Mail</option>
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="sonstiges">Sonstiges</option>
+                    </select>
+                  </label>
+                  <label>
+                    Gesprächsdatum
+                    <input type="date" name="conversationDate" />
+                  </label>
+                  <div class="form-actions">
+                    <button type="submit" id="conversation-meta-save-btn" class="btn btn-primary" disabled>Stammdaten speichern</button>
+                  </div>
+                  <div class="conversation-danger-zone">
+                    <button type="button" id="conversation-delete-btn" class="btn btn-danger">Gespräch löschen</button>
+                  </div>
+                </form>
+
+                <article class="conversation-section-card conversation-note-compose-card">
+                  <div class="conversation-block-head">
+                    <h3 id="conversation-note-compose-title">Notiz erfassen</h3>
+                    <p>Ergebnis, Entscheidungen und nächste Schritte festhalten.</p>
+                  </div>
+                  <div class="conversation-note-create">
+                    <label>
+                      <span id="conversation-note-input-label">Neue Notiz</span>
+                      <div class="conversation-note-editor-wrap">
+                        <div class="conversation-note-toolbar" role="group" aria-label="Notiz formatieren">
+                          <button type="button" class="mini-btn" data-conversation-format="bold" title="Fett" aria-label="Fett"><strong>B</strong></button>
+                          <button type="button" class="mini-btn" data-conversation-format="italic" title="Kursiv" aria-label="Kursiv"><em>I</em></button>
+                          <button type="button" class="mini-btn" data-conversation-format="underline" title="Unterstrichen" aria-label="Unterstrichen"><u>U</u></button>
+                          <button type="button" class="mini-btn" data-conversation-format="unorderedList" title="Aufzählung" aria-label="Aufzählung">•</button>
+                        </div>
+                        <div
+                          id="conversation-note-editor"
+                          class="conversation-note-editor"
+                          contenteditable="true"
+                          data-placeholder="Inhalt, Entscheidungen, nächste Schritte..."
+                        ></div>
+                      </div>
+                    </label>
+                    <label class="conversation-note-task-toggle">
+                      <input type="checkbox" id="conversation-note-task-toggle" />
+                      Aus dieser Notiz eine Aufgabe erstellen
+                    </label>
+                    <div id="conversation-note-task-fields" class="conversation-note-task-fields hidden">
+                      <label>
+                        Aufgabe
+                        <input type="text" id="conversation-note-task-title" placeholder="Aufgabentitel" />
+                      </label>
+                      <label>
+                        Zuweisungsart
+                        <select id="conversation-note-task-assignee-type">
+                          <option value="organization">Organisation</option>
+                          <option value="employee">Mitarbeiter</option>
+                        </select>
+                      </label>
+                      <label id="conversation-note-task-organization-field">
+                        Organisation
+                        <select id="conversation-note-task-organization"></select>
+                      </label>
+                      <label id="conversation-note-task-employee-field" class="hidden">
+                        Mitarbeiter
+                        <select id="conversation-note-task-assignee"></select>
+                      </label>
+                      <label>
+                        Fällig am
+                        <input type="date" id="conversation-note-task-due" />
+                      </label>
+                      <label>
+                        Priorität
+                        <select id="conversation-note-task-priority">
+                          <option value="mittel">Mittel</option>
+                          <option value="hoch">Hoch</option>
+                          <option value="niedrig">Niedrig</option>
+                        </select>
+                      </label>
+                    </div>
+                    <button type="button" id="conversation-note-add-btn" class="btn btn-success">Notiz speichern</button>
+                  </div>
+                </article>
+              </div>
             </div>
           </div>
 

@@ -41,7 +41,7 @@ Dann `http://localhost:8080/index.html` oeffnen.
 3. SQL aus `supabase/auth_and_rls.sql` im SQL Editor ausfuehren.
 4. SQL aus `supabase/patch_providers_table.sql` im SQL Editor ausfuehren.
 5. SQL aus `supabase/patch_provider_workflow_permissions.sql` im SQL Editor ausfuehren. Dieser Patch sichert den In-Bearbeitung-Claim und den Einladungs-Workflow serverseitig ab.
-6. Fuer Gesprächsnotizen (Superadmin-Tool): SQL aus `supabase/patch_conversation_notes.sql` ausfuehren.
+6. Für Gesprächsnotizen: SQL aus `supabase/patch_conversation_notes.sql` und anschließend `supabase/patch_conversation_notes_admin_write.sql` ausführen. Damit können Admin und Superadmin Gespräche sowie Notizen zentral speichern.
 7. Für Push-Mitteilungen der Vertriebs-PWA: SQL aus `supabase/patch_web_push_subscriptions.sql` ausführen.
 8. Für sofortige Desktop-Synchronisierung ohne häufiges Polling: SQL aus `supabase/patch_desktop_realtime_sync.sql` ausführen.
 9. Optional: SQL aus `supabase/seed_categories.sql` ausfuehren, um die 6 Standard-Hauptkategorien vorzubelegen.
