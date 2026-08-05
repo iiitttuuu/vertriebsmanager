@@ -11331,6 +11331,95 @@ body.provider-form-open .topbar {
   color: #9b5a00;
 }
 
+.gift-card-management-card {
+  display: grid;
+  gap: 13px;
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 18px;
+  background: linear-gradient(145deg, #fbfbfd, #f4f7fb);
+  padding: 16px;
+}
+
+.gift-card-management-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gift-card-management-head h3 {
+  margin: 0;
+  color: #1d1d1f;
+  font-size: 0.98rem;
+  letter-spacing: -0.02em;
+}
+
+.gift-card-management-status {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(255, 149, 0, 0.14);
+  color: #9b5a00;
+  padding: 5px 9px;
+  font-size: 0.68rem;
+  font-weight: 760;
+}
+
+.gift-card-management-status.is-good {
+  background: rgba(52, 199, 89, 0.13);
+  color: #248a3d;
+}
+
+.gift-card-management-status.is-critical {
+  background: rgba(255, 59, 48, 0.12);
+  color: #d62d20;
+}
+
+.gift-card-management-summary,
+.gift-card-management-recommendation,
+.gift-card-management-empty {
+  margin: 0;
+  color: #515154;
+  font-size: 0.78rem;
+  line-height: 1.43;
+}
+
+.gift-card-management-drivers {
+  display: grid;
+  gap: 7px;
+}
+
+.gift-card-management-driver {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 8px 10px;
+}
+
+.gift-card-management-driver span {
+  color: #6e6e73;
+  font-size: 0.7rem;
+}
+
+.gift-card-management-driver strong {
+  color: #1d1d1f;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.gift-card-management-driver small {
+  color: #86868b;
+  font-size: 0.64rem;
+  font-weight: 600;
+}
+
+.gift-card-management-recommendation {
+  border-top: 1px solid rgba(60, 60, 67, 0.1);
+  padding-top: 11px;
+}
+
 .gift-card-calculator-liquid-card,
 .gift-card-calculator-scenarios {
   padding: clamp(18px, 3vw, 27px);
@@ -11444,7 +11533,8 @@ body.provider-form-open .topbar {
 
   .gift-card-calculator-header,
   .gift-card-calculator-actions,
-  .gift-card-calculator-scenario-item {
+  .gift-card-calculator-scenario-item,
+  .gift-card-management-head {
     align-items: stretch;
     flex-direction: column;
   }

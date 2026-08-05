@@ -629,6 +629,9 @@ assert.match(indexSource, /superadmin-only" data-target="gift-card-calculator-se
 assert.match(appSource, /sectionId === "gift-card-calculator-section" && !roleSuperAdmin/, "Der Geschenkkarten-Kalkulator ist zusätzlich serverseitig im Frontend-Routing geschützt.");
 assert.match(appSource, /function calculateGiftCardEconomics/, "Der Geschenkkarten-Kalkulator trennt Ausgabe, Provision und Partnerauszahlung rechnerisch.");
 assert.match(appSource, /partnerCommissionRate/, "Die Partnerprovision ist als konfigurierbarer Kalkulationswert enthalten.");
+assert.match(indexSource, /gift-card-management-card/, "Der Geschenkkarten-Kalkulator bietet eine kompakte Management-Ansicht.");
+assert.match(appSource, /function getGiftCardManagementInsights/, "Die Management-Ansicht bewertet Kostenhebel und Kostendeckung.");
+assert.match(appSource, /requiredCommissionRate/, "Die Management-Ansicht berechnet die erforderliche Partnerprovision zur Kostendeckung.");
 assert.match(indexSource, /data-ceo-secretary-message-format="bullet"/, "Glocken-Nachrichten können als Aufzählung formatiert werden.");
 assert.match(indexSource, /data-ceo-secretary-message-format="ordered"/, "Glocken-Nachrichten können nummeriert werden.");
 assert.match(appSource, /function sanitizeSecretaryEmployeeMessageHtml/, "Nachrichten-Formatierung wird vor dem Speichern sicher bereinigt.");
