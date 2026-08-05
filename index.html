@@ -4710,8 +4710,8 @@
           <div class="section-header gift-card-calculator-header">
             <div>
               <p class="gift-card-calculator-eyebrow">Finanzen · Privat</p>
-              <h2>Geschenkkarten-Kalkulator</h2>
-              <p>Kontrolliere Kosten, Provision und Liquidität je Karte – ohne automatische Buchung.</p>
+              <h2>Geschenkkarten: Kostendeckung</h2>
+              <p>Prüfe, ob verrechneter Versand und Verpackung die direkten Ausgabekosten decken.</p>
             </div>
             <span class="gift-card-calculator-private-badge">Nur Superadmin</span>
           </div>
@@ -4721,45 +4721,34 @@
               <div class="gift-card-calculator-form-head">
                 <div>
                   <p class="gift-card-calculator-eyebrow">Deine Annahmen</p>
-                  <h3>Eine Karte durchrechnen</h3>
+                  <h3>Kosten je Karte erfassen</h3>
                 </div>
                 <span>Alle Beträge netto</span>
               </div>
 
               <fieldset class="gift-card-calculator-fieldset">
-                <legend>Verkauf</legend>
+                <legend>Verrechnete Zuschläge</legend>
                 <div class="gift-card-calculator-input-grid">
                   <label>Guthaben je Karte (€)<input type="number" min="0" step="0.01" data-gift-card-field="cardValue" /></label>
                   <label>Anzahl Karten<input type="number" min="1" step="1" data-gift-card-field="units" /></label>
-                  <label>Verrechneter Versand (€)<input type="number" min="0" step="0.01" data-gift-card-field="shippingCharged" /></label>
-                  <label>Verrechnete Verpackung (€)<input type="number" min="0" step="0.01" data-gift-card-field="packagingCharged" /></label>
+                  <label>Verrechneter Versand je Karte (€)<input type="number" min="0" step="0.01" data-gift-card-field="shippingCharged" /></label>
+                  <label>Verrechnete Verpackung je Karte (€)<input type="number" min="0" step="0.01" data-gift-card-field="packagingCharged" /></label>
                 </div>
               </fieldset>
 
               <fieldset class="gift-card-calculator-fieldset">
                 <legend>Ausgabekosten</legend>
                 <div class="gift-card-calculator-input-grid">
-                  <label>Plastikkarte (€)<input type="number" min="0" step="0.01" data-gift-card-field="cardProductionCost" /></label>
-                  <label>Tatsächlicher Versand (€)<input type="number" min="0" step="0.01" data-gift-card-field="shippingCost" /></label>
-                  <label>Verpackung &amp; Grußkarte (€)<input type="number" min="0" step="0.01" data-gift-card-field="packagingCost" /></label>
+                  <label>Plastikkarte je Karte (€)<input type="number" min="0" step="0.01" data-gift-card-field="cardProductionCost" /></label>
+                  <label>Tatsächlicher Versand je Karte (€)<input type="number" min="0" step="0.01" data-gift-card-field="shippingCost" /></label>
+                  <label>Verpackung &amp; Grußkarte je Karte (€)<input type="number" min="0" step="0.01" data-gift-card-field="packagingCost" /></label>
                   <label>Zahlungsgebühr (%)<input type="number" min="0" max="100" step="0.01" data-gift-card-field="paymentFeeRate" /></label>
-                  <label>Fixe Zahlungsgebühr (€)<input type="number" min="0" step="0.01" data-gift-card-field="paymentFeeFixed" /></label>
-                </div>
-              </fieldset>
-
-              <fieldset class="gift-card-calculator-fieldset">
-                <legend>Einlösung &amp; Auszahlung</legend>
-                <div class="gift-card-calculator-input-grid">
-                  <label>Partnerprovision (%)<input type="number" min="0" max="100" step="0.01" data-gift-card-field="partnerCommissionRate" /></label>
-                  <label>Ø Einlösung nach Tagen<input type="number" min="0" step="1" data-gift-card-field="redemptionDays" /></label>
-                  <label>Partnerauszahlung alle Tage<input type="number" min="1" step="1" data-gift-card-field="payoutCycleDays" /></label>
+                  <label>Fixe Zahlungsgebühr je Bestellung (€)<input type="number" min="0" step="0.01" data-gift-card-field="paymentFeeFixed" /></label>
                 </div>
               </fieldset>
 
               <div class="gift-card-calculator-actions">
                 <button type="button" id="gift-card-calculator-save" class="btn btn-success">Aktuellen Stand speichern</button>
-                <label class="gift-card-calculator-scenario-name">Szenario sichern<input type="text" id="gift-card-calculator-scenario-name" maxlength="80" placeholder="z. B. Premium-Verpackung" /></label>
-                <button type="button" id="gift-card-calculator-save-scenario" class="mini-btn">Szenario speichern</button>
               </div>
             </form>
 
@@ -4767,63 +4756,23 @@
               <div class="gift-card-calculator-results-head">
                 <div>
                   <p class="gift-card-calculator-eyebrow">Ergebnis</p>
-                  <h3>Wirtschaftlichkeit</h3>
+                  <h3>Sind die Kosten gedeckt?</h3>
                 </div>
-                <span>Gesamtes Szenario</span>
+                <span id="gift-card-result-status" class="gift-card-management-status">–</span>
               </div>
               <article class="gift-card-calculator-result-card is-primary">
-                <span>Gesamtergebnis im Szenario</span>
-                <strong id="gift-card-result-total">0,00 €</strong>
-                <small id="gift-card-result-total-hint">Nach Ausgabe und Einlösung</small>
+                <span>Überschuss / Fehlbetrag</span>
+                <strong id="gift-card-result-balance">0,00 €</strong>
+                <small id="gift-card-result-balance-hint">Verrechnete Zuschläge abzüglich direkter Kosten</small>
               </article>
               <div class="gift-card-calculator-result-grid">
-                <article class="gift-card-calculator-result-card"><span>Deckung Ausgabekosten</span><strong id="gift-card-result-issuance">0,00 €</strong><small>Versand &amp; Verpackung abzüglich direkter Kosten</small></article>
-                <article class="gift-card-calculator-result-card"><span>Provision bei Einlösung</span><strong id="gift-card-result-commission">0,00 €</strong><small>Dein Erlös aus dem Guthaben</small></article>
-                <article class="gift-card-calculator-result-card"><span>Offenes Guthaben</span><strong id="gift-card-result-liability">0,00 €</strong><small>Verpflichtung gegenüber Karteninhabern</small></article>
-                <article class="gift-card-calculator-result-card"><span>Partnerauszahlung</span><strong id="gift-card-result-payout">0,00 €</strong><small id="gift-card-result-payout-hint">Voraussichtlich nach Tag 0</small></article>
+                <article class="gift-card-calculator-result-card"><span>Verrechnet</span><strong id="gift-card-result-charged">0,00 €</strong><small>Versand und Verpackung im Szenario</small></article>
+                <article class="gift-card-calculator-result-card"><span>Direkte Kosten</span><strong id="gift-card-result-costs">0,00 €</strong><small>Karte, Verpackung, Versand und Zahlungsgebühr</small></article>
+                <article class="gift-card-calculator-result-card"><span>Kostenabdeckung</span><strong id="gift-card-result-coverage">0 %</strong><small>Verrechnet im Verhältnis zu den direkten Kosten</small></article>
+                <article class="gift-card-calculator-result-card"><span>Direkte Kosten je Karte</span><strong id="gift-card-result-cost-per-card">0,00 €</strong><small>Bei der aktuellen Stückzahl</small></article>
               </div>
-              <article class="gift-card-management-card" aria-labelledby="gift-card-management-title">
-                <div class="gift-card-management-head">
-                  <div>
-                    <p class="gift-card-calculator-eyebrow">Management-Ansicht</p>
-                    <h3 id="gift-card-management-title">Deine nächste wirtschaftliche Entscheidung</h3>
-                  </div>
-                  <span id="gift-card-management-status" class="gift-card-management-status">Neutral</span>
-                </div>
-                <div class="gift-card-management-copy">
-                  <p id="gift-card-management-summary" class="gift-card-management-summary"></p>
-                  <div class="gift-card-coverage-chart" aria-label="Kostenabdeckung durch Versand und Verpackung">
-                    <div><span>Kostenabdeckung</span><strong id="gift-card-management-coverage-value">0 %</strong></div>
-                    <div class="gift-card-coverage-track"><span id="gift-card-management-coverage-bar"></span></div>
-                    <small id="gift-card-management-coverage-hint"></small>
-                  </div>
-                  <p id="gift-card-management-recommendation" class="gift-card-management-recommendation"></p>
-                </div>
-                <div id="gift-card-management-drivers" class="gift-card-management-drivers"></div>
-              </article>
             </aside>
           </div>
-
-          <article class="gift-card-calculator-liquid-card">
-            <div>
-              <p class="gift-card-calculator-eyebrow">Liquidität im Szenario</p>
-              <h3>Was passiert wann?</h3>
-            </div>
-            <div class="gift-card-calculator-timeline">
-              <article><span>Heute</span><strong id="gift-card-timeline-payment">0,00 €</strong><small>Zahlungseingang vom Kunden</small></article>
-              <article><span>Heute</span><strong id="gift-card-timeline-costs">0,00 €</strong><small>Direkte Ausgabekosten</small></article>
-              <article><span id="gift-card-timeline-redemption-day">Tag 90</span><strong id="gift-card-timeline-commission">0,00 €</strong><small>Provision bei Einlösung</small></article>
-              <article><span id="gift-card-timeline-payout-day">Tag 97</span><strong id="gift-card-timeline-payout">0,00 €</strong><small>Erwartete Auszahlung an Partner</small></article>
-            </div>
-          </article>
-
-          <article class="gift-card-calculator-scenarios">
-            <div class="gift-card-calculator-scenarios-head">
-              <div><p class="gift-card-calculator-eyebrow">Gespeicherte Szenarien</p><h3>Vergleiche den Beitrag je Karte</h3></div>
-              <span id="gift-card-calculator-scenario-count">0</span>
-            </div>
-            <div id="gift-card-calculator-scenario-list" class="gift-card-calculator-scenario-list"></div>
-          </article>
         </section>
 
         <section id="parameters-section" class="panel card">

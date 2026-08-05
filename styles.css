@@ -11209,7 +11209,7 @@ body.provider-form-open .topbar {
 
 .gift-card-calculator-actions {
   display: grid;
-  grid-template-columns: auto minmax(180px, 1fr) auto;
+  grid-template-columns: auto;
   align-items: end;
   gap: 10px;
   border-top: 1px solid rgba(60, 60, 67, 0.12);
