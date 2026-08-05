@@ -2529,6 +2529,9 @@ const els = {
   managementSearchReset: document.getElementById("management-search-reset"),
   managementSearchMeta: document.getElementById("management-search-meta"),
   managementAiSuggestion: document.getElementById("management-ai-suggestion"),
+  categoryTransferLogMeta: document.getElementById("category-transfer-log-meta"),
+  categoryTransferPrintBtn: document.getElementById("category-transfer-print-btn"),
+  categoryTransferLogPanel: document.getElementById("category-transfer-log-panel"),
   categoryCsvScope: document.getElementById("category-csv-scope"),
   categoryCsvTargetSelect: document.getElementById("category-csv-target-select"),
   categoryCsvDownloadBtn: document.getElementById("category-csv-download-btn"),
@@ -10593,6 +10596,10 @@ function bindEvents() {
     void applyCategoryCsvImport();
   });
 
+  els.categoryTransferPrintBtn?.addEventListener("click", () => {
+    openCategoryTransferPrintView();
+  });
+
   els.categoryCsvImportMappings?.addEventListener("change", () => {
     updateCategoryCsvImportApplyButton();
   });
@@ -10732,6 +10739,16 @@ function bindEvents() {
   });
 
   els.managementAiSuggestion?.addEventListener("click", (event) => {
+    const removeSynonymButton = event.target.closest("button[data-remove-management-ai-synonym]");
+    if (removeSynonymButton && managementAiSuggestion?.kind === "new_topic") {
+      const synonym = String(removeSynonymButton.dataset.removeManagementAiSynonym || "").trim();
+      managementAiSuggestion.suggestedSynonyms = normalizeManagementAiSynonyms(
+        (managementAiSuggestion.suggestedSynonyms || []).filter((entry) => normalizeText(entry) !== normalizeText(synonym)),
+        managementAiSuggestion.suggestedTopicName
+      );
+      renderManagementAiSuggestion();
+      return;
+    }
     const applyButton = event.target.closest("button[data-apply-management-ai-suggestion]");
     if (!applyButton) {
       return;
@@ -12839,6 +12856,14 @@ async function openTopicSubtopicsModal(topicId) {
       }
     }
     topicSubtopics = topicSubtopics.filter((entry) => entry.id !== subtopicId);
+    recordCategoryTransferChanges([{
+      entityType: "synonym",
+      action: "entfernt",
+      categoryName: findTopicLocation(normalizedTopicId)?.category?.name || "",
+      subcategoryName: findTopicLocation(normalizedTopicId)?.subcategory?.name || "",
+      topicName: topic.name,
+      previousValue: subtopic.name,
+    }]);
     renderModal();
     renderManagementSection();
     renderProviderTopicPicker();
@@ -12864,6 +12889,7 @@ async function openTopicSubtopicsModal(topicId) {
         focusRenameSubtopicInput();
         return;
       }
+      const previousName = subtopic.name;
       if (storageMode === "supabase") {
         const persistence = await renameTopicSubtopicWithRetry(subtopicId, normalizedTopicId, name, normalizedName);
         if (!persistence.ok) {
@@ -12881,6 +12907,15 @@ async function openTopicSubtopicsModal(topicId) {
       } else {
         Object.assign(subtopic, { name, normalizedName });
       }
+      recordCategoryTransferChanges([{
+        entityType: "synonym",
+        action: "geändert",
+        categoryName: findTopicLocation(normalizedTopicId)?.category?.name || "",
+        subcategoryName: findTopicLocation(normalizedTopicId)?.subcategory?.name || "",
+        topicName: topic.name,
+        previousValue: previousName,
+        newValue: name,
+      }]);
       editingSubtopicId = "";
       renderModal();
       renderManagementSection();
@@ -12924,6 +12959,14 @@ async function openTopicSubtopicsModal(topicId) {
       inserted = persistence.entry || inserted;
     }
     topicSubtopics.push(inserted);
+    recordCategoryTransferChanges([{
+      entityType: "synonym",
+      action: "neu",
+      categoryName: findTopicLocation(normalizedTopicId)?.category?.name || "",
+      subcategoryName: findTopicLocation(normalizedTopicId)?.subcategory?.name || "",
+      topicName: topic.name,
+      newValue: inserted.name,
+    }]);
     renderModal();
     focusNewSubtopicInput();
     renderManagementSection();
@@ -17052,6 +17095,7 @@ function renderAll(options = {}) {
   renderCategoryList();
   renderSubcategoriesList();
   renderTopicsList();
+  renderCategoryTransferLogControls();
   renderFinanceParametersSection();
   renderGiftCardCalculatorSection();
   renderProviderCoverageCountryDatalist();
@@ -17098,6 +17142,7 @@ function renderManagementSection() {
   renderSubcategoriesList();
   renderTopicsList();
   renderManagementAiSuggestion();
+  renderCategoryTransferLogControls();
   applyActionButtonIcons();
 }
 
@@ -58615,6 +58660,196 @@ function renderManagementSummary() {
   }
 }
 
+function normalizeCategoryTransferLog(entriesLike) {
+  const allowedTypes = new Set(["themenbereich", "thema", "synonym"]);
+  const allowedActions = new Set(["neu", "geändert", "entfernt"]);
+  const seenIds = new Set();
+  return (Array.isArray(entriesLike) ? entriesLike : [])
+    .map((entry) => {
+      const id = String(entry?.id || "").trim().slice(0, 180);
+      const entityType = String(entry?.entityType || "").trim().toLowerCase();
+      const action = String(entry?.action || "").trim().toLowerCase();
+      const createdAt = String(entry?.createdAt || "").trim();
+      if (!id || !allowedTypes.has(entityType) || !allowedActions.has(action) || !createdAt || seenIds.has(id)) {
+        return null;
+      }
+      seenIds.add(id);
+      return {
+        id,
+        entityType,
+        action,
+        categoryName: String(entry?.categoryName || "").trim().slice(0, 160),
+        subcategoryName: String(entry?.subcategoryName || "").trim().slice(0, 160),
+        topicName: String(entry?.topicName || "").trim().slice(0, 160),
+        previousValue: String(entry?.previousValue || "").trim().slice(0, 260),
+        newValue: String(entry?.newValue || "").trim().slice(0, 260),
+        createdAt,
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
+    .slice(0, 1200);
+}
+
+function getCategoryTransferLog() {
+  return normalizeCategoryTransferLog(state.settings?.categoryTransferLog || []);
+}
+
+function recordCategoryTransferChanges(changes, options = {}) {
+  const entries = (Array.isArray(changes) ? changes : [])
+    .map((change) => ({
+      id: createId("category_transfer"),
+      entityType: String(change?.entityType || "").trim().toLowerCase(),
+      action: String(change?.action || "").trim().toLowerCase(),
+      categoryName: String(change?.categoryName || "").trim(),
+      subcategoryName: String(change?.subcategoryName || "").trim(),
+      topicName: String(change?.topicName || "").trim(),
+      previousValue: String(change?.previousValue || "").trim(),
+      newValue: String(change?.newValue || "").trim(),
+      createdAt: new Date().toISOString(),
+    }))
+    .filter((entry) => entry.entityType && entry.action);
+  if (!entries.length) {
+    return;
+  }
+  state.settings = {
+    ...state.settings,
+    categoryTransferLog: normalizeCategoryTransferLog([...entries, ...getCategoryTransferLog()]),
+  };
+  if (options.persist !== false) {
+    saveState({ showFeedback: false });
+  }
+  renderCategoryTransferLogControls();
+}
+
+function getCategoryStructureEntries(categoriesLike) {
+  const subcategories = new Map();
+  const topics = new Map();
+  (Array.isArray(categoriesLike) ? categoriesLike : []).forEach((category) => {
+    const categoryName = String(category?.name || "Kategorie").trim() || "Kategorie";
+    (Array.isArray(category?.subcategories) ? category.subcategories : []).forEach((subcategory) => {
+      const subcategoryId = String(subcategory?.id || "").trim();
+      const subcategoryName = String(subcategory?.name || "Themenbereich").trim() || "Themenbereich";
+      if (subcategoryId) {
+        subcategories.set(subcategoryId, { categoryName, subcategoryName });
+      }
+      (Array.isArray(subcategory?.topics) ? subcategory.topics : []).forEach((topic) => {
+        const topicId = String(topic?.id || "").trim();
+        if (topicId) {
+          topics.set(topicId, { categoryName, subcategoryName, topicName: String(topic?.name || "Thema").trim() || "Thema" });
+        }
+      });
+    });
+  });
+  return { subcategories, topics };
+}
+
+function getCategoryStructureTransferChanges(previousCategories, nextCategories) {
+  const before = getCategoryStructureEntries(previousCategories);
+  const after = getCategoryStructureEntries(nextCategories);
+  const changes = [];
+  after.subcategories.forEach((next, id) => {
+    const previous = before.subcategories.get(id);
+    if (!previous) {
+      changes.push({ entityType: "themenbereich", action: "neu", ...next, newValue: next.subcategoryName });
+    } else if (previous.categoryName !== next.categoryName || previous.subcategoryName !== next.subcategoryName) {
+      changes.push({ entityType: "themenbereich", action: "geändert", ...next, previousValue: `${previous.categoryName} › ${previous.subcategoryName}`, newValue: `${next.categoryName} › ${next.subcategoryName}` });
+    }
+  });
+  before.subcategories.forEach((previous, id) => {
+    if (!after.subcategories.has(id)) {
+      changes.push({ entityType: "themenbereich", action: "entfernt", ...previous, previousValue: previous.subcategoryName });
+    }
+  });
+  after.topics.forEach((next, id) => {
+    const previous = before.topics.get(id);
+    if (!previous) {
+      changes.push({ entityType: "thema", action: "neu", ...next, newValue: next.topicName });
+    } else if (previous.categoryName !== next.categoryName || previous.subcategoryName !== next.subcategoryName || previous.topicName !== next.topicName) {
+      changes.push({ entityType: "thema", action: "geändert", ...next, previousValue: `${previous.categoryName} › ${previous.subcategoryName} › ${previous.topicName}`, newValue: `${next.categoryName} › ${next.subcategoryName} › ${next.topicName}` });
+    }
+  });
+  before.topics.forEach((previous, id) => {
+    if (!after.topics.has(id)) {
+      changes.push({ entityType: "thema", action: "entfernt", ...previous, previousValue: previous.topicName });
+    }
+  });
+  return changes;
+}
+
+function recordCategoryTransferSynonymChanges(previousEntries, nextEntries) {
+  const before = new Map((Array.isArray(previousEntries) ? previousEntries : []).map((entry) => [String(entry?.id || "").trim(), entry]));
+  const after = new Map((Array.isArray(nextEntries) ? nextEntries : []).map((entry) => [String(entry?.id || "").trim(), entry]));
+  const changes = [];
+  const getTopicPath = (topicId) => {
+    const location = findTopicLocation(topicId);
+    return location
+      ? { categoryName: location.category.name, subcategoryName: location.subcategory.name, topicName: location.topic.name }
+      : { categoryName: "", subcategoryName: "", topicName: "" };
+  };
+  after.forEach((next, id) => {
+    const previous = before.get(id);
+    const path = getTopicPath(next?.topicId);
+    if (!previous) {
+      changes.push({ entityType: "synonym", action: "neu", ...path, newValue: next?.name || "" });
+    } else if (String(previous?.name || "") !== String(next?.name || "") || String(previous?.topicId || "") !== String(next?.topicId || "")) {
+      changes.push({ entityType: "synonym", action: "geändert", ...path, previousValue: previous?.name || "", newValue: next?.name || "" });
+    }
+  });
+  before.forEach((previous, id) => {
+    if (!after.has(id)) {
+      changes.push({ entityType: "synonym", action: "entfernt", ...getTopicPath(previous?.topicId), previousValue: previous?.name || "" });
+    }
+  });
+  recordCategoryTransferChanges(changes);
+}
+
+function renderCategoryTransferLogControls() {
+  const panel = els.categoryTransferLogPanel;
+  const meta = els.categoryTransferLogMeta;
+  const button = els.categoryTransferPrintBtn;
+  if (!panel || !meta || !button) {
+    return;
+  }
+  const allowed = isSuperAdmin();
+  const count = getCategoryTransferLog().length;
+  panel.classList.toggle("hidden", !allowed);
+  button.disabled = !allowed || !count;
+  meta.textContent = count
+    ? `${count} erfasste ${count === 1 ? "Änderung" : "Änderungen"} stehen für den A4-PDF-Export bereit.`
+    : "Noch keine neuen oder geänderten Themenbereiche, Themen oder Synonyme erfasst.";
+}
+
+function openCategoryTransferPrintView() {
+  if (!isSuperAdmin()) {
+    showWarningFeedback("Die Änderungsliste ist nur für Superadmins verfügbar.", { toast: true });
+    return;
+  }
+  const entries = getCategoryTransferLog();
+  if (!entries.length) {
+    showWarningFeedback("Für den Systemtransfer sind noch keine Änderungen erfasst.", { toast: true });
+    return;
+  }
+  const labels = { themenbereich: "Themenbereich", thema: "Thema", synonym: "Synonym", neu: "Neu", geändert: "Geändert", entfernt: "Entfernt" };
+  const rows = entries.map((entry) => {
+    const path = [entry.categoryName, entry.subcategoryName, entry.topicName].filter(Boolean).join(" › ") || "–";
+    const value = entry.action === "neu" ? entry.newValue : entry.action === "entfernt" ? entry.previousValue : `${entry.previousValue || "–"} → ${entry.newValue || "–"}`;
+    const date = new Date(entry.createdAt);
+    return `<tr><td>${escapeHtml(Number.isFinite(date.getTime()) ? date.toLocaleString("de-AT") : entry.createdAt)}</td><td>${escapeHtml(labels[entry.entityType] || entry.entityType)}</td><td>${escapeHtml(labels[entry.action] || entry.action)}</td><td>${escapeHtml(path)}</td><td>${escapeHtml(value || "–")}</td></tr>`;
+  }).join("");
+  const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Systemtransfer – Themenänderungen</title><style>@page{size:A4;margin:14mm}body{font-family:Arial,sans-serif;color:#18324d;margin:0}h1{font-size:19px;margin:0 0 5px}.meta{margin:0 0 14px;color:#58708a;font-size:10pt}table{width:100%;border-collapse:collapse;font-size:8.5pt}th,td{border:1px solid #cdd9e5;padding:6px;vertical-align:top;text-align:left}th{background:#edf4fb;font-size:8pt;text-transform:uppercase}tr{break-inside:avoid}.foot{margin-top:10px;color:#58708a;font-size:8pt}</style></head><body><h1>Änderungsliste für Systemtransfer</h1><p class="meta">Neue und geänderte Themenbereiche, Themen und Synonyme · erstellt am ${escapeHtml(new Date().toLocaleString("de-AT"))}</p><table><thead><tr><th>Datum</th><th>Bereich</th><th>Änderung</th><th>Zuordnung</th><th>Wert</th></tr></thead><tbody>${rows}</tbody></table><p class="foot">Diese Liste kann im Druckdialog als PDF gespeichert oder direkt ausgedruckt werden.</p></body></html>`;
+  const printWindow = window.open("", "_blank", "width=1100,height=820");
+  if (!printWindow) {
+    showWarningFeedback("Popup blockiert. Bitte Popups erlauben, um die PDF-Ansicht zu öffnen.", { toast: true });
+    return;
+  }
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+}
+
 function clearManagementAiSuggestion() {
   managementAiSuggestionRequestId += 1;
   if (managementAiSuggestionTimer) {
@@ -58666,8 +58901,25 @@ async function requestManagementAiSuggestion(query) {
     topicId: String(payload?.topicId || "").trim(),
     subcategoryId: String(payload?.subcategoryId || "").trim(),
     suggestedTopicName: String(payload?.suggestedTopicName || "").trim().slice(0, 120),
+    suggestedSynonyms: normalizeManagementAiSynonyms(payload?.suggestedSynonyms, payload?.suggestedTopicName),
     reason: String(payload?.reason || "").trim().slice(0, 280),
   };
+}
+
+function normalizeManagementAiSynonyms(values, topicName = "") {
+  const normalizedTopicName = normalizeText(topicName);
+  const seen = new Set();
+  return (Array.isArray(values) ? values : [])
+    .map((entry) => String(entry || "").trim().slice(0, 120))
+    .filter((entry) => {
+      const key = normalizeText(entry);
+      if (!key || key === normalizedTopicName || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 12);
 }
 
 function scheduleManagementAiSuggestion() {
@@ -58747,7 +58999,40 @@ function renderManagementAiSuggestion() {
   }
   const { category, subcategory } = target.location;
   const topicName = managementAiSuggestion.suggestedTopicName || query;
-  panel.innerHTML = `<span class="management-ai-suggestion-kicker">KI-ZUORDNUNG · NEUES THEMA</span><strong>Neues Thema „${escapeHtml(topicName)}“ vorschlagen</strong><p class="management-ai-suggestion-path">${escapeHtml(category.name)} › ${escapeHtml(subcategory.name)}</p>${reason}<button type="button" class="btn btn-success" data-apply-management-ai-suggestion>Neues Thema anlegen</button>`;
+  const synonyms = normalizeManagementAiSynonyms(managementAiSuggestion.suggestedSynonyms, topicName);
+  const synonymsMarkup = synonyms.length
+    ? `<div class="management-ai-synonyms"><span>Vorgeschlagene Synonyme</span><div>${synonyms.map((synonym) => `<button type="button" class="management-ai-synonym-chip" data-remove-management-ai-synonym="${escapeHtml(synonym)}" aria-label="Synonym ${escapeHtml(synonym)} entfernen" title="Nicht übernehmen">${escapeHtml(synonym)} <b>×</b></button>`).join("")}</div><small>Nicht benötigte Begriffe einfach entfernen.</small></div>`
+    : "";
+  panel.innerHTML = `<span class="management-ai-suggestion-kicker">KI-ZUORDNUNG · NEUES THEMA</span><strong>Neues Thema „${escapeHtml(topicName)}“ vorschlagen</strong><p class="management-ai-suggestion-path">${escapeHtml(category.name)} › ${escapeHtml(subcategory.name)}</p>${reason}${synonymsMarkup}<button type="button" class="btn btn-success" data-apply-management-ai-suggestion>Mit Synonymen anlegen</button>`;
+}
+
+async function saveManagementAiSynonyms(topicId, names) {
+  const topic = findTopicLocation(topicId)?.topic;
+  if (!topic) {
+    return { added: [], failed: names || [] };
+  }
+  const existing = new Set(getTopicSubtopics(topic.id).map((entry) => entry.normalizedName));
+  const added = [];
+  const failed = [];
+  for (const name of normalizeManagementAiSynonyms(names, topic.name)) {
+    const normalizedName = normalizeText(name);
+    if (existing.has(normalizedName)) {
+      continue;
+    }
+    const persistence = storageMode === "supabase"
+      ? await insertTopicSubtopicWithRetry(topic.id, name, normalizedName)
+      : { ok: true, entry: { id: createId("topic_subtopic"), topicId: topic.id, name, normalizedName } };
+    if (!persistence.ok || !persistence.entry) {
+      failed.push(name);
+      continue;
+    }
+    existing.add(normalizedName);
+    added.push(persistence.entry);
+  }
+  if (added.length) {
+    topicSubtopics.push(...added);
+  }
+  return { added, failed };
 }
 
 async function applyManagementAiSuggestion() {
@@ -58777,6 +59062,7 @@ async function applyManagementAiSuggestion() {
         throw persistence.error || new Error("Synonym konnte nicht gespeichert werden.");
       }
       topicSubtopics.push(persistence.entry);
+      recordCategoryTransferSynonymChanges([], [persistence.entry]);
       showSuccessFeedback(`„${query}“ wurde als Synonym zu „${topic.name}“ gespeichert.`);
     } else {
       const { category, subcategory } = target.location;
@@ -58795,7 +59081,8 @@ async function applyManagementAiSuggestion() {
       }
       const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
       const previousSelection = { categoryId: selectedCategoryId, subcategoryId: selectedSubcategoryId };
-      subcategory.topics.push({ id: createId("topic"), name });
+      const topic = { id: createId("topic"), name };
+      subcategory.topics.push(topic);
       selectedCategoryId = category.id;
       selectedSubcategoryId = subcategory.id;
       managementCategorySaveRevision += 1;
@@ -58809,7 +59096,13 @@ async function applyManagementAiSuggestion() {
       if (!persisted) {
         return;
       }
-      showSuccessFeedback(`Thema „${name}“ wurde angelegt.`);
+      const synonymResult = await saveManagementAiSynonyms(topic.id, managementAiSuggestion?.suggestedSynonyms || []);
+      recordCategoryTransferSynonymChanges([], synonymResult.added);
+      if (synonymResult.failed.length) {
+        showWarningFeedback(`Thema „${name}“ wurde angelegt. ${synonymResult.failed.length} Synonym${synonymResult.failed.length === 1 ? "" : "e"} konnte${synonymResult.failed.length === 1 ? "" : "n"} nicht gespeichert werden.`, { toast: true });
+      } else {
+        showSuccessFeedback(`Thema „${name}“ wurde mit ${synonymResult.added.length} Synonym${synonymResult.added.length === 1 ? "" : "en"} angelegt.`);
+      }
     }
     managementAiSuggestion = null;
     managementAiSuggestionQuery = "";
@@ -59649,6 +59942,7 @@ async function applyCategoryCsvImport() {
     return;
   }
   const subtopicsDeleted = await deleteTopicSubtopicsOnServer(Array.from(topicIdsToDelete));
+  recordCategoryTransferSynonymChanges(previousTopicSubtopicsSnapshot, topicSubtopics);
   categoryCsvImportDraft = null;
   categoryCsvImportTopicIdsPendingDeletion = new Set();
   if (els.categoryCsvImportFile) {
@@ -60506,6 +60800,9 @@ async function persistManagementCategoryStructureChange(
   }
 
   if (criticalPersistResult.ok) {
+    recordCategoryTransferChanges(
+      getCategoryStructureTransferChanges(previousCategoriesSnapshot, state.categories)
+    );
     if (managementCategoryOptimisticPersistCount > 0) {
       localChangesPendingRemoteSync = true;
     }
@@ -60566,6 +60863,9 @@ async function persistManagementCategoryCreationChange(previousCategoriesSnapsho
     managementCategoryOptimisticPersistCount = Math.max(0, managementCategoryOptimisticPersistCount - 1);
   }
   if (criticalPersistResult.ok) {
+    recordCategoryTransferChanges(
+      getCategoryStructureTransferChanges(previousCategoriesSnapshot, state.categories)
+    );
     if (managementCategoryOptimisticPersistCount > 0) {
       localChangesPendingRemoteSync = true;
     }
@@ -63963,6 +64263,7 @@ function normalizeSettings(settings) {
     topicRequests: Array.isArray(settings?.topicRequests) ? settings.topicRequests.map((entry) => ({
       id: String(entry?.id || "").trim(), topic: String(entry?.topic || "").trim().slice(0, 120), note: String(entry?.note || "").trim().slice(0, 400), providerName: String(entry?.providerName || "").trim().slice(0, 180), requestedByName: String(entry?.requestedByName || "").trim().slice(0, 180), requestedByUserId: normalizeUserId(entry?.requestedByUserId || ""), createdAt: String(entry?.createdAt || "").trim(), status: String(entry?.status || "open").trim(), resolvedTopicName: String(entry?.resolvedTopicName || "").trim().slice(0, 180),
     })).filter((entry) => entry.id && entry.topic).slice(0, 500) : [],
+    categoryTransferLog: normalizeCategoryTransferLog(settings?.categoryTransferLog || []),
     departments: normalizedDepartments,
     conversationThreads: normalizeConversationThreads(settings?.conversationThreads || []),
     conversationOrganizations: normalizeConversationOrganizations(settings?.conversationOrganizations || []),

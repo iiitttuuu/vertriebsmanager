@@ -13,9 +13,10 @@ const RESPONSE_SCHEMA = {
     topicId: { type: "string" },
     subcategoryId: { type: "string" },
     suggestedTopicName: { type: "string" },
+    suggestedSynonyms: { type: "array", items: { type: "string" } },
     reason: { type: "string" },
   },
-  required: ["kind", "topicId", "subcategoryId", "suggestedTopicName", "reason"],
+  required: ["kind", "topicId", "subcategoryId", "suggestedTopicName", "suggestedSynonyms", "reason"],
 };
 
 function sendJson(res, status, payload) {
@@ -135,8 +136,8 @@ function buildInstruction(catalog) {
     "Du ordnest einen erfolglosen deutschen Suchbegriff einer festen Themen-Taxonomie zu.",
     "Kategorien sind unveränderlich. Du darfst niemals eine Kategorie oder einen Themenbereich neu vorschlagen.",
     "Entscheidungsreihenfolge: Suche zuerst ein bestehendes Hauptthema, zu dem der Suchbegriff als Synonym passt. Wähle kind synonym nur bei einer klaren inhaltlichen Zuordnung. Erst wenn kein vorhandenes Thema sinnvoll passt, wähle kind new_topic und ordne es einem vorhandenen Themenbereich zu.",
-    "Bei synonym muss topicId exakt eine bestehende topic id aus dem Katalog sein; subcategoryId und suggestedTopicName bleiben leer.",
-    "Bei new_topic muss subcategoryId exakt eine bestehende Themenbereich-id sein; topicId bleibt leer. suggestedTopicName ist ein kurzer, sinnvoller deutscher Themenname, nicht länger als 120 Zeichen und kein bereits bestehendes Thema.",
+    "Bei synonym muss topicId exakt eine bestehende topic id aus dem Katalog sein; subcategoryId, suggestedTopicName und suggestedSynonyms bleiben leer.",
+    "Bei new_topic muss subcategoryId exakt eine bestehende Themenbereich-id sein; topicId bleibt leer. suggestedTopicName ist ein kurzer, sinnvoller deutscher Themenname, nicht länger als 120 Zeichen und kein bereits bestehendes Thema. suggestedSynonyms enthält 3 bis 8 wichtige alternative Suchbegriffe. Nenne nur echte Synonyme, Varianten oder gebräuchliche Bezeichnungen, niemals den Themenname selbst und keine Dubletten. Wenn der Suchbegriff vom Themenname abweicht, nimm ihn als Synonym auf.",
     "Die Begründung ist kurz, sachlich und auf Deutsch. Erfinde keine Taxonomie-IDs.",
     `Katalog: ${JSON.stringify(catalog)}`,
   ].join("\n");
@@ -147,18 +148,23 @@ function normalizeSuggestion(rawSuggestion, catalog) {
   const topicId = cleanText(rawSuggestion?.topicId, 200);
   const subcategoryId = cleanText(rawSuggestion?.subcategoryId, 200);
   const suggestedTopicName = cleanText(rawSuggestion?.suggestedTopicName, 120);
+  const suggestedSynonyms = Array.from(new Set(
+    (Array.isArray(rawSuggestion?.suggestedSynonyms) ? rawSuggestion.suggestedSynonyms : [])
+      .map((entry) => cleanText(entry, 120))
+      .filter((entry) => entry && entry.toLocaleLowerCase("de-AT") !== suggestedTopicName.toLocaleLowerCase("de-AT"))
+  )).slice(0, 12);
   const reason = cleanText(rawSuggestion?.reason, 280);
   const topics = catalog.flatMap((category) =>
     category.subcategories.flatMap((subcategory) => subcategory.topics.map((topic) => ({ ...topic, subcategory })))
   );
   const subcategories = catalog.flatMap((category) => category.subcategories);
   if (kind === "synonym" && topics.some((topic) => topic.id === topicId)) {
-    return { kind, topicId, subcategoryId: "", suggestedTopicName: "", reason };
+    return { kind, topicId, subcategoryId: "", suggestedTopicName: "", suggestedSynonyms: [], reason };
   }
   if (kind === "new_topic" && suggestedTopicName && subcategories.some((subcategory) => subcategory.id === subcategoryId)) {
     const normalizedName = suggestedTopicName.toLocaleLowerCase("de-AT");
     if (!topics.some((topic) => topic.name.toLocaleLowerCase("de-AT") === normalizedName)) {
-      return { kind, topicId: "", subcategoryId, suggestedTopicName, reason };
+      return { kind, topicId: "", subcategoryId, suggestedTopicName, suggestedSynonyms, reason };
     }
   }
   return null;
