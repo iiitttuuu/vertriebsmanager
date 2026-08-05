@@ -16893,6 +16893,60 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   color: #68788f;
 }
 
+.management-ai-suggestion {
+  display: grid;
+  gap: 7px;
+  margin: -2px 0 10px;
+  padding: 14px;
+  border: 1px solid #b9d8c2;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f5fcf6 0%, #edf7ff 100%);
+}
+
+.management-ai-suggestion.hidden {
+  display: none;
+}
+
+.management-ai-suggestion-kicker {
+  color: #28723c;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.management-ai-suggestion strong {
+  color: #244436;
+  font-size: 0.86rem;
+}
+
+.management-ai-suggestion p {
+  margin: 0;
+  color: #49605a;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.management-ai-suggestion-path {
+  color: #245d7e !important;
+  font-weight: 700;
+}
+
+.management-ai-suggestion .btn {
+  justify-self: start;
+  margin-top: 2px;
+}
+
+.management-fixed-category-hint {
+  margin: 0 0 8px;
+  padding: 8px 9px;
+  border: 1px solid #e0e6ef;
+  border-radius: 6px;
+  background: #f7f9fc;
+  color: #68788f;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
 .management-export-accordion {
   margin-bottom: 10px;
   border: 1px solid #d8dee7;

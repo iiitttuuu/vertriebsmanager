@@ -59,6 +59,7 @@ const AUTH_DIRECT_REQUEST_TIMEOUT_MS = 3200;
 const AUTH_PROXY_REQUEST_TIMEOUT_MS = 16000;
 const AUTH_SIGNIN_PROXY_ENDPOINT = "/api/auth/signin";
 const CEO_SECRETARY_PROCESS_ENDPOINT = "/api/ceo-secretary/process";
+const TOPIC_AI_SUGGESTION_ENDPOINT = "/api/topic-suggestions/analyze";
 // Realtime liefert Änderungen unverzüglich. Dieses Intervall ist lediglich der
 // sichere Fallback für getrennte Realtime-Verbindungen.
 const PARTNER_REQUEST_SYNC_INTERVAL_MS = 60000;
@@ -849,6 +850,10 @@ let userTerritoryDraft = [];
 let selectedCategoryId = null;
 let selectedSubcategoryId = null;
 let managementSearchTerm = "";
+let managementAiSuggestion = null;
+let managementAiSuggestionQuery = "";
+let managementAiSuggestionTimer = null;
+let managementAiSuggestionRequestId = 0;
 let managementCategorySaveRevision = 0;
 let managementCategoryOptimisticPersistCount = 0;
 let managementCategoryPersistQueue = Promise.resolve();
@@ -2523,6 +2528,7 @@ const els = {
   managementSearchInput: document.getElementById("management-search-input"),
   managementSearchReset: document.getElementById("management-search-reset"),
   managementSearchMeta: document.getElementById("management-search-meta"),
+  managementAiSuggestion: document.getElementById("management-ai-suggestion"),
   categoryCsvScope: document.getElementById("category-csv-scope"),
   categoryCsvTargetSelect: document.getElementById("category-csv-target-select"),
   categoryCsvDownloadBtn: document.getElementById("category-csv-download-btn"),
@@ -10421,44 +10427,9 @@ function bindEvents() {
     });
   });
 
-  els.categoryForm.addEventListener("submit", async (event) => {
+  els.categoryForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!isAdmin()) {
-      return;
-    }
-
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    const name = formData.get("name").toString().trim();
-    if (!name) {
-      return;
-    }
-
-    const category = {
-      id: createId("cat"),
-      name,
-      subcategories: [],
-    };
-
-    const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
-    const previousSelection = {
-      categoryId: selectedCategoryId,
-      subcategoryId: selectedSubcategoryId,
-    };
-    state.categories.push(category);
-    selectedCategoryId = category.id;
-    selectedSubcategoryId = null;
-    managementCategorySaveRevision += 1;
-    const revision = managementCategorySaveRevision;
-
-    form.reset();
-    renderManagementSection();
-    void persistManagementCategoryCreationChange(
-      previousCategoriesSnapshot,
-      previousSelection,
-      "Kategorie konnte nicht dauerhaft gespeichert werden. Bitte erneut versuchen.",
-      revision
-    );
+    showWarningFeedback("Kategorien sind fest vorgegeben und können nicht ergänzt werden.", { toast: true });
   });
 
   els.subcategoryForm.addEventListener("submit", async (event) => {
@@ -10564,16 +10535,19 @@ function bindEvents() {
 
   els.managementSearchInput?.addEventListener("input", (event) => {
     managementSearchTerm = String(event.target?.value || "").trim();
+    scheduleManagementAiSuggestion();
     queueUiRender("management-search", () => {
       renderManagementSummary();
       renderCategoryList();
       renderSubcategoriesList();
       renderTopicsList();
+      renderManagementAiSuggestion();
     });
   });
 
   els.managementSearchReset?.addEventListener("click", () => {
     managementSearchTerm = "";
+    clearManagementAiSuggestion();
     if (els.managementSearchInput) {
       els.managementSearchInput.value = "";
       els.managementSearchInput.focus();
@@ -10582,6 +10556,7 @@ function bindEvents() {
     renderCategoryList();
     renderSubcategoriesList();
     renderTopicsList();
+    renderManagementAiSuggestion();
   });
 
   els.categoryCsvScope?.addEventListener("change", () => {
@@ -10754,6 +10729,14 @@ function bindEvents() {
       }
       void handleMoveTopic(moveButton.dataset.moveTopic);
     }
+  });
+
+  els.managementAiSuggestion?.addEventListener("click", (event) => {
+    const applyButton = event.target.closest("button[data-apply-management-ai-suggestion]");
+    if (!applyButton) {
+      return;
+    }
+    void applyManagementAiSuggestion();
   });
 
   syncProviderCoverageFormState();
@@ -17114,6 +17097,7 @@ function renderManagementSection() {
   renderCategoryList();
   renderSubcategoriesList();
   renderTopicsList();
+  renderManagementAiSuggestion();
   applyActionButtonIcons();
 }
 
@@ -58631,6 +58615,213 @@ function renderManagementSummary() {
   }
 }
 
+function clearManagementAiSuggestion() {
+  managementAiSuggestionRequestId += 1;
+  if (managementAiSuggestionTimer) {
+    window.clearTimeout(managementAiSuggestionTimer);
+    managementAiSuggestionTimer = null;
+  }
+  managementAiSuggestion = null;
+  managementAiSuggestionQuery = "";
+}
+
+function getManagementAiCatalog() {
+  return state.categories.map((category) => ({
+    id: String(category?.id || "").trim(),
+    name: String(category?.name || "").trim(),
+    subcategories: (category?.subcategories || []).map((subcategory) => ({
+      id: String(subcategory?.id || "").trim(),
+      name: String(subcategory?.name || "").trim(),
+      topics: (subcategory?.topics || []).map((topic) => ({
+        id: String(topic?.id || "").trim(),
+        name: String(topic?.name || "").trim(),
+        synonyms: getTopicSubtopics(topic?.id).map((entry) => entry.name),
+      })),
+    })),
+  }));
+}
+
+async function requestManagementAiSuggestion(query) {
+  const accessToken = await getAuthAccessToken();
+  if (!accessToken) {
+    throw new Error("Login-Token fehlt.");
+  }
+  const response = await fetch(TOPIC_AI_SUGGESTION_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      "X-Supabase-Url": String(window.APP_CONFIG?.SUPABASE_URL || "").trim(),
+    },
+    body: JSON.stringify({ query, catalog: getManagementAiCatalog() }),
+  });
+  const payload = await readApiJsonPayload(response);
+  if (!response.ok) {
+    const error = new Error(String(payload?.error || "Die KI-Zuordnung ist gerade nicht erreichbar."));
+    error.code = String(payload?.code || "").trim();
+    throw error;
+  }
+  return {
+    kind: String(payload?.kind || "").trim(),
+    topicId: String(payload?.topicId || "").trim(),
+    subcategoryId: String(payload?.subcategoryId || "").trim(),
+    suggestedTopicName: String(payload?.suggestedTopicName || "").trim().slice(0, 120),
+    reason: String(payload?.reason || "").trim().slice(0, 280),
+  };
+}
+
+function scheduleManagementAiSuggestion() {
+  clearManagementAiSuggestion();
+  const query = String(managementSearchTerm || "").trim();
+  const results = getManagementSearchResults(query);
+  if (!isSuperAdmin() || query.length < 2 || results.topics.length || results.subcategories.length || results.categories.length) {
+    return;
+  }
+  const requestId = managementAiSuggestionRequestId;
+  managementAiSuggestionQuery = query;
+  managementAiSuggestion = { status: "loading" };
+  managementAiSuggestionTimer = window.setTimeout(async () => {
+    try {
+      const suggestion = await requestManagementAiSuggestion(query);
+      if (requestId !== managementAiSuggestionRequestId || query !== managementSearchTerm) {
+        return;
+      }
+      managementAiSuggestion = { status: "ready", ...suggestion };
+    } catch (error) {
+      if (requestId !== managementAiSuggestionRequestId || query !== managementSearchTerm) {
+        return;
+      }
+      managementAiSuggestion = { status: "error", message: String(error?.message || "Die KI-Zuordnung ist gerade nicht erreichbar.") };
+    }
+    renderManagementAiSuggestion();
+  }, 550);
+}
+
+function getManagementAiSuggestionTarget(suggestion = managementAiSuggestion) {
+  if (!suggestion || suggestion.status !== "ready") {
+    return null;
+  }
+  if (suggestion.kind === "synonym") {
+    const location = findTopicLocation(suggestion.topicId);
+    return location ? { kind: "synonym", location } : null;
+  }
+  if (suggestion.kind === "new_topic") {
+    const location = findSubcategoryLocation(suggestion.subcategoryId);
+    return location ? { kind: "new_topic", location } : null;
+  }
+  return null;
+}
+
+function renderManagementAiSuggestion() {
+  const panel = els.managementAiSuggestion;
+  if (!panel) {
+    return;
+  }
+  const query = String(managementSearchTerm || "").trim();
+  const noResults = query.length >= 2 && !getManagementSearchResults(query).topics.length && !getManagementSearchResults(query).subcategories.length && !getManagementSearchResults(query).categories.length;
+  if (!isSuperAdmin() || !noResults || managementAiSuggestionQuery !== query || !managementAiSuggestion) {
+    panel.classList.add("hidden");
+    panel.innerHTML = "";
+    return;
+  }
+  panel.classList.remove("hidden");
+  if (managementAiSuggestion.status === "loading") {
+    panel.innerHTML = '<span class="management-ai-suggestion-kicker">KI-ZUORDNUNG</span><strong>Passende Zuordnung wird geprüft …</strong><p>Bestehende Themen und Synonyme werden zuerst berücksichtigt.</p>';
+    return;
+  }
+  if (managementAiSuggestion.status === "error") {
+    panel.innerHTML = `<span class="management-ai-suggestion-kicker">KI-ZUORDNUNG</span><strong>Kein KI-Vorschlag verfügbar</strong><p>${escapeHtml(managementAiSuggestion.message)}</p>`;
+    return;
+  }
+  const target = getManagementAiSuggestionTarget();
+  if (!target) {
+    panel.classList.add("hidden");
+    panel.innerHTML = "";
+    return;
+  }
+  const reason = managementAiSuggestion.reason ? `<p>${escapeHtml(managementAiSuggestion.reason)}</p>` : "";
+  if (target.kind === "synonym") {
+    const { category, subcategory, topic } = target.location;
+    panel.innerHTML = `<span class="management-ai-suggestion-kicker">KI-ZUORDNUNG · SYNONYM</span><strong>„${escapeHtml(query)}“ zu bestehendem Thema hinzufügen</strong><p class="management-ai-suggestion-path">${escapeHtml(category.name)} › ${escapeHtml(subcategory.name)} › ${escapeHtml(topic.name)}</p>${reason}<button type="button" class="btn btn-success" data-apply-management-ai-suggestion>Als Synonym übernehmen</button>`;
+    return;
+  }
+  const { category, subcategory } = target.location;
+  const topicName = managementAiSuggestion.suggestedTopicName || query;
+  panel.innerHTML = `<span class="management-ai-suggestion-kicker">KI-ZUORDNUNG · NEUES THEMA</span><strong>Neues Thema „${escapeHtml(topicName)}“ vorschlagen</strong><p class="management-ai-suggestion-path">${escapeHtml(category.name)} › ${escapeHtml(subcategory.name)}</p>${reason}<button type="button" class="btn btn-success" data-apply-management-ai-suggestion>Neues Thema anlegen</button>`;
+}
+
+async function applyManagementAiSuggestion() {
+  if (!isSuperAdmin()) {
+    showWarningFeedback("Diese KI-Zuordnung ist nur für Superadmins verfügbar.", { toast: true });
+    return;
+  }
+  const query = String(managementSearchTerm || "").trim();
+  const target = getManagementAiSuggestionTarget();
+  if (!query || !target) {
+    return;
+  }
+  const button = els.managementAiSuggestion?.querySelector("button[data-apply-management-ai-suggestion]");
+  setActionButtonBusy(button, true, "Wird übernommen …");
+  try {
+    if (target.kind === "synonym") {
+      const { topic } = target.location;
+      const normalizedName = normalizeText(query);
+      if (getTopicSubtopics(topic.id).some((entry) => entry.normalizedName === normalizedName)) {
+        showWarningFeedback("Dieses Synonym ist bereits beim vorgeschlagenen Thema hinterlegt.", { toast: true });
+        return;
+      }
+      const persistence = storageMode === "supabase"
+        ? await insertTopicSubtopicWithRetry(topic.id, query, normalizedName)
+        : { ok: true, entry: { id: createId("topic_subtopic"), topicId: topic.id, name: query, normalizedName } };
+      if (!persistence.ok) {
+        throw persistence.error || new Error("Synonym konnte nicht gespeichert werden.");
+      }
+      topicSubtopics.push(persistence.entry);
+      showSuccessFeedback(`„${query}“ wurde als Synonym zu „${topic.name}“ gespeichert.`);
+    } else {
+      const { category, subcategory } = target.location;
+      const name = String(managementAiSuggestion?.suggestedTopicName || query).trim().slice(0, 120);
+      const existingTopic = findTopicByNormalizedName(name);
+      if (existingTopic) {
+        showWarningFeedback(`Das Thema „${existingTopic.name}“ existiert bereits unter „${existingTopic.categoryName} > ${existingTopic.subcategoryName}“.`, { toast: true });
+        return;
+      }
+      const confirmed = await confirmAction(`Neues Thema „${name}“ unter „${category.name} > ${subcategory.name}“ anlegen?`, {
+        title: "KI-Vorschlag übernehmen",
+        confirmLabel: "Thema anlegen",
+      });
+      if (!confirmed) {
+        return;
+      }
+      const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
+      const previousSelection = { categoryId: selectedCategoryId, subcategoryId: selectedSubcategoryId };
+      subcategory.topics.push({ id: createId("topic"), name });
+      selectedCategoryId = category.id;
+      selectedSubcategoryId = subcategory.id;
+      managementCategorySaveRevision += 1;
+      const revision = managementCategorySaveRevision;
+      const persisted = await persistManagementCategoryCreationChange(
+        previousCategoriesSnapshot,
+        previousSelection,
+        "Das neue Thema konnte nicht dauerhaft gespeichert werden. Bitte erneut versuchen.",
+        revision
+      );
+      if (!persisted) {
+        return;
+      }
+      showSuccessFeedback(`Thema „${name}“ wurde angelegt.`);
+    }
+    managementAiSuggestion = null;
+    managementAiSuggestionQuery = "";
+    renderManagementSection();
+    renderProviderTopicPicker();
+  } catch (error) {
+    showErrorFeedback(String(error?.message || "KI-Vorschlag konnte nicht übernommen werden."), { toast: true });
+  } finally {
+    setActionButtonBusy(button, false);
+  }
+}
+
 function normalizeCategoryCsvScope(value) {
   const normalized = String(value || "").trim();
   return ["all", "category", "subcategory"].includes(normalized) ? normalized : "all";
@@ -59592,7 +59783,6 @@ function getManagementSearchResults(query = getManagementSearchQuery()) {
 }
 
 function renderCategoryList() {
-  const admin = isAdmin();
   const query = getManagementSearchQuery();
   const categories = query ? getManagementSearchResults(query).categories : state.categories;
   if (!state.categories.length) {
@@ -59624,18 +59814,6 @@ function renderCategoryList() {
                 )} Bereiche · ${escapeHtml(String(topicCount))} Themen</span>
               </span>
             </button>
-            ${
-              admin
-                ? `<div class="lane-actions">
-                    <button type="button" class="mini-btn" title="Kategorie bearbeiten" aria-label="Kategorie bearbeiten" data-edit-category="${escapeHtml(
-                      category.id
-                    )}">✎</button>
-                    <button type="button" class="mini-btn danger" title="Kategorie löschen" aria-label="Kategorie löschen" data-delete-category="${escapeHtml(
-                      category.id
-                    )}">✕</button>
-                  </div>`
-                : ""
-            }
           </div>
         </li>
       `;
@@ -59903,81 +60081,12 @@ function applyProviderTopicTemplate(templateId) {
   });
 }
 
-function handleEditCategory(categoryId) {
-  const category = state.categories.find((entry) => entry.id === categoryId);
-  if (!category) {
-    return;
-  }
-
-  const nextName = window.prompt("Kategorie bearbeiten", category.name);
-  if (nextName === null) {
-    return;
-  }
-
-  const name = nextName.trim();
-  if (!name) {
-    return;
-  }
-
-  const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
-  const previousSelection = {
-    categoryId: selectedCategoryId,
-    subcategoryId: selectedSubcategoryId,
-  };
-  category.name = name;
-  managementCategorySaveRevision += 1;
-  const revision = managementCategorySaveRevision;
-  renderManagementSection();
-  void persistManagementCategoryStructureChange(
-    previousCategoriesSnapshot,
-    previousSelection,
-    "Kategorie konnte nicht dauerhaft gespeichert werden. Bitte erneut versuchen.",
-    revision
-  );
+function handleEditCategory() {
+  showWarningFeedback("Kategorien sind fest vorgegeben und können nicht geändert werden.", { toast: true });
 }
 
-async function handleDeleteCategory(categoryId) {
-  const categoryIndex = state.categories.findIndex((entry) => entry.id === categoryId);
-  if (categoryIndex < 0) {
-    return;
-  }
-
-  const category = state.categories[categoryIndex];
-  const topicIds = collectTopicIdsFromCategory(category);
-  const confirmed = await confirmDeleteAction(
-    `Kategorie "${category.name}" wirklich löschen? Unterkategorien und Themen werden mitgelöscht.`
-  );
-  if (!confirmed) {
-    return;
-  }
-  if (!(await deleteTopicSubtopicsOnServer(topicIds))) {
-    return;
-  }
-
-  const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
-  const previousProvidersSnapshot = JSON.parse(JSON.stringify(state.providers));
-  const previousSelection = {
-    categoryId: selectedCategoryId,
-    subcategoryId: selectedSubcategoryId,
-  };
-  state.categories.splice(categoryIndex, 1);
-  removeTopicIdsFromProviders(topicIds);
-
-  if (selectedCategoryId === categoryId) {
-    selectedCategoryId = null;
-    selectedSubcategoryId = null;
-  }
-
-  managementCategorySaveRevision += 1;
-  const revision = managementCategorySaveRevision;
-  renderAll();
-  void persistManagementCategoryStructureChange(
-    previousCategoriesSnapshot,
-    previousSelection,
-    "Kategorie konnte nicht dauerhaft gelöscht werden. Bitte erneut versuchen.",
-    revision,
-    { providersSync: { forceFullSync: true }, previousProvidersSnapshot }
-  );
+async function handleDeleteCategory() {
+  showWarningFeedback("Kategorien sind fest vorgegeben und können nicht gelöscht werden.", { toast: true });
 }
 
 function handleEditSubcategory(subcategoryId) {

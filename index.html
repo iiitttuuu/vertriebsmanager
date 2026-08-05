@@ -4546,6 +4546,8 @@
             <p id="management-search-meta" class="management-search-meta"></p>
           </div>
 
+          <div id="management-ai-suggestion" class="management-ai-suggestion hidden" aria-live="polite"></div>
+
           <details class="management-export-accordion">
             <summary>
               <span>CSV Export</span>
@@ -4621,10 +4623,7 @@
                   <option>Alle</option>
                 </select>
               </div>
-              <form id="category-form" class="lane-form admin-lock">
-                <input type="text" name="name" placeholder="Neue Kategorie anlegen" required />
-                <button type="submit" class="mini-btn mini-btn-add" title="Kategorie speichern" aria-label="Kategorie speichern">+</button>
-              </form>
+              <p class="management-fixed-category-hint">Kategorien sind fest vorgegeben und können nicht ergänzt oder geändert werden.</p>
               <ul id="categories-list" class="lane-list"></ul>
             </article>
 
