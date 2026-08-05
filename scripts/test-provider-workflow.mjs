@@ -625,6 +625,10 @@ assert.match(appSource, /function scheduleCeoSecretaryDailyReminder/, "Der Sekre
 assert.match(appSource, /ceo-secretary-message-sources/, "Sekretär-Antworten zeigen ihre verwendeten Quellen an.");
 assert.match(appSource, /sources: Array\.isArray\(payload\?\.sources\)/, "Quellen werden aus der sicheren Sekretär-Antwort übernommen.");
 assert.match(apiSecretarySource, /required: \["reply", "entries", "actions", "crm_actions", "memory_updates", "sources"\]/, "Die KI-Antwort verlangt Quellenangaben.");
+assert.match(indexSource, /superadmin-only" data-target="gift-card-calculator-section"/, "Der Geschenkkarten-Kalkulator ist nur für Superadmins in Finanzen verlinkt.");
+assert.match(appSource, /sectionId === "gift-card-calculator-section" && !roleSuperAdmin/, "Der Geschenkkarten-Kalkulator ist zusätzlich serverseitig im Frontend-Routing geschützt.");
+assert.match(appSource, /function calculateGiftCardEconomics/, "Der Geschenkkarten-Kalkulator trennt Ausgabe, Provision und Partnerauszahlung rechnerisch.");
+assert.match(appSource, /partnerCommissionRate/, "Die Partnerprovision ist als konfigurierbarer Kalkulationswert enthalten.");
 assert.match(indexSource, /data-ceo-secretary-message-format="bullet"/, "Glocken-Nachrichten können als Aufzählung formatiert werden.");
 assert.match(indexSource, /data-ceo-secretary-message-format="ordered"/, "Glocken-Nachrichten können nummeriert werden.");
 assert.match(appSource, /function sanitizeSecretaryEmployeeMessageHtml/, "Nachrichten-Formatierung wird vor dem Speichern sicher bereinigt.");

@@ -4,6 +4,20 @@ const PROVIDER_EDITOR_RESUME_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const SALES_DASHBOARD_LOCAL_LAYOUT_STORAGE_KEY = "vertriebsmanager_sales_dashboard_layout_v1";
 const DAILY_SALES_PROGRESS_STORAGE_KEY = "vertriebsmanager_daily_sales_progress_v2";
 const CEO_SECRETARY_DAILY_REMINDER_STORAGE_KEY = "vertriebsmanager_ceo_secretary_daily_reminder_v1";
+const GIFT_CARD_CALCULATOR_DEFAULT_VALUES = Object.freeze({
+  cardValue: 100,
+  units: 1,
+  shippingCharged: 0,
+  packagingCharged: 0,
+  cardProductionCost: 0,
+  shippingCost: 0,
+  packagingCost: 0,
+  paymentFeeRate: 0,
+  paymentFeeFixed: 0,
+  partnerCommissionRate: 0,
+  redemptionDays: 90,
+  payoutCycleDays: 14,
+});
 const REMOTE_STATE_ROW_ID = "main";
 const REMOTE_SAVE_DEBOUNCE_MS = 450;
 const REMOTE_RETRY_INITIAL_DELAY_MS = 1500;
@@ -611,6 +625,7 @@ const defaultState = {
     meetingProtocolLocationOptions: [],
     financeInvoiceCategories: [...DEFAULT_FINANCE_INVOICE_CATEGORIES],
     financePaymentMethodOptions: DEFAULT_FINANCE_PAYMENT_METHOD_OPTIONS.map((entry) => ({ ...entry })),
+    giftCardCalculator: { values: { ...GIFT_CARD_CALCULATOR_DEFAULT_VALUES }, scenarios: [] },
     providerTargetsByCountry: {},
     headerBranding: { logoUrl: "", faviconUrl: "" },
     adminNotificationDismissedById: {},
@@ -2645,6 +2660,27 @@ const els = {
   financePaymentMethodInput: document.getElementById("finance-payment-method-input"),
   financePaymentMethodList: document.getElementById("finance-payment-method-list"),
   financePaymentMethodCount: document.getElementById("finance-payment-method-count"),
+  giftCardCalculatorForm: document.getElementById("gift-card-calculator-form"),
+  giftCardCalculatorFields: document.querySelectorAll("[data-gift-card-field]"),
+  giftCardCalculatorSave: document.getElementById("gift-card-calculator-save"),
+  giftCardCalculatorScenarioName: document.getElementById("gift-card-calculator-scenario-name"),
+  giftCardCalculatorSaveScenario: document.getElementById("gift-card-calculator-save-scenario"),
+  giftCardCalculatorScenarioCount: document.getElementById("gift-card-calculator-scenario-count"),
+  giftCardCalculatorScenarioList: document.getElementById("gift-card-calculator-scenario-list"),
+  giftCardResultTotal: document.getElementById("gift-card-result-total"),
+  giftCardResultTotalHint: document.getElementById("gift-card-result-total-hint"),
+  giftCardResultIssuance: document.getElementById("gift-card-result-issuance"),
+  giftCardResultCommission: document.getElementById("gift-card-result-commission"),
+  giftCardResultLiability: document.getElementById("gift-card-result-liability"),
+  giftCardResultPayout: document.getElementById("gift-card-result-payout"),
+  giftCardResultPayoutHint: document.getElementById("gift-card-result-payout-hint"),
+  giftCardCalculatorWarning: document.getElementById("gift-card-calculator-warning"),
+  giftCardTimelinePayment: document.getElementById("gift-card-timeline-payment"),
+  giftCardTimelineCosts: document.getElementById("gift-card-timeline-costs"),
+  giftCardTimelineRedemptionDay: document.getElementById("gift-card-timeline-redemption-day"),
+  giftCardTimelineCommission: document.getElementById("gift-card-timeline-commission"),
+  giftCardTimelinePayoutDay: document.getElementById("gift-card-timeline-payout-day"),
+  giftCardTimelinePayout: document.getElementById("gift-card-timeline-payout"),
   brandingParamsForm: document.getElementById("branding-params-form"),
   brandingParamsSaveBtn: document.getElementById("branding-params-save-btn"),
   brandingParamsResetBtn: document.getElementById("branding-params-reset-btn"),
@@ -8434,6 +8470,18 @@ function bindEvents() {
     if (deleteButton) {
       void handleFinancePaymentMethodDelete(deleteButton.dataset.financePaymentMethodDelete);
     }
+  });
+  els.giftCardCalculatorFields?.forEach((field) => {
+    field.addEventListener("input", () => renderGiftCardCalculatorResults());
+  });
+  els.giftCardCalculatorSave?.addEventListener("click", () => {
+    void handleGiftCardCalculatorSave();
+  });
+  els.giftCardCalculatorSaveScenario?.addEventListener("click", () => {
+    void handleGiftCardCalculatorSaveScenario();
+  });
+  els.giftCardCalculatorScenarioList?.addEventListener("click", (event) => {
+    void handleGiftCardCalculatorScenarioAction(event);
   });
 
   els.brandingParamsForm?.addEventListener("submit", async (event) => {
@@ -16993,6 +17041,7 @@ function renderAll(options = {}) {
   renderSubcategoriesList();
   renderTopicsList();
   renderFinanceParametersSection();
+  renderGiftCardCalculatorSection();
   renderProviderCoverageCountryDatalist();
   renderProviderTemplateOptions();
   renderProviderTopicPicker();
@@ -17287,6 +17336,9 @@ function resolveAccessibleSectionForRole(targetId, roleLike) {
     sectionId = fallbackSectionId;
   }
   if (sectionId === "contract-manager-section" && !roleSuperAdmin) {
+    sectionId = fallbackSectionId;
+  }
+  if (sectionId === "gift-card-calculator-section" && !roleSuperAdmin) {
     sectionId = fallbackSectionId;
   }
   if (sectionId === "provider-coverage-section" && !roleSuperAdmin && !roleSales) {
@@ -47049,6 +47101,229 @@ function getFinanceInvoiceCategories() {
   return normalizeFinanceInvoiceCategories(state.settings?.financeInvoiceCategories);
 }
 
+function sanitizeGiftCardCalculatorNumber(value, fallback, options = {}) {
+  const numeric = parseOptionalNumber(value);
+  if (typeof numeric !== "number" || !Number.isFinite(numeric)) {
+    return fallback;
+  }
+  const minimum = Number.isFinite(options.min) ? options.min : 0;
+  const maximum = Number.isFinite(options.max) ? options.max : 1000000;
+  const rounded = options.integer ? Math.round(numeric) : Math.round(numeric * 100) / 100;
+  return Math.min(maximum, Math.max(minimum, rounded));
+}
+
+function normalizeGiftCardCalculatorValues(valuesLike = {}) {
+  return {
+    cardValue: sanitizeGiftCardCalculatorNumber(valuesLike?.cardValue, GIFT_CARD_CALCULATOR_DEFAULT_VALUES.cardValue),
+    units: sanitizeGiftCardCalculatorNumber(valuesLike?.units, GIFT_CARD_CALCULATOR_DEFAULT_VALUES.units, { min: 1, max: 100000, integer: true }),
+    shippingCharged: sanitizeGiftCardCalculatorNumber(valuesLike?.shippingCharged, 0),
+    packagingCharged: sanitizeGiftCardCalculatorNumber(valuesLike?.packagingCharged, 0),
+    cardProductionCost: sanitizeGiftCardCalculatorNumber(valuesLike?.cardProductionCost, 0),
+    shippingCost: sanitizeGiftCardCalculatorNumber(valuesLike?.shippingCost, 0),
+    packagingCost: sanitizeGiftCardCalculatorNumber(valuesLike?.packagingCost, 0),
+    paymentFeeRate: sanitizeGiftCardCalculatorNumber(valuesLike?.paymentFeeRate, 0, { max: 100 }),
+    paymentFeeFixed: sanitizeGiftCardCalculatorNumber(valuesLike?.paymentFeeFixed, 0),
+    partnerCommissionRate: sanitizeGiftCardCalculatorNumber(valuesLike?.partnerCommissionRate, 0, { max: 100 }),
+    redemptionDays: sanitizeGiftCardCalculatorNumber(valuesLike?.redemptionDays, GIFT_CARD_CALCULATOR_DEFAULT_VALUES.redemptionDays, { max: 3650, integer: true }),
+    payoutCycleDays: sanitizeGiftCardCalculatorNumber(valuesLike?.payoutCycleDays, GIFT_CARD_CALCULATOR_DEFAULT_VALUES.payoutCycleDays, { min: 1, max: 366, integer: true }),
+  };
+}
+
+function normalizeGiftCardCalculator(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const seen = new Set();
+  const scenarios = (Array.isArray(source.scenarios) ? source.scenarios : [])
+    .map((entry, index) => {
+      const id = String(entry?.id || `gift_card_scenario_${index + 1}`).trim().slice(0, 180);
+      const name = String(entry?.name || "").trim().slice(0, 80);
+      if (!id || !name || seen.has(id)) return null;
+      seen.add(id);
+      return {
+        id,
+        name,
+        values: normalizeGiftCardCalculatorValues(entry.values || entry),
+        updatedAt: String(entry?.updatedAt || entry?.createdAt || "").trim() || new Date().toISOString(),
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => String(right.updatedAt).localeCompare(String(left.updatedAt)))
+    .slice(0, 24);
+  return { values: normalizeGiftCardCalculatorValues(source.values || source), scenarios };
+}
+
+function getGiftCardCalculatorSettings() {
+  return normalizeGiftCardCalculator(state.settings?.giftCardCalculator || {});
+}
+
+function readGiftCardCalculatorValuesFromForm() {
+  const fallback = getGiftCardCalculatorSettings().values;
+  const values = { ...fallback };
+  els.giftCardCalculatorFields?.forEach((field) => {
+    const key = String(field.dataset.giftCardField || "").trim();
+    if (key) values[key] = field.value;
+  });
+  return normalizeGiftCardCalculatorValues(values);
+}
+
+function applyGiftCardCalculatorValuesToForm(valuesLike) {
+  const values = normalizeGiftCardCalculatorValues(valuesLike);
+  els.giftCardCalculatorFields?.forEach((field) => {
+    const key = String(field.dataset.giftCardField || "").trim();
+    if (!key || !(key in values)) return;
+    field.value = String(values[key]);
+  });
+}
+
+function calculateGiftCardEconomics(valuesLike) {
+  const values = normalizeGiftCardCalculatorValues(valuesLike);
+  const customerPaymentPerCard = values.cardValue + values.shippingCharged + values.packagingCharged;
+  const paymentFeePerCard = customerPaymentPerCard * (values.paymentFeeRate / 100) + values.paymentFeeFixed;
+  const directCostPerCard = values.cardProductionCost + values.shippingCost + values.packagingCost + paymentFeePerCard;
+  const issuanceContributionPerCard = values.shippingCharged + values.packagingCharged - directCostPerCard;
+  const commissionPerCard = values.cardValue * (values.partnerCommissionRate / 100);
+  const partnerPayoutPerCard = values.cardValue - commissionPerCard;
+  const totalContributionPerCard = issuanceContributionPerCard + commissionPerCard;
+  const expectedPayoutDay = values.redemptionDays + Math.round(values.payoutCycleDays / 2);
+  const multiply = (number) => number * values.units;
+  return {
+    values,
+    customerPayment: multiply(customerPaymentPerCard),
+    directCosts: multiply(directCostPerCard),
+    issuanceContribution: multiply(issuanceContributionPerCard),
+    commission: multiply(commissionPerCard),
+    liability: multiply(values.cardValue),
+    partnerPayout: multiply(partnerPayoutPerCard),
+    totalContribution: multiply(totalContributionPerCard),
+    expectedPayoutDay,
+  };
+}
+
+function formatGiftCardCalculatorCurrency(value) {
+  return new Intl.NumberFormat("de-AT", { style: "currency", currency: "EUR" }).format(Number(value || 0));
+}
+
+function setGiftCardCalculatorResult(element, value, options = {}) {
+  if (!element) return;
+  element.textContent = formatGiftCardCalculatorCurrency(value);
+  element.classList.toggle("is-negative", Number(value) < 0);
+  element.classList.toggle("is-positive", Number(value) > 0 && options.emphasize === true);
+}
+
+function renderGiftCardCalculatorResults(valuesLike = readGiftCardCalculatorValuesFromForm()) {
+  const model = calculateGiftCardEconomics(valuesLike);
+  setGiftCardCalculatorResult(els.giftCardResultTotal, model.totalContribution, { emphasize: true });
+  setGiftCardCalculatorResult(els.giftCardResultIssuance, model.issuanceContribution, { emphasize: true });
+  setGiftCardCalculatorResult(els.giftCardResultCommission, model.commission, { emphasize: true });
+  setGiftCardCalculatorResult(els.giftCardResultLiability, model.liability);
+  setGiftCardCalculatorResult(els.giftCardResultPayout, model.partnerPayout);
+  if (els.giftCardResultTotalHint) {
+    els.giftCardResultTotalHint.textContent = `${model.values.units} ${model.values.units === 1 ? "Karte" : "Karten"} · Ausgabe und Einlösung zusammen`;
+  }
+  if (els.giftCardResultPayoutHint) {
+    els.giftCardResultPayoutHint.textContent = `Voraussichtlich nach Tag ${model.expectedPayoutDay}`;
+  }
+  setGiftCardCalculatorResult(els.giftCardTimelinePayment, model.customerPayment);
+  setGiftCardCalculatorResult(els.giftCardTimelineCosts, -model.directCosts);
+  setGiftCardCalculatorResult(els.giftCardTimelineCommission, model.commission);
+  setGiftCardCalculatorResult(els.giftCardTimelinePayout, -model.partnerPayout);
+  if (els.giftCardTimelineRedemptionDay) els.giftCardTimelineRedemptionDay.textContent = `Tag ${model.values.redemptionDays}`;
+  if (els.giftCardTimelinePayoutDay) els.giftCardTimelinePayoutDay.textContent = `Tag ${model.expectedPayoutDay}`;
+  if (els.giftCardCalculatorWarning) {
+    const issueLoss = model.issuanceContribution < 0;
+    const noCommission = model.values.partnerCommissionRate === 0;
+    const warning = issueLoss
+      ? "Die verrechneten Zusatzkosten decken die Ausgabekosten noch nicht."
+      : noCommission
+        ? "Ohne Partnerprovision entsteht der Ertrag ausschließlich über Versand und Verpackung."
+        : "Die Kalkulation trennt Ausgabekosten, offene Guthabenverpflichtung und Provision sauber.";
+    els.giftCardCalculatorWarning.textContent = warning;
+    els.giftCardCalculatorWarning.classList.toggle("is-warning", issueLoss || noCommission);
+  }
+  return model;
+}
+
+function renderGiftCardCalculatorScenarios() {
+  const settings = getGiftCardCalculatorSettings();
+  if (els.giftCardCalculatorScenarioCount) els.giftCardCalculatorScenarioCount.textContent = String(settings.scenarios.length);
+  if (!els.giftCardCalculatorScenarioList) return;
+  els.giftCardCalculatorScenarioList.innerHTML = settings.scenarios.length
+    ? settings.scenarios.map((scenario) => {
+        const model = calculateGiftCardEconomics(scenario.values);
+        return `<article class="gift-card-calculator-scenario-item">
+          <div><strong>${escapeHtml(scenario.name)}</strong><span>${escapeHtml(`${scenario.values.units} ${scenario.values.units === 1 ? "Karte" : "Karten"} · ${scenario.values.partnerCommissionRate} % Provision · ${formatGiftCardCalculatorCurrency(model.totalContribution)}`)}</span></div>
+          <div class="gift-card-calculator-scenario-actions"><button type="button" class="mini-btn" data-gift-card-scenario-load="${escapeHtml(scenario.id)}">Laden</button><button type="button" class="mini-btn danger" data-gift-card-scenario-delete="${escapeHtml(scenario.id)}" aria-label="Szenario löschen">✕</button></div>
+        </article>`;
+      }).join("")
+    : '<p class="gift-card-calculator-scenario-empty">Speichere eine Annahme, um Varianten schnell vergleichen zu können.</p>';
+}
+
+function renderGiftCardCalculatorSection() {
+  if (!isSuperAdmin()) return;
+  const settings = getGiftCardCalculatorSettings();
+  applyGiftCardCalculatorValuesToForm(settings.values);
+  renderGiftCardCalculatorResults(settings.values);
+  renderGiftCardCalculatorScenarios();
+}
+
+async function persistGiftCardCalculator(nextCalculator, successMessage) {
+  const previousSettings = state.settings;
+  state.settings = normalizeSettings({ ...state.settings, giftCardCalculator: nextCalculator });
+  const persistence = await persistCriticalStateSnapshot({ retries: 3 });
+  if (!persistence?.ok) {
+    state.settings = previousSettings;
+    renderGiftCardCalculatorSection();
+    showErrorFeedback("Kalkulation konnte nicht dauerhaft gespeichert werden. Bitte erneut versuchen.");
+    return false;
+  }
+  renderGiftCardCalculatorSection();
+  showSuccessFeedback(successMessage, { toast: false, statusPersistMs: 2200 });
+  return true;
+}
+
+async function handleGiftCardCalculatorSave() {
+  if (!isSuperAdmin()) return;
+  setActionButtonBusy(els.giftCardCalculatorSave, true, "Speichert …");
+  try {
+    const settings = getGiftCardCalculatorSettings();
+    await persistGiftCardCalculator({ ...settings, values: readGiftCardCalculatorValuesFromForm() }, "Kalkulation gespeichert.");
+  } finally {
+    setActionButtonBusy(els.giftCardCalculatorSave, false);
+  }
+}
+
+async function handleGiftCardCalculatorSaveScenario() {
+  if (!isSuperAdmin()) return;
+  const name = String(els.giftCardCalculatorScenarioName?.value || "").trim();
+  if (!name) {
+    showWarningFeedback("Bitte gib dem Szenario einen Namen.");
+    els.giftCardCalculatorScenarioName?.focus();
+    return;
+  }
+  const settings = getGiftCardCalculatorSettings();
+  const scenario = { id: createId("gift_card_scenario"), name, values: readGiftCardCalculatorValuesFromForm(), updatedAt: new Date().toISOString() };
+  const saved = await persistGiftCardCalculator({ ...settings, values: scenario.values, scenarios: [scenario, ...settings.scenarios] }, "Szenario gespeichert.");
+  if (saved && els.giftCardCalculatorScenarioName) els.giftCardCalculatorScenarioName.value = "";
+}
+
+async function handleGiftCardCalculatorScenarioAction(event) {
+  const loadButton = event.target.closest("button[data-gift-card-scenario-load]");
+  const deleteButton = event.target.closest("button[data-gift-card-scenario-delete]");
+  const scenarioId = String(loadButton?.dataset.giftCardScenarioLoad || deleteButton?.dataset.giftCardScenarioDelete || "").trim();
+  if (!scenarioId) return;
+  const settings = getGiftCardCalculatorSettings();
+  const scenario = settings.scenarios.find((entry) => entry.id === scenarioId);
+  if (!scenario) return;
+  if (loadButton) {
+    applyGiftCardCalculatorValuesToForm(scenario.values);
+    renderGiftCardCalculatorResults(scenario.values);
+    showInfoFeedback(`Szenario „${scenario.name}“ geladen.`, { toast: false, statusPersistMs: 1800 });
+    return;
+  }
+  if (deleteButton && (await confirmDeleteAction(`Szenario „${scenario.name}“ wirklich löschen?`))) {
+    await persistGiftCardCalculator({ ...settings, scenarios: settings.scenarios.filter((entry) => entry.id !== scenario.id) }, "Szenario gelöscht.");
+  }
+}
+
 function getFinancePaymentMethodOptions() {
   return normalizeFinancePaymentMethodOptions(state.settings?.financePaymentMethodOptions);
 }
@@ -60309,6 +60584,9 @@ function setActiveSection(targetId) {
     renderCeoSecretarySection();
     void hydrateCeoSecretaryEntriesFromSupabase({ force: true });
   }
+  if (targetId === "gift-card-calculator-section") {
+    renderGiftCardCalculatorSection();
+  }
   if (targetId === "team-meeting-protocol-section") {
     if (currentSectionId !== "team-meeting-protocol-section") {
       meetingProtocolTab = "editor";
@@ -63196,6 +63474,7 @@ function normalizeSettings(settings) {
     meetingProtocolLocationOptions: normalizeMeetingProtocolLocationOptions(settings?.meetingProtocolLocationOptions || []),
     financeInvoiceCategories: normalizeFinanceInvoiceCategories(settings?.financeInvoiceCategories),
     financePaymentMethodOptions: normalizeFinancePaymentMethodOptions(settings?.financePaymentMethodOptions),
+    giftCardCalculator: normalizeGiftCardCalculator(settings?.giftCardCalculator),
     providerTargetsByCountry: normalizeProviderTargetsByCountry(settings?.providerTargetsByCountry || {}),
     headerBranding: normalizeHeaderBrandingSettings(settings?.headerBranding || {}),
     adminNotificationDismissedById: normalizeAdminNotificationDismissedById(

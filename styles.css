@@ -11055,6 +11055,422 @@ body.provider-form-open .topbar {
   }
 }
 
+/* Geschenkkarten-Kalkulator – ruhiges Superadmin-Controlling im Apple-Stil. */
+.gift-card-calculator-section {
+  max-width: 1180px;
+  gap: 22px;
+  border: 1px solid rgba(60, 60, 67, 0.13);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(0, 113, 227, 0.1), transparent 32%),
+    #f5f5f7;
+  box-shadow: 0 24px 60px rgba(28, 28, 31, 0.07);
+  padding: clamp(20px, 4vw, 40px);
+}
+
+.gift-card-calculator-header {
+  align-items: flex-start;
+}
+
+.gift-card-calculator-header h2 {
+  color: #1d1d1f;
+  font-size: clamp(2rem, 4vw, 3.1rem);
+  letter-spacing: -0.045em;
+  line-height: 1.06;
+}
+
+.gift-card-calculator-header p:not(.gift-card-calculator-eyebrow) {
+  max-width: 620px;
+  color: #6e6e73;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.gift-card-calculator-eyebrow {
+  margin: 0 0 4px;
+  color: #0071e3;
+  font-size: 0.7rem;
+  font-weight: 760;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.gift-card-calculator-private-badge {
+  flex: 0 0 auto;
+  border: 1px solid rgba(60, 60, 67, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  color: #515154;
+  padding: 7px 10px;
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
+.gift-card-calculator-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 12px;
+  border: 1px solid rgba(0, 113, 227, 0.17);
+  border-radius: 16px;
+  background: rgba(0, 113, 227, 0.07);
+  color: #3a3a3c;
+  padding: 13px 15px;
+  font-size: 0.88rem;
+}
+
+.gift-card-calculator-intro strong {
+  color: #0071e3;
+}
+
+.gift-card-calculator-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(310px, 0.8fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.gift-card-calculator-form,
+.gift-card-calculator-results,
+.gift-card-calculator-liquid-card,
+.gift-card-calculator-scenarios {
+  border: 1px solid rgba(60, 60, 67, 0.14);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 16px 38px rgba(20, 31, 46, 0.06);
+}
+
+.gift-card-calculator-form {
+  display: grid;
+  gap: 18px;
+  padding: clamp(18px, 3vw, 28px);
+}
+
+.gift-card-calculator-form-head,
+.gift-card-calculator-scenarios-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gift-card-calculator-form-head h3,
+.gift-card-calculator-liquid-card h3,
+.gift-card-calculator-scenarios h3 {
+  margin: 0;
+  color: #1d1d1f;
+  font-size: 1.18rem;
+  letter-spacing: -0.025em;
+}
+
+.gift-card-calculator-form-head > span {
+  border-radius: 999px;
+  background: #f2f2f7;
+  color: #6e6e73;
+  padding: 5px 8px;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.gift-card-calculator-fieldset {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  border: 0;
+  border-top: 1px solid rgba(60, 60, 67, 0.12);
+  margin: 0;
+  padding: 15px 0 0;
+}
+
+.gift-card-calculator-fieldset legend {
+  color: #515154;
+  font-size: 0.77rem;
+  font-weight: 760;
+  padding: 0;
+}
+
+.gift-card-calculator-input-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.gift-card-calculator-input-grid label,
+.gift-card-calculator-scenario-name {
+  display: grid;
+  gap: 6px;
+  color: #3a3a3c;
+  font-size: 0.75rem;
+  font-weight: 690;
+}
+
+.gift-card-calculator-input-grid input,
+.gift-card-calculator-scenario-name input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  border-radius: 12px;
+  background: #fbfbfd;
+  color: #1d1d1f;
+  padding: 9px 10px;
+  font: inherit;
+  font-weight: 500;
+}
+
+.gift-card-calculator-input-grid input:focus,
+.gift-card-calculator-scenario-name input:focus {
+  border-color: #0071e3;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.14);
+  outline: none;
+}
+
+.gift-card-calculator-actions {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  border-top: 1px solid rgba(60, 60, 67, 0.12);
+  padding-top: 16px;
+}
+
+.gift-card-calculator-actions .btn {
+  min-height: 42px;
+  border-radius: 999px;
+  border-color: #0071e3;
+  background: #0071e3;
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+.gift-card-calculator-actions .mini-btn {
+  min-height: 42px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.gift-card-calculator-results {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.gift-card-calculator-result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.gift-card-calculator-result-card {
+  display: grid;
+  gap: 5px;
+  min-height: 126px;
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 17px;
+  background: #fbfbfd;
+  padding: 14px;
+}
+
+.gift-card-calculator-result-card.is-primary {
+  min-height: 148px;
+  border-color: rgba(0, 113, 227, 0.2);
+  background: linear-gradient(145deg, #0071e3, #0a84ff);
+}
+
+.gift-card-calculator-result-card span {
+  color: #6e6e73;
+  font-size: 0.7rem;
+  font-weight: 720;
+}
+
+.gift-card-calculator-result-card strong {
+  align-self: center;
+  color: #1d1d1f;
+  font-size: clamp(1rem, 2vw, 1.35rem);
+  letter-spacing: -0.025em;
+}
+
+.gift-card-calculator-result-card.is-primary span,
+.gift-card-calculator-result-card.is-primary strong,
+.gift-card-calculator-result-card.is-primary small {
+  color: #fff;
+}
+
+.gift-card-calculator-result-card small {
+  color: #6e6e73;
+  font-size: 0.68rem;
+  line-height: 1.32;
+}
+
+.gift-card-calculator-result-card strong.is-negative {
+  color: #ff3b30;
+}
+
+.gift-card-calculator-result-card.is-primary strong.is-negative {
+  color: #fff2f0;
+}
+
+.gift-card-calculator-result-card strong.is-positive {
+  color: #248a3d;
+}
+
+.gift-card-calculator-result-card.is-primary strong.is-positive {
+  color: #fff;
+}
+
+.gift-card-calculator-warning {
+  border-radius: 14px;
+  background: rgba(52, 199, 89, 0.1);
+  color: #248a3d;
+  padding: 11px 12px;
+  font-size: 0.77rem;
+  line-height: 1.42;
+}
+
+.gift-card-calculator-warning.is-warning {
+  background: rgba(255, 149, 0, 0.12);
+  color: #9b5a00;
+}
+
+.gift-card-calculator-liquid-card,
+.gift-card-calculator-scenarios {
+  padding: clamp(18px, 3vw, 27px);
+}
+
+.gift-card-calculator-liquid-card {
+  display: grid;
+  gap: 18px;
+}
+
+.gift-card-calculator-timeline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.gift-card-calculator-timeline article {
+  display: grid;
+  gap: 6px;
+  border-left: 2px solid rgba(0, 113, 227, 0.35);
+  padding: 2px 10px;
+}
+
+.gift-card-calculator-timeline span,
+.gift-card-calculator-timeline small {
+  color: #6e6e73;
+  font-size: 0.7rem;
+}
+
+.gift-card-calculator-timeline strong {
+  color: #1d1d1f;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.gift-card-calculator-scenarios {
+  display: grid;
+  gap: 15px;
+}
+
+.gift-card-calculator-scenarios-head > span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: #f2f2f7;
+  color: #515154;
+  font-size: 0.77rem;
+  font-weight: 800;
+}
+
+.gift-card-calculator-scenario-list {
+  display: grid;
+  gap: 8px;
+}
+
+.gift-card-calculator-scenario-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 14px;
+  background: #fbfbfd;
+  padding: 12px 13px;
+}
+
+.gift-card-calculator-scenario-item > div:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.gift-card-calculator-scenario-item strong {
+  color: #1d1d1f;
+  font-size: 0.86rem;
+}
+
+.gift-card-calculator-scenario-item span,
+.gift-card-calculator-scenario-empty {
+  color: #6e6e73;
+  font-size: 0.74rem;
+}
+
+.gift-card-calculator-scenario-empty {
+  margin: 0;
+}
+
+.gift-card-calculator-scenario-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+@media (max-width: 860px) {
+  .gift-card-calculator-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .gift-card-calculator-timeline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .gift-card-calculator-section {
+    border-radius: 22px;
+    padding: 18px;
+  }
+
+  .gift-card-calculator-header,
+  .gift-card-calculator-actions,
+  .gift-card-calculator-scenario-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .gift-card-calculator-header {
+    display: flex;
+  }
+
+  .gift-card-calculator-input-grid,
+  .gift-card-calculator-result-grid,
+  .gift-card-calculator-timeline,
+  .gift-card-calculator-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .gift-card-calculator-actions .btn,
+  .gift-card-calculator-actions .mini-btn,
+  .gift-card-calculator-scenario-actions .mini-btn {
+    width: 100%;
+  }
+
+  .gift-card-calculator-scenario-actions {
+    width: 100%;
+  }
+}
+
 /* Formatierten Sekretär-Nachrichten bleibt ihre Struktur in der Glocke erhalten. */
 .ceo-secretary-rich-editor-shell {
   overflow: hidden;
