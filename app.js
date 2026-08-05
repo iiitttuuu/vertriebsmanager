@@ -773,6 +773,8 @@ let incomingInvoiceDraftPayments = [];
 let incomingInvoiceEditingPaymentId = "";
 let incomingInvoiceTaxCalculationSource = "gross";
 let giftCardActiveTab = "coverage";
+let giftCardManualCostOverrides = {};
+let giftCardManualCostValues = {};
 let incomingOffersView = "open";
 let incomingOffersSearchTerm = "";
 let incomingOffersStatusFilter = "all";
@@ -8477,7 +8479,14 @@ function bindEvents() {
     }
   });
   els.giftCardCalculatorFields?.forEach((field) => {
-    field.addEventListener("input", () => renderGiftCardCalculatorResults());
+    field.addEventListener("input", () => {
+      const costKey = String(field.dataset.giftCardField || "").trim();
+      if (GIFT_CARD_PROCUREMENT_COST_ITEMS.some((item) => item.key === costKey)) {
+        giftCardManualCostOverrides[costKey] = true;
+        giftCardManualCostValues[costKey] = field.value;
+      }
+      renderGiftCardCalculatorResults();
+    });
   });
   els.giftCardCalculatorSave?.addEventListener("click", () => {
     void handleGiftCardCalculatorSave();
@@ -47159,7 +47168,11 @@ function normalizeGiftCardCalculator(value) {
     .filter(Boolean)
     .sort((left, right) => String(right.updatedAt).localeCompare(String(left.updatedAt)))
     .slice(0, 24);
-  return { values: normalizeGiftCardCalculatorValues(source.values || source), scenarios };
+  const manualCostOverrides = GIFT_CARD_PROCUREMENT_COST_ITEMS.reduce((overrides, item) => {
+    if (source?.manualCostOverrides?.[item.key] === true) overrides[item.key] = true;
+    return overrides;
+  }, {});
+  return { values: normalizeGiftCardCalculatorValues(source.values || source), scenarios, manualCostOverrides };
 }
 
 function normalizeGiftCardProcurementCostKey(value) {
@@ -47234,6 +47247,20 @@ function normalizeGiftCardProcurement(value) {
 
 function getGiftCardCalculatorSettings() {
   return normalizeGiftCardCalculator(state.settings?.giftCardCalculator || {});
+}
+
+function getGiftCardCalculatorValuesWithProcurement(settings = getGiftCardCalculatorSettings()) {
+  const values = { ...settings.values };
+  const procurement = getGiftCardProcurement();
+  GIFT_CARD_PROCUREMENT_COST_ITEMS.forEach((item) => {
+    if (giftCardManualCostOverrides[item.key] === true) {
+      if (Object.prototype.hasOwnProperty.call(giftCardManualCostValues, item.key)) values[item.key] = giftCardManualCostValues[item.key];
+      return;
+    }
+    const currentPrice = getCurrentGiftCardProcurementPrice(item.key, procurement);
+    if (currentPrice) values[item.key] = currentPrice.unitCost;
+  });
+  return normalizeGiftCardCalculatorValues(values);
 }
 
 function readGiftCardCalculatorValuesFromForm() {
@@ -47318,8 +47345,14 @@ function renderGiftCardCalculatorResults(valuesLike = readGiftCardCalculatorValu
 function renderGiftCardCalculatorSection() {
   if (!isSuperAdmin()) return;
   const settings = getGiftCardCalculatorSettings();
-  applyGiftCardCalculatorValuesToForm(settings.values);
-  renderGiftCardCalculatorResults(settings.values);
+  giftCardManualCostOverrides = { ...settings.manualCostOverrides };
+  giftCardManualCostValues = GIFT_CARD_PROCUREMENT_COST_ITEMS.reduce((values, item) => {
+    if (settings.manualCostOverrides[item.key]) values[item.key] = settings.values[item.key];
+    return values;
+  }, {});
+  const calculatorValues = getGiftCardCalculatorValuesWithProcurement(settings);
+  applyGiftCardCalculatorValuesToForm(calculatorValues);
+  renderGiftCardCalculatorResults(calculatorValues);
   renderGiftCardProcurementSection();
   setGiftCardTab(giftCardActiveTab, { focus: false });
 }
@@ -47344,7 +47377,11 @@ async function handleGiftCardCalculatorSave() {
   setActionButtonBusy(els.giftCardCalculatorSave, true, "Speichert …");
   try {
     const settings = getGiftCardCalculatorSettings();
-    await persistGiftCardCalculator({ ...settings, values: readGiftCardCalculatorValuesFromForm() }, "Kalkulation gespeichert.");
+    await persistGiftCardCalculator({
+      ...settings,
+      values: readGiftCardCalculatorValuesFromForm(),
+      manualCostOverrides: giftCardManualCostOverrides,
+    }, "Kalkulation gespeichert.");
   } finally {
     setActionButtonBusy(els.giftCardCalculatorSave, false);
   }
@@ -47491,6 +47528,8 @@ function handleGiftCardProcurementApplyPrices() {
     const current = getCurrentGiftCardProcurementPrice(item.key, procurement);
     if (current) {
       values[item.key] = current.unitCost;
+      delete giftCardManualCostOverrides[item.key];
+      delete giftCardManualCostValues[item.key];
       applied += 1;
     }
   });
@@ -47500,7 +47539,7 @@ function handleGiftCardProcurementApplyPrices() {
   }
   applyGiftCardCalculatorValuesToForm(values);
   renderGiftCardCalculatorResults(values);
-  showSuccessFeedback(`${applied} aktuelle Preisstände in die Kalkulation übernommen. Anschließend bitte den Kalkulationsstand speichern.`, { toast: false, statusPersistMs: 2600 });
+  showSuccessFeedback(`${applied} aktuelle Preisstände in die Kalkulation übernommen. Manuelle Überschreibungen wurden dafür zurückgesetzt; anschließend bitte den Kalkulationsstand speichern.`, { toast: false, statusPersistMs: 3000 });
 }
 
 function handleGiftCardProcurementSourceChange(event) {

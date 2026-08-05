@@ -632,10 +632,13 @@ assert.match(indexSource, /Direkte Kosten/, "Die Geschenkkarten-Ansicht zeigt di
 assert.match(indexSource, /id="gift-card-procurement-sources"/, "Die Geschenkkarten-Ansicht bietet Lieferanten- und Belegzuordnungen je Kostenstelle.");
 assert.match(appSource, /function normalizeGiftCardProcurement/, "Preisstände werden strukturiert gespeichert.");
 assert.match(appSource, /function handleGiftCardProcurementPriceSave/, "Preisstände lassen sich je Kostenstelle mit einem Lieferanten sichern.");
+assert.match(appSource, /function getGiftCardCalculatorValuesWithProcurement/, "Aktuelle Beschaffungspreise fließen automatisch in die Kostendeckung ein.");
+assert.match(appSource, /manualCostOverrides/, "Manuelle Kostenüberschreibungen bleiben gegenüber Beschaffungspreisen erhalten.");
 assert.match(appSource, /data-gift-card-procurement-quantity/, "Preisstände erfassen die Stückzahl des jeweiligen Belegs.");
 assert.match(appSource, /totalNetInput\.value = String\(invoice\.totalNet \|\| 0\)/, "Die Auswahl einer Rechnung übernimmt ihren Nettobetrag in den Preisstand.");
 assert.match(appSource, /function handleGiftCardProcurementPriceDelete/, "Gespeicherte Preisstände können wieder gelöscht werden.");
 assert.match(indexSource, /data-gift-card-tab="procurement"/, "Beschaffung und Nachweis sind als eigener Geschenkkarten-Tab verfügbar.");
+assert.match(stylesSource, /\.gift-card-tabs \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[\s\S]*border-radius: 14px;/, "Die Geschenkkarten-Tabs folgen dem Stil der Sekretär-Ansicht.");
 assert.match(appSource, /function handleGiftCardProcurementOpenInvoice/, "Verknüpfte Rechnungsbelege werden vor dem Öffnen zuverlässig geladen.");
 assert.match(appSource, /function handleGiftCardProcurementApplyPrices/, "Aktuelle Lieferantenpreise lassen sich in die Kostendeckung übernehmen.");
 assert.match(indexSource, /data-ceo-secretary-message-format="bullet"/, "Glocken-Nachrichten können als Aufzählung formatiert werden.");
