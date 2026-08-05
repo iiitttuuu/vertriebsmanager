@@ -12557,6 +12557,7 @@ function getOpenTopicRequestEntries() {
         id: String(entry?.id || "").trim(),
         topic: String(entry?.topic || "").trim(),
         note: String(entry?.note || "").trim(),
+        providerId: String(entry?.providerId || "").trim(),
         providerName: String(entry?.providerName || "").trim(),
         requestedByName: String(entry?.requestedByName || "Mitarbeiter").trim() || "Mitarbeiter",
         requestedByUserId: normalizeUserId(entry?.requestedByUserId || ""),
@@ -12571,7 +12572,7 @@ function getOpenTopicRequestEntries() {
 function normalizeTopicRequestTableRows(rows = []) {
   return (Array.isArray(rows) ? rows : []).map((row) => ({
     id: String(row?.id || "").trim(), topic: String(row?.topic || "").trim(), note: String(row?.note || "").trim(),
-    providerName: String(row?.provider_name || "").trim(), requestedByName: String(row?.requested_by_name || "Mitarbeiter").trim() || "Mitarbeiter",
+    providerId: String(row?.provider_id || "").trim(), providerName: String(row?.provider_name || "").trim(), requestedByName: String(row?.requested_by_name || "Mitarbeiter").trim() || "Mitarbeiter",
     requestedByUserId: normalizeUserId(row?.requested_by_user_id || ""), createdAt: String(row?.requested_at || row?.created_at || "").trim(), status: String(row?.status || "open").trim(), resolvedTopicName: String(row?.resolved_topic_name || "").trim(),
   })).filter((entry) => entry.id && entry.topic);
 }
@@ -13723,111 +13724,135 @@ function openTopicRequestResolutionModal(requestId) {
   const request = getOpenTopicRequestEntries().find((entry) => entry.id === String(requestId || ""));
   if (!request || !isSuperAdmin()) return;
   document.getElementById("topic-request-resolution-modal")?.remove();
-  const categories = (state.categories || []).slice().sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "de"));
-  const providers = (state.providers || []).slice().sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "de"));
-  const guessedProvider = providers.find((provider) => normalizeText(provider.name) === normalizeText(request.providerName));
+  const provider = state.providers.find((entry) => String(entry?.id || "") === request.providerId)
+    || state.providers.find((entry) => normalizeText(entry?.name || "") === normalizeText(request.providerName))
+    || null;
   const modal = document.createElement("div");
   modal.id = "topic-request-resolution-modal"; modal.className = "topic-request-modal";
-  modal.innerHTML = `<div class="topic-request-modal-card topic-request-resolution-card"><button type="button" data-close-topic-resolution aria-label="Schließen">×</button><p>KATEGORIEANFRAGE</p><h3>${escapeHtml(request.topic)}</h3><p>Kategorie und Themenbereich stammen ausschließlich aus den Stammdaten.</p><form><label>Vorgehen<select name="mode"><option value="new">Angefragtes Thema neu anlegen</option><option value="existing">Bestehendes Thema zuordnen</option></select></label><section class="topic-request-master-data"><p>Zuordnung aus Stammdaten</p><div><label>Kategorie<select name="categoryId" required>${categories.map((category) => `<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)}</option>`).join("")}</select></label><label>Themenbereich<select name="subcategoryId" required></select></label></div></section><label data-topic-new-fields>Thema<input name="topic" required value="${escapeHtml(request.topic)}" /></label><label data-topic-existing-field class="hidden">Bestehendes Thema<select name="existingTopicId"></select></label><label>Anbieter<select name="providerId"><option value="">Keinen Anbieter zuordnen</option>${providers.map((provider) => `<option value="${escapeHtml(provider.id)}" ${(provider.id === guessedProvider?.id) ? "selected" : ""}>${escapeHtml(provider.name)}</option>`).join("")}</select></label><button type="submit" class="btn btn-primary">Erledigen &amp; Mitarbeiter informieren</button></form></div>`;
+  modal.innerHTML = `<div class="topic-request-modal-card topic-request-resolution-card"><button type="button" data-close-topic-resolution aria-label="Schließen">×</button><p>KATEGORIEANFRAGE · KI-ZUORDNUNG</p><h3>${escapeHtml(request.topic)}</h3><div class="topic-request-ai-context"><strong>${provider ? `Anbieter „${escapeHtml(provider.name)}“ wird automatisch zugeordnet.` : "Kein verknüpfter Anbieter gefunden."}</strong><span>Die KI prüft zuerst bestehende Themen und Synonyme. Änderungen werden erst nach deiner Bestätigung gespeichert.</span></div><button type="button" class="btn btn-primary" data-topic-request-ai-analyze>KI-Zuordnung prüfen</button><div class="topic-request-ai-result hidden" aria-live="polite"></div></div>`;
   document.body.appendChild(modal);
-  const form = modal.querySelector("form");
-  const refreshMasterData = () => {
-    const selectedCategoryId = String(form.elements.categoryId.value || "").trim();
-    const category =
-      categories.find((entry) => String(entry?.id || "").trim() === selectedCategoryId) || categories[0] || null;
-    const subcategories = Array.isArray(category?.subcategories) ? category.subcategories : [];
-    const previousSubcategoryId = String(form.elements.subcategoryId.value || "").trim();
-    form.elements.subcategoryId.innerHTML = subcategories.length
-      ? subcategories
-          .map(
-            (subcategory) =>
-              `<option value="${escapeHtml(subcategory.id)}">${escapeHtml(subcategory.name)}</option>`
-          )
-          .join("")
-      : '<option value="">Keine Themenbereiche vorhanden</option>';
-    const subcategory =
-      subcategories.find((entry) => String(entry?.id || "").trim() === previousSubcategoryId) ||
-      subcategories[0] ||
-      null;
-    if (subcategory) {
-      form.elements.subcategoryId.value = String(subcategory.id || "");
+  let suggestion = null;
+  const result = modal.querySelector(".topic-request-ai-result");
+  const renderSuggestion = () => {
+    const target = getManagementAiSuggestionTarget(suggestion);
+    if (!target) {
+      result.innerHTML = "<strong>Kein sicherer KI-Vorschlag verfügbar.</strong><span>Bitte die Anfrage später erneut prüfen.</span>";
+      return;
     }
-    const topics = Array.isArray(subcategory?.topics) ? subcategory.topics : [];
-    const previousTopicId = String(form.elements.existingTopicId.value || "").trim();
-    form.elements.existingTopicId.innerHTML = topics.length
-      ? topics
-          .map((topic) => `<option value="${escapeHtml(topic.id)}">${escapeHtml(topic.name)}</option>`)
-          .join("")
-      : '<option value="">Keine Themen vorhanden</option>';
-    const topic = topics.find((entry) => String(entry?.id || "").trim() === previousTopicId) || topics[0] || null;
-    if (topic) {
-      form.elements.existingTopicId.value = String(topic.id || "");
+    const providerText = provider ? `Anbieter „${escapeHtml(provider.name)}“ wird zugeordnet.` : "Kein Anbieter wird zugeordnet.";
+    const reason = suggestion.reason ? `<span>${escapeHtml(suggestion.reason)}</span>` : "";
+    if (target.kind === "synonym") {
+      const { category, subcategory, topic } = target.location;
+      result.innerHTML = `<strong>„${escapeHtml(request.topic)}“ wird als Synonym zu „${escapeHtml(topic.name)}“ gespeichert.</strong><span>${escapeHtml(category.name)} › ${escapeHtml(subcategory.name)} › ${escapeHtml(topic.name)}</span><span>${providerText}</span>${reason}<button type="button" class="btn btn-success" data-topic-request-ai-apply>Vorschlag übernehmen</button>`;
+      return;
     }
-    form.elements.subcategoryId.disabled = !subcategories.length;
-    form.elements.existingTopicId.disabled = !topics.length;
+    const { category, subcategory } = target.location;
+    const topicName = suggestion.suggestedTopicName || request.topic;
+    const synonyms = normalizeManagementAiSynonyms(suggestion.suggestedSynonyms, topicName);
+    const chips = synonyms.length ? `<div class="topic-request-ai-synonyms">${synonyms.map((name) => `<button type="button" data-topic-request-ai-remove-synonym="${escapeHtml(name)}">${escapeHtml(name)} ×</button>`).join("")}</div>` : "";
+    const inherited = target.kind === "new_umbrella_topic" ? `<span>„${escapeHtml(target.existingLocation.topic.name)}“ wird als Synonym übernommen; bestehende Anbieter-Verknüpfungen bleiben erhalten.</span>` : "";
+    result.innerHTML = `<strong>Neues Thema „${escapeHtml(topicName)}“ wird angelegt.</strong><span>${escapeHtml(category.name)} › ${escapeHtml(subcategory.name)}</span>${inherited}<span>${providerText}</span>${reason}${chips}<button type="button" class="btn btn-success" data-topic-request-ai-apply>Vorschlag übernehmen</button>`;
   };
-  refreshMasterData();
-  form.elements.categoryId.addEventListener("change", refreshMasterData);
-  form.elements.subcategoryId.addEventListener("change", refreshMasterData);
-  form.elements.mode.addEventListener("change", () => { const existing = form.elements.mode.value === "existing"; form.querySelector("[data-topic-new-fields]").classList.toggle("hidden", existing); form.querySelector("[data-topic-existing-field]").classList.toggle("hidden", !existing); });
-  modal.addEventListener("click", (event) => { if (event.target === modal || event.target.closest("[data-close-topic-resolution]")) modal.remove(); });
-  form.addEventListener("submit", async (event) => { event.preventDefault(); if (await resolveTopicRequest(request, form)) modal.remove(); });
+  modal.addEventListener("click", async (event) => {
+    if (event.target === modal || event.target.closest("[data-close-topic-resolution]")) { modal.remove(); return; }
+    const analyzeButton = event.target.closest("button[data-topic-request-ai-analyze]");
+    if (analyzeButton) {
+      result.classList.remove("hidden");
+      result.innerHTML = "<strong>KI prüft die passende Zuordnung …</strong>";
+      setActionButtonBusy(analyzeButton, true, "Prüft …");
+      try {
+        suggestion = { status: "ready", ...(await requestManagementAiSuggestion(request.topic)) };
+        renderSuggestion();
+      } catch (error) {
+        result.innerHTML = `<strong>KI-Zuordnung derzeit nicht verfügbar.</strong><span>${escapeHtml(String(error?.message || "Bitte erneut versuchen."))}</span>`;
+      } finally {
+        setActionButtonBusy(analyzeButton, false);
+      }
+      return;
+    }
+    const removeButton = event.target.closest("button[data-topic-request-ai-remove-synonym]");
+    if (removeButton && suggestion) {
+      const name = String(removeButton.dataset.topicRequestAiRemoveSynonym || "");
+      suggestion.suggestedSynonyms = normalizeManagementAiSynonyms((suggestion.suggestedSynonyms || []).filter((entry) => normalizeText(entry) !== normalizeText(name)), suggestion.suggestedTopicName);
+      renderSuggestion();
+      return;
+    }
+    const applyButton = event.target.closest("button[data-topic-request-ai-apply]");
+    if (applyButton && suggestion) {
+      setActionButtonBusy(applyButton, true, "Speichert …");
+      const completed = await resolveTopicRequestWithAi(request, suggestion, provider);
+      if (completed) modal.remove();
+      else setActionButtonBusy(applyButton, false);
+    }
+  });
 }
 
-async function resolveTopicRequest(request, form) {
-  const button = form.querySelector('button[type="submit"]');
-  setActionButtonBusy(button, true, "Speichert …");
+async function resolveTopicRequestWithAi(request, suggestion, provider) {
   try {
-    const formData = new FormData(form); const mode = String(formData.get("mode") || "new");
-    let topic = null;
-    if (mode === "existing") topic = getTopicById(String(formData.get("existingTopicId") || ""));
-    else {
-      const category = state.categories.find((entry) => entry.id === String(formData.get("categoryId") || ""));
-      const subcategory = (category?.subcategories || []).find((entry) => entry.id === String(formData.get("subcategoryId") || ""));
-      const topicName = String(formData.get("topic") || "").trim();
-      if (!category || !subcategory || !topicName) throw new Error("Bitte Kategorie, Themenbereich und Thema aus den Stammdaten auswählen.");
-      topic = findTopicByNormalizedName(topicName);
-      if (topic) {
-        throw new Error(
-          `Dieses Thema besteht bereits unter „${topic.categoryName} > ${topic.subcategoryName}“. Bitte „Bestehendes Thema zuordnen“ wählen.`
-        );
-      }
-      topic = { id: createId("topic"), name: topicName }; subcategory.topics.push(topic);
-      topic = { ...topic, categoryName: category.name, subcategoryName: subcategory.name };
-    }
-    if (!topic) throw new Error("Bitte ein Thema auswählen.");
-    const providerId = String(formData.get("providerId") || "").trim(); const provider = state.providers.find((entry) => entry.id === providerId);
-    if (provider) {
-      const topicIds = Array.isArray(provider.topicIds) ? provider.topicIds : [];
-      if (!topicIds.includes(topic.id)) provider.topicIds = [...topicIds, topic.id];
-    }
-    const actor = getCurrentActorInfo(); const status = mode === "existing" ? "rejected" : "resolved";
+    const target = getManagementAiSuggestionTarget(suggestion);
+    if (!target) throw new Error("Der KI-Vorschlag ist nicht mehr gültig.");
+    if (request.providerId && !provider) throw new Error("Der verknüpfte Anbieter wurde nicht gefunden.");
     const client = getSupabaseClient(); if (!client) throw new Error("Supabase-Verbindung nicht verfügbar.");
-    // Übergangsweise existieren ältere Anfragen noch im app_state. Den dortigen
-    // Spiegel sofort mit aktualisieren, damit ein Remote-Abgleich die erledigte
-    // Anfrage nicht wieder als "offen" in das Dashboard zurückbringt.
-    state.settings = normalizeSettings({
-      ...state.settings,
-      topicRequests: (Array.isArray(state.settings?.topicRequests) ? state.settings.topicRequests : []).map((entry) =>
-        entry.id === request.id
-          ? { ...entry, status, resolvedTopicName: topic.name }
-          : entry
-      ),
-    });
-    const saved = await persistCriticalStateSnapshot({ retries: 3, persistCategories: true });
-    if (!saved?.ok) throw new Error("Thema und Anbieterzuordnung konnten nicht gespeichert werden.");
-    if (provider) {
-      const sync = await syncProvidersTableWithState(state.providers, { upsertProviderIds: [provider.id] });
-      if (!sync?.ok) throw new Error("Anbieterzuordnung konnte nicht in Supabase gespeichert werden.");
+    let topic = null;
+    if (target.kind === "synonym") {
+      topic = target.location.topic;
+      const normalizedRequest = normalizeText(request.topic);
+      if (!getTopicSubtopics(topic.id).some((entry) => entry.normalizedName === normalizedRequest)) {
+        const savedSynonym = await insertTopicSubtopicWithRetry(topic.id, request.topic, normalizedRequest);
+        if (!savedSynonym.ok || !savedSynonym.entry) throw new Error("Synonym konnte nicht gespeichert werden.");
+        topicSubtopics.push(savedSynonym.entry);
+        recordCategoryTransferSynonymChanges([], [savedSynonym.entry]);
+      }
+      if (provider) {
+        provider.topicIds = Array.from(new Set([...(provider.topicIds || []), topic.id]));
+        const synced = await syncProvidersTableWithState(state.providers, { upsertProviderIds: [provider.id] });
+        if (!synced?.ok) throw new Error("Anbieterzuordnung konnte nicht gespeichert werden.");
+      }
+    } else {
+      const { category, subcategory } = target.location;
+      const topicName = String(suggestion.suggestedTopicName || request.topic).trim().slice(0, 120);
+      if (findTopicByNormalizedName(topicName)) throw new Error("Das vorgeschlagene Thema besteht bereits.");
+      const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
+      const previousProvidersSnapshot = JSON.parse(JSON.stringify(state.providers));
+      const previousSelection = { categoryId: selectedCategoryId, subcategoryId: selectedSubcategoryId };
+      const inheritedSynonyms = target.kind === "new_umbrella_topic"
+        ? [target.existingLocation.topic.name, ...getTopicSubtopics(target.existingLocation.topic.id).map((entry) => entry.name)]
+        : [];
+      const sourceTopicId = target.kind === "new_umbrella_topic" ? target.existingLocation.topic.id : "";
+      topic = { id: createId("topic"), name: topicName };
+      if (target.kind === "new_umbrella_topic") {
+        target.existingLocation.subcategory.topics.splice(target.existingLocation.topicIndex, 1);
+        replaceTopicIdsForProviders([sourceTopicId], topic.id);
+      }
+      subcategory.topics.push(topic);
+      if (provider) provider.topicIds = Array.from(new Set([...(provider.topicIds || []), topic.id]));
+      selectedCategoryId = category.id;
+      selectedSubcategoryId = subcategory.id;
+      managementCategorySaveRevision += 1;
+      const savedStructure = await persistManagementCategoryStructureChange(
+        previousCategoriesSnapshot,
+        previousSelection,
+        "Thema und Anbieterzuordnung konnten nicht dauerhaft gespeichert werden.",
+        managementCategorySaveRevision,
+        { providersSync: provider || target.kind === "new_umbrella_topic" ? { forceFullSync: true } : null, previousProvidersSnapshot }
+      );
+      if (!savedStructure) return false;
+      const synonymsSaved = await replaceCategoryCsvImportSynonyms([{
+        topicId: topic.id,
+        names: [...inheritedSynonyms, ...(suggestion.suggestedSynonyms || [])],
+      }]);
+      if (!synonymsSaved) throw new Error("Synonyme konnten nicht vollständig gespeichert werden.");
+      const savedSynonyms = getTopicSubtopics(topic.id);
+      recordCategoryTransferSynonymChanges([], savedSynonyms);
+      if (sourceTopicId && !(await deleteTopicSubtopicsOnServer([sourceTopicId]))) throw new Error("Bisherige Synonyme konnten nicht bereinigt werden.");
     }
-    const { error } = await client.from(TOPIC_REQUESTS_TABLE).update({ status, provider_id: providerId || null, resolved_topic_id: topic.id, resolved_topic_name: topic.name, resolved_by_user_id: actor.userId, resolved_by_name: actor.name, resolved_at: new Date().toISOString(), resolution_note: mode === "existing" ? "Bestehendes Thema wurde zugeordnet." : "Thema wurde neu angelegt." }).eq("id", request.id);
+    const actor = getCurrentActorInfo();
+    const { error } = await client.from(TOPIC_REQUESTS_TABLE).update({ status: "resolved", provider_id: provider?.id || request.providerId || null, resolved_topic_id: topic.id, resolved_topic_name: topic.name, resolved_by_user_id: actor.userId, resolved_by_name: actor.name, resolved_at: new Date().toISOString(), resolution_note: "KI-Zuordnung übernommen." }).eq("id", request.id);
     if (error) throw error;
-    await hydrateTopicRequestsFromSupabase(); renderAll(); showSuccessFeedback("Thema zugeordnet und Mitarbeiter informiert."); return true;
+    await hydrateTopicRequestsFromSupabase(); renderAll(); showSuccessFeedback(`KI-Zuordnung übernommen${provider ? ` und „${provider.name}“ dem Thema zugeordnet` : ""}.`); return true;
   } catch (error) {
     showErrorFeedback(`Kategorieanfrage konnte nicht erledigt werden: ${String(error?.message || "Bitte erneut versuchen.")}`);
     return false;
-  } finally {
-    setActionButtonBusy(button, false);
   }
 }
 

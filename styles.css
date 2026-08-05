@@ -14117,6 +14117,13 @@ button:focus {
 .topic-request-resolution-card [data-topic-new-fields] label { display: grid; gap: 7px; min-width: 0; }
 .topic-request-resolution-card input, .topic-request-resolution-card select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 46px; border: 1px solid #d6e0e9; border-radius: 12px; padding: 11px 12px; color: #172a3d; background: #fff; font: inherit; }
 .topic-request-resolution-card button[type="submit"] { grid-column: 1 / -1; min-height: 48px; }
+.topic-request-ai-context, .topic-request-ai-result { display: grid; gap: 6px; padding: 13px; border: 1px solid #cfe0f0; border-radius: 14px; background: #f5faff; color: #38566f; font-size: .82rem; line-height: 1.4; }
+.topic-request-ai-context strong, .topic-request-ai-result strong { color: #244867; }
+.topic-request-ai-result { margin-top: 12px; border-color: #b9d8c2; background: #f2fbf4; }
+.topic-request-ai-result.hidden { display: none; }
+.topic-request-ai-result .btn { justify-self: start; margin-top: 4px; }
+.topic-request-ai-synonyms { display: flex; flex-wrap: wrap; gap: 6px; }
+.topic-request-ai-synonyms button { border: 1px solid #b8d3c0; border-radius: 999px; padding: 4px 8px; color: #2e6540; background: #fff; font: inherit; font-size: .72rem; cursor: pointer; }
 @media (max-width: 720px) { .topic-request-resolution-card { width: min(100%, 560px); padding: 24px 18px; } .topic-request-resolution-card form, .topic-request-resolution-card .topic-request-master-data > div { grid-template-columns: 1fr; } }
 .topic-request-box[open] summary { margin-bottom: 10px; }
 .topic-request-box form { display: grid; gap: 8px; }
