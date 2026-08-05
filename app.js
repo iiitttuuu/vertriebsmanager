@@ -854,6 +854,7 @@ let managementAiSuggestion = null;
 let managementAiSuggestionQuery = "";
 let managementAiSuggestionTimer = null;
 let managementAiSuggestionRequestId = 0;
+let managementAiStructureReview = { status: "idle", recommendations: [] };
 let managementCategorySaveRevision = 0;
 let managementCategoryOptimisticPersistCount = 0;
 let managementCategoryPersistQueue = Promise.resolve();
@@ -2529,6 +2530,9 @@ const els = {
   managementSearchReset: document.getElementById("management-search-reset"),
   managementSearchMeta: document.getElementById("management-search-meta"),
   managementAiSuggestion: document.getElementById("management-ai-suggestion"),
+  managementAiReviewPanel: document.getElementById("management-ai-review-panel"),
+  managementAiReviewBtn: document.getElementById("management-ai-review-btn"),
+  managementAiReviewResults: document.getElementById("management-ai-review-results"),
   categoryTransferLogMeta: document.getElementById("category-transfer-log-meta"),
   categoryTransferPrintBtn: document.getElementById("category-transfer-print-btn"),
   categoryTransferLogPanel: document.getElementById("category-transfer-log-panel"),
@@ -10756,6 +10760,10 @@ function bindEvents() {
     void applyManagementAiSuggestion();
   });
 
+  els.managementAiReviewBtn?.addEventListener("click", () => {
+    void runManagementAiStructureReview();
+  });
+
   syncProviderCoverageFormState();
   setProviderDetailTab("master");
   syncProviderWebsitePreviewLink();
@@ -17096,6 +17104,7 @@ function renderAll(options = {}) {
   renderSubcategoriesList();
   renderTopicsList();
   renderCategoryTransferLogControls();
+  renderManagementAiStructureReview();
   renderFinanceParametersSection();
   renderGiftCardCalculatorSection();
   renderProviderCoverageCountryDatalist();
@@ -17143,6 +17152,7 @@ function renderManagementSection() {
   renderTopicsList();
   renderManagementAiSuggestion();
   renderCategoryTransferLogControls();
+  renderManagementAiStructureReview();
   applyActionButtonIcons();
 }
 
@@ -58920,6 +58930,97 @@ function normalizeManagementAiSynonyms(values, topicName = "") {
       return true;
     })
     .slice(0, 12);
+}
+
+async function requestManagementAiStructureReview() {
+  const accessToken = await getAuthAccessToken();
+  if (!accessToken) {
+    throw new Error("Login-Token fehlt.");
+  }
+  const response = await fetch(TOPIC_AI_SUGGESTION_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      "X-Supabase-Url": String(window.APP_CONFIG?.SUPABASE_URL || "").trim(),
+    },
+    body: JSON.stringify({ mode: "audit", catalog: getManagementAiCatalog() }),
+  });
+  const payload = await readApiJsonPayload(response);
+  if (!response.ok) {
+    throw new Error(String(payload?.error || "Die KI-Strukturprüfung ist gerade nicht erreichbar."));
+  }
+  return Array.isArray(payload?.recommendations)
+    ? payload.recommendations.map((entry) => ({
+        scope: String(entry?.scope || "").trim(),
+        categoryId: String(entry?.categoryId || "").trim(),
+        subcategoryId: String(entry?.subcategoryId || "").trim(),
+        topicId: String(entry?.topicId || "").trim(),
+        recommendationType: String(entry?.recommendationType || "").trim(),
+        title: String(entry?.title || "").trim().slice(0, 160),
+        description: String(entry?.description || "").trim().slice(0, 420),
+      })).filter((entry) => entry.title && entry.description)
+    : [];
+}
+
+function getManagementAiReviewPath(recommendation) {
+  const topic = findTopicLocation(recommendation?.topicId);
+  if (topic) return `${topic.category.name} › ${topic.subcategory.name} › ${topic.topic.name}`;
+  const subcategory = findSubcategoryLocation(recommendation?.subcategoryId);
+  if (subcategory) return `${subcategory.category.name} › ${subcategory.subcategory.name}`;
+  const category = state.categories.find((entry) => String(entry?.id || "") === String(recommendation?.categoryId || ""));
+  return category?.name || "Bestehende Struktur";
+}
+
+function renderManagementAiStructureReview() {
+  const panel = els.managementAiReviewPanel;
+  const button = els.managementAiReviewBtn;
+  const results = els.managementAiReviewResults;
+  if (!panel || !button || !results) {
+    return;
+  }
+  const allowed = isSuperAdmin();
+  panel.classList.toggle("hidden", !allowed);
+  if (!allowed) {
+    return;
+  }
+  if (managementAiStructureReview.status === "idle") {
+    results.classList.add("hidden");
+    results.innerHTML = "";
+    return;
+  }
+  results.classList.remove("hidden");
+  if (managementAiStructureReview.status === "loading") {
+    results.innerHTML = "<p>Die KI prüft nur auf wirklich relevante Verbesserungen …</p>";
+    return;
+  }
+  if (managementAiStructureReview.status === "error") {
+    results.innerHTML = `<p class="is-error">${escapeHtml(managementAiStructureReview.message || "Die Strukturprüfung ist gerade nicht erreichbar.")}</p>`;
+    return;
+  }
+  const recommendations = managementAiStructureReview.recommendations || [];
+  if (!recommendations.length) {
+    results.innerHTML = "<p>Keine klaren Änderungen empfohlen. Die bestehende Struktur wirkt für die Anbieter-Zuordnung plausibel.</p>";
+    return;
+  }
+  results.innerHTML = `<p class="management-ai-review-note">${recommendations.length} klare ${recommendations.length === 1 ? "Empfehlung" : "Empfehlungen"} – keine davon wurde automatisch umgesetzt.</p>${recommendations.map((entry) => `<article><span>${escapeHtml(getManagementAiReviewPath(entry))}</span><strong>${escapeHtml(entry.title)}</strong><p>${escapeHtml(entry.description)}</p></article>`).join("")}`;
+}
+
+async function runManagementAiStructureReview() {
+  if (!isSuperAdmin()) {
+    return;
+  }
+  managementAiStructureReview = { status: "loading", recommendations: [] };
+  renderManagementAiStructureReview();
+  setActionButtonBusy(els.managementAiReviewBtn, true, "Prüft …");
+  try {
+    managementAiStructureReview = { status: "ready", recommendations: await requestManagementAiStructureReview() };
+  } catch (error) {
+    managementAiStructureReview = { status: "error", recommendations: [], message: String(error?.message || "Die Strukturprüfung ist gerade nicht erreichbar.") };
+  } finally {
+    setActionButtonBusy(els.managementAiReviewBtn, false);
+    renderManagementAiStructureReview();
+  }
 }
 
 function scheduleManagementAiSuggestion() {

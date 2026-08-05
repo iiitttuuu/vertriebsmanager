@@ -16986,6 +16986,78 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   font-size: 0.69rem;
 }
 
+.management-ai-review-content {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-top: 1px solid #e6ebf2;
+  background: #fbfdff;
+}
+
+.management-ai-review-content > p {
+  margin: 0;
+  color: #566d86;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.management-ai-review-content > .btn {
+  justify-self: start;
+}
+
+.management-ai-review-results {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.management-ai-review-results.hidden {
+  display: none;
+}
+
+.management-ai-review-results > p {
+  margin: 0;
+  color: #4c647e;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.management-ai-review-results > p.is-error {
+  color: #9d3030;
+}
+
+.management-ai-review-results article {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid #d8e3ef;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.management-ai-review-results article > span {
+  color: #52718f;
+  font-size: 0.69rem;
+  font-weight: 700;
+}
+
+.management-ai-review-results article > strong {
+  color: #274765;
+  font-size: 0.79rem;
+}
+
+.management-ai-review-results article > p {
+  margin: 0;
+  color: #506174;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.management-ai-review-note {
+  color: #2f6e46 !important;
+  font-weight: 700;
+}
+
 .management-fixed-category-hint {
   margin: 0 0 8px;
   padding: 8px 9px;

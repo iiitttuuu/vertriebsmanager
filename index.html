@@ -4521,14 +4521,6 @@
         <section id="management-section" class="panel card">
           <div class="section-header">
             <h2>Verwaltung</h2>
-            <p>Kategorien, Unterkategorien und Themen nebeneinander, dynamisch und schnell verwalten.</p>
-          </div>
-
-          <div class="management-save-panel">
-            <div>
-              <strong>Stammdaten verbindlich speichern</strong>
-              <p>Speichert Kategorien, Themenbereiche und Themen zentral und prüft anschließend den Serverstand.</p>
-            </div>
             <button type="button" id="management-save-btn" class="btn btn-success admin-lock">Änderungen speichern</button>
           </div>
 
@@ -4547,6 +4539,18 @@
           </div>
 
           <div id="management-ai-suggestion" class="management-ai-suggestion hidden" aria-live="polite"></div>
+
+          <details id="management-ai-review-panel" class="management-export-accordion management-ai-review hidden">
+            <summary>
+              <span>KI-Strukturprüfung</span>
+              <small>Nur klare, relevante Verbesserungen</small>
+            </summary>
+            <div class="management-ai-review-content">
+              <p>Prüft Themenbereiche, Themen und Synonyme auf logische Zuordnung und bessere Auffindbarkeit für Angebote, Kurse, Workshops und Seminare. Es werden keine Änderungen automatisch vorgenommen.</p>
+              <button type="button" id="management-ai-review-btn" class="btn btn-primary">Struktur prüfen</button>
+              <div id="management-ai-review-results" class="management-ai-review-results hidden" aria-live="polite"></div>
+            </div>
+          </details>
 
           <details class="management-export-accordion">
             <summary>
