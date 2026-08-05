@@ -12,6 +12,9 @@ const GIFT_CARD_CALCULATOR_DEFAULT_VALUES = Object.freeze({
   cardProductionCost: 0,
   shippingCost: 0,
   packagingCost: 0,
+  greetingCardCost: 0,
+  envelopeCost: 0,
+  handlingCost: 0,
   paymentFeeRate: 0,
   paymentFeeFixed: 0,
   partnerCommissionRate: 0,
@@ -47104,6 +47107,9 @@ function normalizeGiftCardCalculatorValues(valuesLike = {}) {
     cardProductionCost: sanitizeGiftCardCalculatorNumber(valuesLike?.cardProductionCost, 0),
     shippingCost: sanitizeGiftCardCalculatorNumber(valuesLike?.shippingCost, 0),
     packagingCost: sanitizeGiftCardCalculatorNumber(valuesLike?.packagingCost, 0),
+    greetingCardCost: sanitizeGiftCardCalculatorNumber(valuesLike?.greetingCardCost, 0),
+    envelopeCost: sanitizeGiftCardCalculatorNumber(valuesLike?.envelopeCost, 0),
+    handlingCost: sanitizeGiftCardCalculatorNumber(valuesLike?.handlingCost, 0),
     paymentFeeRate: sanitizeGiftCardCalculatorNumber(valuesLike?.paymentFeeRate, 0, { max: 100 }),
     paymentFeeFixed: sanitizeGiftCardCalculatorNumber(valuesLike?.paymentFeeFixed, 0),
     partnerCommissionRate: sanitizeGiftCardCalculatorNumber(valuesLike?.partnerCommissionRate, 0, { max: 100 }),
@@ -47161,7 +47167,13 @@ function calculateGiftCardCostCoverage(valuesLike) {
   const values = normalizeGiftCardCalculatorValues(valuesLike);
   const chargedPerCard = values.shippingCharged + values.packagingCharged;
   const variablePaymentFeePerCard = (values.cardValue + chargedPerCard) * (values.paymentFeeRate / 100);
-  const directCostPerCardBeforeFixedFee = values.cardProductionCost + values.shippingCost + values.packagingCost + variablePaymentFeePerCard;
+  const directCostPerCardBeforeFixedFee = values.cardProductionCost
+    + values.shippingCost
+    + values.packagingCost
+    + values.greetingCardCost
+    + values.envelopeCost
+    + values.handlingCost
+    + variablePaymentFeePerCard;
   const multiply = (number) => number * values.units;
   const charged = multiply(chargedPerCard);
   const directCosts = multiply(directCostPerCardBeforeFixedFee) + values.paymentFeeFixed;
