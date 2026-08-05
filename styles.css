@@ -10933,6 +10933,128 @@ body.provider-form-open .topbar {
   }
 }
 
+/* CEO-Sekretär – Zusagen werden als eigene, täglich priorisierte Schleife geführt. */
+.ceo-secretary-commitment-radar {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+  border: 1px solid rgba(255, 149, 0, 0.24);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 149, 0, 0.1), rgba(255, 255, 255, 0.72));
+  padding: 16px;
+}
+
+.ceo-secretary-commitment-radar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.ceo-secretary-commitment-radar h4 {
+  margin: 2px 0 0;
+  color: #1d1d1f;
+  font-size: 1rem;
+  letter-spacing: -0.015em;
+}
+
+.ceo-secretary-commitment-count {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: #ff9500;
+  color: #fff;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.ceo-secretary-commitment-summary,
+.ceo-secretary-commitment-empty {
+  margin: 0;
+  color: #6e6e73;
+  font-size: 0.83rem;
+  line-height: 1.42;
+}
+
+.ceo-secretary-commitment-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ceo-secretary-commitment-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 10px 11px;
+}
+
+.ceo-secretary-commitment-item.is-overdue {
+  background: rgba(255, 59, 48, 0.08);
+}
+
+.ceo-secretary-commitment-item > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.ceo-secretary-commitment-item strong {
+  color: #1d1d1f;
+  font-size: 0.82rem;
+}
+
+.ceo-secretary-commitment-item small {
+  color: #6e6e73;
+  font-size: 0.72rem;
+}
+
+.ceo-secretary-commitment-item .mini-btn {
+  min-width: 82px;
+  margin-left: auto;
+}
+
+.ceo-secretary-message-sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+}
+
+.ceo-secretary-message-sources > span {
+  color: #6e6e73;
+  font-size: 0.63rem;
+  font-weight: 750;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.ceo-secretary-message-sources small {
+  border: 1px solid rgba(60, 60, 67, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+  color: #515154;
+  padding: 3px 6px;
+  font-size: 0.65rem;
+  line-height: 1.25;
+}
+
+@media (max-width: 700px) {
+  .ceo-secretary-commitment-item {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .ceo-secretary-commitment-item .mini-btn {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
 /* Formatierten Sekretär-Nachrichten bleibt ihre Struktur in der Glocke erhalten. */
 .ceo-secretary-rich-editor-shell {
   overflow: hidden;

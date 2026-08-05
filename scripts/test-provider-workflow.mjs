@@ -5,6 +5,7 @@ import vm from "node:vm";
 const appSource = readFileSync(new URL("../app.js", import.meta.url), "utf8");
 const indexSource = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const stylesSource = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+const apiSecretarySource = readFileSync(new URL("../api/ceo-secretary/process.js", import.meta.url), "utf8");
 const providerDeletionPolicySource = readFileSync(
   new URL("../supabase/patch_provider_deletion_lifecycle.sql", import.meta.url),
   "utf8"
@@ -618,6 +619,12 @@ assert.match(indexSource, /id="ceo-secretary-team-message-form"/, "Der Sekretär
 assert.match(indexSource, /data-ceo-secretary-view="notifications"[\s\S]*>Glocke/, "Glockenmeldungen haben einen eigenen CEO-Office-Tab.");
 assert.match(indexSource, /id="ceo-secretary-view-notifications"[\s\S]*id="ceo-secretary-team-message-form"/, "Das Nachrichtenformular liegt ausschließlich im Glocken-Tab.");
 assert.match(appSource, /\["secretary", "briefing", "memory", "notifications"\]/, "Der Glocken-Tab wird im CEO Office als gültige Ansicht gerendert.");
+assert.match(indexSource, /ceo-secretary-commitment-radar/, "Das CEO-Briefing enthält einen eigenen Zusagen-Radar.");
+assert.match(appSource, /function getCeoSecretaryCommitmentEntries/, "Offene Zusagen werden für das CEO-Briefing gezielt priorisiert.");
+assert.match(appSource, /function scheduleCeoSecretaryDailyReminder/, "Der Sekretär erstellt täglich eine proaktive Erinnerung.");
+assert.match(appSource, /ceo-secretary-message-sources/, "Sekretär-Antworten zeigen ihre verwendeten Quellen an.");
+assert.match(appSource, /sources: Array\.isArray\(payload\?\.sources\)/, "Quellen werden aus der sicheren Sekretär-Antwort übernommen.");
+assert.match(apiSecretarySource, /required: \["reply", "entries", "actions", "crm_actions", "memory_updates", "sources"\]/, "Die KI-Antwort verlangt Quellenangaben.");
 assert.match(indexSource, /data-ceo-secretary-message-format="bullet"/, "Glocken-Nachrichten können als Aufzählung formatiert werden.");
 assert.match(indexSource, /data-ceo-secretary-message-format="ordered"/, "Glocken-Nachrichten können nummeriert werden.");
 assert.match(appSource, /function sanitizeSecretaryEmployeeMessageHtml/, "Nachrichten-Formatierung wird vor dem Speichern sicher bereinigt.");

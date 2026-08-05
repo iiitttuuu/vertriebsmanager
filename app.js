@@ -3,6 +3,7 @@ const PROVIDER_EDITOR_RESUME_STORAGE_KEY = "vertriebsmanager_provider_editor_res
 const PROVIDER_EDITOR_RESUME_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const SALES_DASHBOARD_LOCAL_LAYOUT_STORAGE_KEY = "vertriebsmanager_sales_dashboard_layout_v1";
 const DAILY_SALES_PROGRESS_STORAGE_KEY = "vertriebsmanager_daily_sales_progress_v2";
+const CEO_SECRETARY_DAILY_REMINDER_STORAGE_KEY = "vertriebsmanager_ceo_secretary_daily_reminder_v1";
 const REMOTE_STATE_ROW_ID = "main";
 const REMOTE_SAVE_DEBOUNCE_MS = 450;
 const REMOTE_RETRY_INITIAL_DELAY_MS = 1500;
@@ -686,6 +687,8 @@ let automaticLoginPopupShownForSession = false;
 let dailySalesProgressPromptTimerId = 0;
 let dailySalesProgressPromptDeferred = false;
 const dailySalesProgressSeenByUserId = new Map();
+let ceoSecretaryDailyReminderTimerId = 0;
+const ceoSecretaryDailyReminderSeenByUserId = new Map();
 let adminNotificationLoginBriefingShownForSession = false;
 let adminNotificationLoginBriefingTimerId = 0;
 let adminNotificationLoginBriefingEntries = [];
@@ -1972,6 +1975,9 @@ const els = {
   ceoSecretaryBriefingHeading: document.getElementById("ceo-secretary-briefing-heading"),
   ceoSecretaryBriefingSummary: document.getElementById("ceo-secretary-briefing-summary"),
   ceoSecretaryFocusList: document.getElementById("ceo-secretary-focus-list"),
+  ceoSecretaryCommitmentCount: document.getElementById("ceo-secretary-commitment-count"),
+  ceoSecretaryCommitmentSummary: document.getElementById("ceo-secretary-commitment-summary"),
+  ceoSecretaryCommitmentList: document.getElementById("ceo-secretary-commitment-list"),
   ceoSecretaryQuickOpen: document.getElementById("ceo-secretary-quick-open"),
   ceoSecretaryQuickModal: document.getElementById("ceo-secretary-quick-modal"),
   ceoSecretaryQuickClose: document.getElementById("ceo-secretary-quick-close"),
@@ -4166,6 +4172,7 @@ async function finishBootstrapAfterLogin(flowId = 0) {
     scheduleOnboardingPrompt();
     scheduleDailySalesProgressPrompt();
     scheduleAdminNotificationLoginBriefing();
+    scheduleCeoSecretaryDailyReminder();
   } catch (error) {
     if (!isCurrentAuthFlow(flowId)) {
       return;
@@ -4197,6 +4204,7 @@ async function finishBootstrapAfterLogin(flowId = 0) {
       scheduleOnboardingPrompt();
       scheduleDailySalesProgressPrompt();
       scheduleAdminNotificationLoginBriefing();
+      scheduleCeoSecretaryDailyReminder();
       showActionFeedback("Anmeldung erfolgreich, aber einige Daten konnten nicht geladen werden.", {
         tone: "warning",
         toast: true,
@@ -4343,6 +4351,10 @@ async function bootstrapAfterAuth(flowId = 0) {
     dailySalesProgressPromptTimerId = 0;
   }
   dailySalesProgressPromptDeferred = false;
+  if (ceoSecretaryDailyReminderTimerId) {
+    window.clearTimeout(ceoSecretaryDailyReminderTimerId);
+    ceoSecretaryDailyReminderTimerId = 0;
+  }
   if (adminNotificationLoginBriefingTimerId) {
     window.clearTimeout(adminNotificationLoginBriefingTimerId);
     adminNotificationLoginBriefingTimerId = 0;
@@ -11859,7 +11871,7 @@ function markAdminNotificationsSeen(notificationIds = []) {
   saveState({ showFeedback: false });
 }
 
-function appendAdminSystemNotification(message, tone = "info") {
+function appendAdminSystemNotification(message, tone = "info", options = {}) {
   const text = String(message || "").trim();
   if (!text || text === "Änderungen gespeichert.") {
     return;
@@ -11870,14 +11882,14 @@ function appendAdminSystemNotification(message, tone = "info") {
     id: `system_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     kind: "system",
     tone: String(tone || "info").trim().toLowerCase(),
-    title: "Systemmeldung",
+    title: String(options?.title || "Systemmeldung").trim() || "Systemmeldung",
     text,
     createdAt: now,
     createdAtMs: Date.parse(now),
     createdByUserId: normalizeUserId(actor?.userId || ""),
     createdByRole: normalizeUserRole(actor?.role || ""),
     persistent: false,
-    targetSection: "",
+    targetSection: String(options?.targetSection || "").trim(),
   });
   if (adminSystemNotifications.length > ADMIN_NOTIFICATION_MAX_SYSTEM_ITEMS) {
     adminSystemNotifications = adminSystemNotifications.slice(0, ADMIN_NOTIFICATION_MAX_SYSTEM_ITEMS);
@@ -34941,6 +34953,77 @@ async function hydrateCeoSecretaryEntriesFromSupabase(options = {}) {
   }
 }
 
+function getCeoSecretaryDailyReminderSeenDates() {
+  if (typeof localStorage === "undefined") return {};
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CEO_SECRETARY_DAILY_REMINDER_STORAGE_KEY) || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (_error) {
+    return {};
+  }
+}
+
+function hasSeenCeoSecretaryDailyReminder(userId, dateValue = getTodayDateInputValue()) {
+  const normalizedUserId = normalizeUserId(userId);
+  const today = String(dateValue || "").trim();
+  if (!normalizedUserId || !today) return true;
+  return ceoSecretaryDailyReminderSeenByUserId.get(normalizedUserId) === today ||
+    String(getCeoSecretaryDailyReminderSeenDates()[normalizedUserId] || "").trim() === today;
+}
+
+function markCeoSecretaryDailyReminderSeen(userId, dateValue = getTodayDateInputValue()) {
+  const normalizedUserId = normalizeUserId(userId);
+  const today = String(dateValue || "").trim();
+  if (!normalizedUserId || !today) return;
+  ceoSecretaryDailyReminderSeenByUserId.set(normalizedUserId, today);
+  if (typeof localStorage === "undefined") return;
+  try {
+    const seenDates = getCeoSecretaryDailyReminderSeenDates();
+    seenDates[normalizedUserId] = today;
+    localStorage.setItem(CEO_SECRETARY_DAILY_REMINDER_STORAGE_KEY, JSON.stringify(seenDates));
+  } catch (_error) {
+    // Für diese Sitzung bleibt die Erinnerung trotzdem als zugestellt markiert.
+  }
+}
+
+async function deliverCeoSecretaryDailyReminder() {
+  if (!isSuperAdmin()) return;
+  if (!ceoSecretaryLoadedRemote && !ceoSecretaryLoadingRemote) {
+    await hydrateCeoSecretaryEntriesFromSupabase();
+  }
+  const userId = getAuthUid();
+  if (!userId || hasSeenCeoSecretaryDailyReminder(userId)) return;
+  const commitments = getCeoSecretaryCommitmentEntries();
+  if (!commitments.length) {
+    markCeoSecretaryDailyReminderSeen(userId);
+    return;
+  }
+  const text = `Zusagen-Radar: ${getCeoSecretaryCommitmentReminderText(commitments)} Öffne dein Briefing für die nächsten Schritte.`;
+  markCeoSecretaryDailyReminderSeen(userId);
+  appendAdminSystemNotification(text, commitments.some((entry) => isCeoSecretaryEntryOverdue(entry)) ? "warning" : "info", {
+    title: "Tagesbriefing · Sekretär",
+    targetSection: "ceo-secretary-section",
+  });
+  renderAdminNotifications();
+  if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+    try {
+      new Notification("Dein Sekretär", { body: getCeoSecretaryCommitmentReminderText(commitments) });
+    } catch (_error) {
+      // Die Glocke ist die verlässliche tägliche Erinnerung.
+    }
+  }
+}
+
+function scheduleCeoSecretaryDailyReminder(delayMs = 1200) {
+  if (ceoSecretaryDailyReminderTimerId) {
+    window.clearTimeout(ceoSecretaryDailyReminderTimerId);
+  }
+  ceoSecretaryDailyReminderTimerId = window.setTimeout(() => {
+    ceoSecretaryDailyReminderTimerId = 0;
+    void deliverCeoSecretaryDailyReminder();
+  }, Math.max(0, Number(delayMs) || 0));
+}
+
 function normalizeCeoSecretaryPreferences(row) {
   const memory = Array.isArray(row?.memory)
     ? row.memory.map((entry) => String(entry || "").trim()).filter(Boolean).slice(0, 48)
@@ -35103,6 +35186,7 @@ async function requestCeoSecretaryAnalysis(message) {
     actions: Array.isArray(payload?.actions) ? payload.actions : [],
     crmActions: Array.isArray(payload?.crmActions) ? payload.crmActions : [],
     memoryUpdates: Array.isArray(payload?.memoryUpdates) ? payload.memoryUpdates : [],
+    sources: Array.isArray(payload?.sources) ? payload.sources : [],
   };
 }
 
@@ -35682,6 +35766,7 @@ async function handleCeoSecretaryCaptureSubmit() {
         : String(analysis.reply || "Erledigt. Ich habe den Kontext für dich festgehalten.").trim(),
       savedCount: savedEntries.length,
       actionSummary: actionResults.join(", "),
+      sources: analysis.sources || [],
     });
     ceoSecretaryLoadedRemote = true;
     ceoSecretaryRemoteUnavailable = false;
@@ -36000,6 +36085,47 @@ function getCeoSecretaryFocusEntries() {
     .slice(0, 4);
 }
 
+function isCeoSecretaryCommitment(entry) {
+  if (!entry || entry.completed || !["task", "followup"].includes(entry.type)) {
+    return false;
+  }
+  if (entry.type === "followup") {
+    return true;
+  }
+  return /\b(zusag(?:e|en|t|te|test)?|versproch(?:en|e|er|ene)?|rückmeld(?:ung|en)|antwort(?:en)?|angebot|unterlag(?:e|en)|vertrag|rückruf|anruf(?:en)?|nachfass(?:en)?|follow[ -]?up|bis)\b/i.test(
+    [entry.title, entry.body, entry.context].filter(Boolean).join(" ")
+  );
+}
+
+function getCeoSecretaryCommitmentEntries() {
+  const priorityRank = { critical: 0, high: 1, normal: 2, low: 3 };
+  return ceoSecretaryEntries
+    .filter((entry) => isCeoSecretaryCommitment(entry))
+    .sort((left, right) => {
+      const leftOverdue = isCeoSecretaryEntryOverdue(left) ? 0 : 1;
+      const rightOverdue = isCeoSecretaryEntryOverdue(right) ? 0 : 1;
+      if (leftOverdue !== rightOverdue) return leftOverdue - rightOverdue;
+      const leftDueToday = isCeoSecretaryEntryDue(left) ? 0 : 1;
+      const rightDueToday = isCeoSecretaryEntryDue(right) ? 0 : 1;
+      if (leftDueToday !== rightDueToday) return leftDueToday - rightDueToday;
+      const priorityDifference = priorityRank[left.priority] - priorityRank[right.priority];
+      if (priorityDifference) return priorityDifference;
+      return String(left.dueDate || "9999-12-31").localeCompare(String(right.dueDate || "9999-12-31"));
+    });
+}
+
+function getCeoSecretaryCommitmentReminderText(entries = getCeoSecretaryCommitmentEntries()) {
+  const overdueCount = entries.filter((entry) => isCeoSecretaryEntryOverdue(entry)).length;
+  const todayCount = entries.filter((entry) => isCeoSecretaryEntryDue(entry)).length;
+  if (overdueCount) {
+    return `${overdueCount} ${overdueCount === 1 ? "Zusage ist" : "Zusagen sind"} überfällig.`;
+  }
+  if (todayCount) {
+    return `${todayCount} ${todayCount === 1 ? "Zusage ist" : "Zusagen sind"} heute fällig.`;
+  }
+  return `${entries.length} ${entries.length === 1 ? "Zusage wartet" : "Zusagen warten"} auf dein Nachhalten.`;
+}
+
 function getCeoSecretaryGreeting() {
   const focusEntries = getCeoSecretaryFocusEntries();
   const overdueCount = focusEntries.filter((entry) => isCeoSecretaryEntryOverdue(entry)).length;
@@ -36029,11 +36155,18 @@ function renderCeoSecretaryChat() {
       const actionHint = String(message.actionSummary || "").trim()
         ? `<small>${escapeHtml(`Befehl ausgeführt: ${message.actionSummary}`)}</small>`
         : "";
+      const sourceHint = Array.isArray(message.sources) && message.sources.length
+        ? `<div class="ceo-secretary-message-sources"><span>Quellen</span>${message.sources
+            .slice(0, 6)
+            .map((source) => `<small>${escapeHtml(`${String(source?.type || "").trim() === "crm" ? "CRM" : "CEO-Gedächtnis"} · ${String(source?.label || "").trim()}`)}</small>`)
+            .join("")}</div>`
+        : "";
       return `<article class="ceo-secretary-chat-message is-${role}">
         <span>${role === "user" ? "Du" : "Sekretär"}</span>
         <p>${escapeHtml(message.text || "")}</p>
         ${savedHint}
         ${actionHint}
+        ${sourceHint}
       </article>`;
     })
     .join("");
@@ -36046,6 +36179,7 @@ function renderCeoSecretaryChat() {
 
 function renderCeoSecretaryBriefing() {
   const focusEntries = getCeoSecretaryFocusEntries();
+  const commitmentEntries = getCeoSecretaryCommitmentEntries();
   const overdueCount = focusEntries.filter((entry) => isCeoSecretaryEntryOverdue(entry)).length;
   const todayCount = focusEntries.filter((entry) => isCeoSecretaryEntryDue(entry)).length;
   if (els.ceoSecretaryBriefingHeading) {
@@ -36067,18 +36201,37 @@ function renderCeoSecretaryBriefing() {
   }
   if (!focusEntries.length) {
     els.ceoSecretaryFocusList.innerHTML = '<p class="ceo-secretary-briefing-empty">Alles ruhig. Dein Sekretär meldet sich, sobald etwas Aufmerksamkeit braucht.</p>';
-    return;
+  } else {
+    els.ceoSecretaryFocusList.innerHTML = focusEntries
+      .map((entry, index) => `<article class="ceo-secretary-focus-item ${isCeoSecretaryEntryOverdue(entry) ? "is-overdue" : ""}">
+        <span>${index + 1}</span>
+        <div>
+          <strong>${escapeHtml(entry.title)}</strong>
+          <small>${escapeHtml(entry.context || getCeoSecretaryDueLabel(entry) || "Offene Schleife")}</small>
+        </div>
+        <button type="button" class="mini-btn success" data-ceo-secretary-toggle="${escapeHtml(entry.id)}">Erledigt</button>
+      </article>`)
+      .join("");
   }
-  els.ceoSecretaryFocusList.innerHTML = focusEntries
-    .map((entry, index) => `<article class="ceo-secretary-focus-item ${isCeoSecretaryEntryOverdue(entry) ? "is-overdue" : ""}">
-      <span>${index + 1}</span>
-      <div>
-        <strong>${escapeHtml(entry.title)}</strong>
-        <small>${escapeHtml(entry.context || getCeoSecretaryDueLabel(entry) || "Offene Schleife")}</small>
-      </div>
-      <button type="button" class="mini-btn success" data-ceo-secretary-toggle="${escapeHtml(entry.id)}">Erledigt</button>
-    </article>`)
-    .join("");
+  if (els.ceoSecretaryCommitmentCount) {
+    els.ceoSecretaryCommitmentCount.textContent = String(commitmentEntries.length);
+  }
+  if (els.ceoSecretaryCommitmentSummary) {
+    els.ceoSecretaryCommitmentSummary.textContent = commitmentEntries.length
+      ? getCeoSecretaryCommitmentReminderText(commitmentEntries)
+      : "Keine offene Zusage im Radar."
+  }
+  if (els.ceoSecretaryCommitmentList) {
+    els.ceoSecretaryCommitmentList.innerHTML = commitmentEntries.length
+      ? commitmentEntries.slice(0, 4).map((entry) => `<article class="ceo-secretary-commitment-item ${isCeoSecretaryEntryOverdue(entry) ? "is-overdue" : ""}">
+          <div>
+            <strong>${escapeHtml(entry.title)}</strong>
+            <small>${escapeHtml(entry.context || getCeoSecretaryDueLabel(entry) || "Offene Zusage")}</small>
+          </div>
+          <button type="button" class="mini-btn success" data-ceo-secretary-toggle="${escapeHtml(entry.id)}">Erledigt</button>
+        </article>`).join("")
+      : '<p class="ceo-secretary-commitment-empty">Alles nachgehalten.</p>';
+  }
 }
 
 function renderCeoSecretaryMemory() {
