@@ -23137,6 +23137,91 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   margin-top: 12px;
 }
 
+.incoming-invoice-document-preview-modal {
+  z-index: 3600;
+  padding: 18px;
+  background: rgba(10, 23, 39, 0.68);
+}
+
+.incoming-invoice-document-preview-dialog {
+  display: flex;
+  width: min(1180px, calc(100% - 12px));
+  height: min(900px, calc(100vh - 36px));
+  max-height: calc(100vh - 36px);
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.incoming-invoice-document-preview-head {
+  flex: 0 0 auto;
+  align-items: flex-start;
+}
+
+.incoming-invoice-document-preview-head > div {
+  display: grid;
+  gap: 3px;
+}
+
+.incoming-invoice-document-preview-head p {
+  margin: 0;
+  color: #667085;
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+}
+
+.incoming-invoice-document-preview-head h3 {
+  margin: 0;
+  color: #1d2939;
+  font-size: 0.94rem;
+}
+
+.incoming-invoice-document-preview-content {
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  place-items: center;
+  overflow: auto;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  background: #f2f4f7;
+}
+
+.incoming-invoice-document-preview-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 560px;
+  border: 0;
+  background: #fff;
+}
+
+.incoming-invoice-document-preview-image {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.incoming-invoice-document-preview-unavailable {
+  max-width: 440px;
+  margin: 24px;
+  color: #475467;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.incoming-invoice-document-preview-actions {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  padding-top: 12px;
+}
+
 #incoming-invoices-section .incoming-invoices-table-wrap {
   margin-top: 10px;
   border: 1px solid #dce4ed;

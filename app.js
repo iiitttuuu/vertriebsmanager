@@ -772,6 +772,7 @@ let incomingInvoiceEvents = [];
 let incomingInvoiceDraftPayments = [];
 let incomingInvoiceEditingPaymentId = "";
 let incomingInvoiceTaxCalculationSource = "gross";
+let incomingInvoiceDocumentPreviewUrl = "";
 let giftCardActiveTab = "coverage";
 let giftCardManualCostOverrides = {};
 let giftCardManualCostValues = {};
@@ -2424,6 +2425,11 @@ const els = {
   incomingInvoicePaymentOpenBtn: document.getElementById("incoming-invoice-payment-open-btn"),
   incomingInvoicePaymentModal: document.getElementById("incoming-invoice-payment-modal"),
   incomingInvoicePaymentModalCloseBtn: document.getElementById("incoming-invoice-payment-modal-close-btn"),
+  incomingInvoiceDocumentPreviewModal: document.getElementById("incoming-invoice-document-preview-modal"),
+  incomingInvoiceDocumentPreviewTitle: document.getElementById("incoming-invoice-document-preview-title"),
+  incomingInvoiceDocumentPreviewContent: document.getElementById("incoming-invoice-document-preview-content"),
+  incomingInvoiceDocumentPreviewDownload: document.getElementById("incoming-invoice-document-preview-download"),
+  incomingInvoiceDocumentPreviewCloseBtn: document.getElementById("incoming-invoice-document-preview-close-btn"),
   incomingInvoicePaymentModalTitle: document.getElementById("incoming-invoice-payment-modal-title"),
   incomingInvoicePaymentModalMeta: document.getElementById("incoming-invoice-payment-modal-meta"),
   incomingInvoicePartialAmount: document.getElementById("incoming-invoice-partial-amount"),
@@ -4595,6 +4601,9 @@ function bindEvents() {
     }
     if (event.key === "Escape" && isIncomingInvoicePaymentModalOpen()) {
       closeIncomingInvoicePaymentModal();
+    }
+    if (event.key === "Escape" && isIncomingInvoiceDocumentPreviewOpen()) {
+      closeIncomingInvoiceDocumentPreview();
     }
   });
   document.addEventListener("click", (event) => {
@@ -9805,6 +9814,9 @@ function bindEvents() {
   });
   els.incomingInvoicePaymentModalCloseBtn?.addEventListener("click", () => {
     closeIncomingInvoicePaymentModal();
+  });
+  els.incomingInvoiceDocumentPreviewCloseBtn?.addEventListener("click", () => {
+    closeIncomingInvoiceDocumentPreview();
   });
   els.incomingInvoicePaymentAddBtn?.addEventListener("click", () => {
     handleIncomingInvoiceDraftPaymentSave();
@@ -29146,6 +29158,7 @@ function syncBodyModalOpenState() {
   const companyModalOpenNow = !!els.companyModal && !els.companyModal.classList.contains("hidden");
   const companyNoteReadModalOpenNow = isCompanyNoteReadModalOpen();
   const incomingInvoicePaymentModalOpenNow = isIncomingInvoicePaymentModalOpen();
+  const incomingInvoiceDocumentPreviewOpenNow = isIncomingInvoiceDocumentPreviewOpen();
   const departmentModalOpenNow = !!els.departmentModal && !els.departmentModal.classList.contains("hidden");
   const departmentMembersModalOpenNow =
     !!els.departmentMembersModal && !els.departmentMembersModal.classList.contains("hidden");
@@ -29183,6 +29196,7 @@ function syncBodyModalOpenState() {
       companyModalOpenNow ||
       companyNoteReadModalOpenNow ||
       incomingInvoicePaymentModalOpenNow ||
+      incomingInvoiceDocumentPreviewOpenNow ||
       departmentModalOpenNow ||
       departmentMembersModalOpenNow ||
       orgChartEditModalOpenNow ||
@@ -47600,7 +47614,7 @@ async function handleGiftCardProcurementOpenInvoice(invoiceId) {
   if (!getIncomingInvoiceFileForInvoice(normalizedInvoiceId)) {
     await hydrateIncomingInvoicesFromSupabase({ force: true });
   }
-  await handleIncomingInvoiceOpenDocument(normalizedInvoiceId);
+  await handleIncomingInvoicePreviewDocument(normalizedInvoiceId);
 }
 
 async function handleGiftCardProcurementPriceDelete(priceId) {
@@ -49181,43 +49195,121 @@ async function upsertIncomingInvoiceFileRemote(invoiceId, fileName, nasPath, mim
   }
 }
 
-async function handleIncomingInvoiceOpenDocument(invoiceId) {
+function isIncomingInvoiceDocumentPreviewOpen() {
+  return Boolean(els.incomingInvoiceDocumentPreviewModal && !els.incomingInvoiceDocumentPreviewModal.classList.contains("hidden"));
+}
+
+function closeIncomingInvoiceDocumentPreview() {
+  if (els.incomingInvoiceDocumentPreviewModal) {
+    els.incomingInvoiceDocumentPreviewModal.classList.add("hidden");
+  }
+  if (els.incomingInvoiceDocumentPreviewContent) {
+    els.incomingInvoiceDocumentPreviewContent.replaceChildren();
+  }
+  if (els.incomingInvoiceDocumentPreviewDownload) {
+    els.incomingInvoiceDocumentPreviewDownload.removeAttribute("href");
+    els.incomingInvoiceDocumentPreviewDownload.removeAttribute("download");
+  }
+  if (incomingInvoiceDocumentPreviewUrl) {
+    URL.revokeObjectURL(incomingInvoiceDocumentPreviewUrl);
+    incomingInvoiceDocumentPreviewUrl = "";
+  }
+  syncBodyModalOpenState();
+}
+
+async function fetchIncomingInvoiceDocument(invoiceId) {
   const normalizedInvoiceId = String(invoiceId || "").trim();
   if (!normalizedInvoiceId) {
-    return;
+    return null;
   }
   const file = getIncomingInvoiceFileForInvoice(normalizedInvoiceId);
   const documentRef = String(file?.nasPath || "").trim();
   if (!documentRef) {
-    showInfoFeedback("Kein Beleg für diese Rechnung gespeichert.");
-    return;
+    return null;
   }
+  const accessToken = await getAuthAccessToken();
+  const query = new URLSearchParams({
+    ref: documentRef,
+    invoiceId: normalizedInvoiceId,
+  });
+  if (file?.originalName) {
+    query.set("name", String(file.originalName || "").trim());
+  }
+  const response = await fetch(`${INCOMING_INVOICE_FILE_DOWNLOAD_ENDPOINT}?${query.toString()}`, {
+    method: "GET",
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+  if (!response.ok) {
+    const payload = await readIncomingInvoiceBridgePayload(response);
+    throw new Error(getIncomingInvoiceBridgeErrorMessage(response, payload));
+  }
+  return { file, invoiceId: normalizedInvoiceId, blob: await response.blob() };
+}
+
+async function handleIncomingInvoiceOpenDocument(invoiceId) {
   try {
-    const accessToken = await getAuthAccessToken();
-    const query = new URLSearchParams({
-      ref: documentRef,
-      invoiceId: normalizedInvoiceId,
-    });
-    if (file?.originalName) {
-      query.set("name", String(file.originalName || "").trim());
+    const documentData = await fetchIncomingInvoiceDocument(invoiceId);
+    if (!documentData) {
+      showInfoFeedback("Kein Beleg für diese Rechnung gespeichert.");
+      return;
     }
-    const response = await fetch(`${INCOMING_INVOICE_FILE_DOWNLOAD_ENDPOINT}?${query.toString()}`, {
-      method: "GET",
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-    });
-    if (!response.ok) {
-      const payload = await readIncomingInvoiceBridgePayload(response);
-      throw new Error(getIncomingInvoiceBridgeErrorMessage(response, payload));
-    }
-    const blob = await response.blob();
-    const downloadUrl = URL.createObjectURL(blob);
+    const downloadUrl = URL.createObjectURL(documentData.blob);
     const link = document.createElement("a");
     link.href = downloadUrl;
-    link.download = String(file?.originalName || `beleg_${normalizedInvoiceId}.pdf`).trim() || `beleg_${normalizedInvoiceId}.pdf`;
+    link.download = String(documentData.file?.originalName || `beleg_${documentData.invoiceId}.pdf`).trim() || `beleg_${documentData.invoiceId}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(downloadUrl);
+  } catch (error) {
+    const message = String(error?.message || "").trim();
+    showWarningFeedback(message ? `Beleg konnte nicht geladen werden (${message}).` : "Beleg konnte nicht geladen werden.");
+  }
+}
+
+async function handleIncomingInvoicePreviewDocument(invoiceId) {
+  try {
+    const documentData = await fetchIncomingInvoiceDocument(invoiceId);
+    if (!documentData) {
+      showInfoFeedback("Kein Beleg für diese Rechnung gespeichert.");
+      return;
+    }
+    if (!els.incomingInvoiceDocumentPreviewModal || !els.incomingInvoiceDocumentPreviewContent) {
+      await handleIncomingInvoiceOpenDocument(invoiceId);
+      return;
+    }
+    closeIncomingInvoiceDocumentPreview();
+    const fileName = String(documentData.file?.originalName || `beleg_${documentData.invoiceId}`).trim() || "Beleg";
+    const mimeType = String(documentData.blob.type || documentData.file?.mimeType || "").toLowerCase();
+    incomingInvoiceDocumentPreviewUrl = URL.createObjectURL(documentData.blob);
+    if (els.incomingInvoiceDocumentPreviewTitle) {
+      els.incomingInvoiceDocumentPreviewTitle.textContent = fileName;
+    }
+    if (els.incomingInvoiceDocumentPreviewDownload) {
+      els.incomingInvoiceDocumentPreviewDownload.href = incomingInvoiceDocumentPreviewUrl;
+      els.incomingInvoiceDocumentPreviewDownload.download = fileName;
+    }
+    if (mimeType === "application/pdf" || /\.pdf$/i.test(fileName)) {
+      const frame = document.createElement("iframe");
+      frame.className = "incoming-invoice-document-preview-frame";
+      frame.src = incomingInvoiceDocumentPreviewUrl;
+      frame.title = `Belegvorschau: ${fileName}`;
+      els.incomingInvoiceDocumentPreviewContent.appendChild(frame);
+    } else if (mimeType.startsWith("image/") || /\.(png|jpe?g|webp|heic)$/i.test(fileName)) {
+      const image = document.createElement("img");
+      image.className = "incoming-invoice-document-preview-image";
+      image.src = incomingInvoiceDocumentPreviewUrl;
+      image.alt = `Belegvorschau: ${fileName}`;
+      els.incomingInvoiceDocumentPreviewContent.appendChild(image);
+    } else {
+      const note = document.createElement("p");
+      note.className = "incoming-invoice-document-preview-unavailable";
+      note.textContent = "Für diesen Dateityp ist keine Vorschau verfügbar. Du kannst den Beleg herunterladen.";
+      els.incomingInvoiceDocumentPreviewContent.appendChild(note);
+    }
+    els.incomingInvoiceDocumentPreviewModal.classList.remove("hidden");
+    syncBodyModalOpenState();
+    window.setTimeout(() => els.incomingInvoiceDocumentPreviewCloseBtn?.focus({ preventScroll: true }), 0);
   } catch (error) {
     const message = String(error?.message || "").trim();
     showWarningFeedback(message ? `Beleg konnte nicht geladen werden (${message}).` : "Beleg konnte nicht geladen werden.");
