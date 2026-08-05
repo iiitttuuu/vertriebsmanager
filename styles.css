@@ -11140,17 +11140,6 @@ body.provider-form-open .topbar {
   text-transform: uppercase;
 }
 
-.gift-card-calculator-private-badge {
-  flex: 0 0 auto;
-  border: 1px solid rgba(60, 60, 67, 0.14);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.76);
-  color: #515154;
-  padding: 7px 10px;
-  font-size: 0.72rem;
-  font-weight: 720;
-}
-
 .gift-card-calculator-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(310px, 0.8fr);

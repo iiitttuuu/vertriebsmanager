@@ -77,6 +77,37 @@ function buildIncomingObjectPath(invoiceId = "", originalFileName = "") {
   return `incoming-invoices/${monthSegment}/${invoiceSegment}/${now}_${fileBase}${extension}`;
 }
 
+async function ensureStorageBucket(supabaseUrl, serviceRoleKey, bucket) {
+  const response = await fetch(`${supabaseUrl}/storage/v1/bucket/${encodeURIComponent(bucket)}`, {
+    method: "GET",
+    headers: {
+      apikey: serviceRoleKey,
+      authorization: `Bearer ${serviceRoleKey}`,
+    },
+  });
+  if (response.ok) return;
+  if (response.status !== 404) {
+    throw new Error("Supabase Storage-Bucket konnte nicht geprüft werden.");
+  }
+
+  const createResponse = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+    method: "POST",
+    headers: {
+      apikey: serviceRoleKey,
+      authorization: `Bearer ${serviceRoleKey}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      id: bucket,
+      name: bucket,
+      public: false,
+      file_size_limit: MAX_UPLOAD_BYTES,
+    }),
+  });
+  if (createResponse.ok || createResponse.status === 409) return;
+  throw new Error("Supabase Storage-Bucket konnte nicht angelegt werden.");
+}
+
 async function authenticateUserWithSupabase(userAuthorizationHeader, supabaseUrl, serviceRoleKey) {
   const authHeader = String(userAuthorizationHeader || "").trim();
   if (!authHeader.toLowerCase().startsWith("bearer ")) {
@@ -165,6 +196,7 @@ export default async function handler(req, res) {
       res.status(profileResult.status).json({ error: profileResult.error });
       return;
     }
+    await ensureStorageBucket(supabaseUrl, serviceRoleKey, bucket);
 
     const formData = await readRequestFormData(req);
     const fileValue = formData.get("file");

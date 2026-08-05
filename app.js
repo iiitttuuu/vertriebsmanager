@@ -47473,6 +47473,24 @@ function renderGiftCardProcurementSection() {
   renderGiftCardProcurementSources();
 }
 
+function syncGiftCardCoverageWithProcurement() {
+  if (!isSuperAdmin()) return;
+  const values = readGiftCardCalculatorValuesFromForm();
+  const procurement = getGiftCardProcurement();
+  GIFT_CARD_PROCUREMENT_COST_ITEMS.forEach((item) => {
+    if (giftCardManualCostOverrides[item.key] === true) {
+      if (Object.prototype.hasOwnProperty.call(giftCardManualCostValues, item.key)) {
+        values[item.key] = giftCardManualCostValues[item.key];
+      }
+      return;
+    }
+    const currentPrice = getCurrentGiftCardProcurementPrice(item.key, procurement);
+    if (currentPrice) values[item.key] = currentPrice.unitCost;
+  });
+  applyGiftCardCalculatorValuesToForm(values);
+  renderGiftCardCalculatorResults(values);
+}
+
 function setGiftCardTab(tabLike, options = {}) {
   const tab = tabLike === "procurement" ? "procurement" : "coverage";
   giftCardActiveTab = tab;
@@ -47484,6 +47502,7 @@ function setGiftCardTab(tabLike, options = {}) {
     button.setAttribute("aria-selected", String(active));
     if (active && options.focus === true) button.focus();
   });
+  if (tab === "coverage") syncGiftCardCoverageWithProcurement();
 }
 
 async function persistGiftCardProcurement(nextProcurement, successMessage) {
@@ -47497,6 +47516,7 @@ async function persistGiftCardProcurement(nextProcurement, successMessage) {
     return false;
   }
   renderGiftCardProcurementSection();
+  syncGiftCardCoverageWithProcurement();
   showSuccessFeedback(successMessage, { toast: false, statusPersistMs: 2200 });
   return true;
 }
