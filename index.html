@@ -4716,7 +4716,13 @@
             <span class="gift-card-calculator-private-badge">Nur Superadmin</span>
           </div>
 
-          <div class="gift-card-calculator-layout">
+          <div class="gift-card-tabs" role="tablist" aria-label="Geschenkkarten Bereiche">
+            <button type="button" class="gift-card-tab-btn is-active" data-gift-card-tab="coverage" role="tab" aria-selected="true">Kostendeckung</button>
+            <button type="button" class="gift-card-tab-btn" data-gift-card-tab="procurement" role="tab" aria-selected="false">Beschaffung &amp; Nachweis</button>
+          </div>
+
+          <div id="gift-card-tab-coverage" class="gift-card-tab-panel">
+            <div class="gift-card-calculator-layout">
             <form id="gift-card-calculator-form" class="gift-card-calculator-form">
               <div class="gift-card-calculator-form-head">
                 <div>
@@ -4775,9 +4781,11 @@
                 <article class="gift-card-calculator-result-card"><span>Direkte Kosten je Karte</span><strong id="gift-card-result-cost-per-card">0,00 €</strong><small>Bei der aktuellen Stückzahl</small></article>
               </div>
             </aside>
+            </div>
           </div>
 
-          <article class="gift-card-procurement-card" aria-labelledby="gift-card-procurement-title">
+          <div id="gift-card-tab-procurement" class="gift-card-tab-panel hidden">
+            <article class="gift-card-procurement-card" aria-labelledby="gift-card-procurement-title">
             <div class="gift-card-procurement-head">
               <div>
                 <p class="gift-card-calculator-eyebrow">Beschaffung &amp; Nachweis</p>
@@ -4787,30 +4795,8 @@
               <button type="button" id="gift-card-procurement-apply-prices" class="mini-btn">Aktuelle Preise übernehmen</button>
             </div>
             <div id="gift-card-procurement-sources" class="gift-card-procurement-sources"></div>
-
-            <div class="gift-card-procurement-order-grid">
-              <form id="gift-card-procurement-order-form" class="gift-card-procurement-order-form">
-                <div>
-                  <p class="gift-card-calculator-eyebrow">Bestellposition erfassen</p>
-                  <h4>Neue Bestellung</h4>
-                </div>
-                <label>Kostenstelle<select id="gift-card-order-cost-key" required></select></label>
-                <label>Lieferant<select id="gift-card-order-company" required></select></label>
-                <label>Rechnung / Beleg<select id="gift-card-order-invoice"></select></label>
-                <label>Bestellnummer<input id="gift-card-order-number" type="text" maxlength="80" placeholder="z. B. PO-2026-014" /></label>
-                <label>Menge<input id="gift-card-order-quantity" type="number" min="0.01" step="0.01" value="1" required /></label>
-                <label>Netto-Preis je Einheit (€)<input id="gift-card-order-unit-cost" type="number" min="0" step="0.01" required /></label>
-                <label>Status<select id="gift-card-order-status"><option value="entwurf">Entwurf</option><option value="bestellt">Bestellt</option><option value="geliefert">Geliefert</option><option value="storniert">Storniert</option></select></label>
-                <label>Bestelldatum<input id="gift-card-order-date" type="date" required /></label>
-                <label class="gift-card-procurement-order-wide">Notiz<textarea id="gift-card-order-notes" rows="2" maxlength="500" placeholder="Optional"></textarea></label>
-                <button type="submit" class="btn btn-success">Bestellung speichern</button>
-              </form>
-              <section class="gift-card-procurement-orders" aria-labelledby="gift-card-orders-title">
-                <div><p class="gift-card-calculator-eyebrow">Historie &amp; Auswertung</p><h4 id="gift-card-orders-title">Letzte Bestellungen</h4><p id="gift-card-procurement-orders-summary" class="gift-card-procurement-summary"></p></div>
-                <div id="gift-card-procurement-orders-list" class="gift-card-procurement-orders-list"></div>
-              </section>
-            </div>
-          </article>
+            </article>
+          </div>
         </section>
 
         <section id="parameters-section" class="panel card">
