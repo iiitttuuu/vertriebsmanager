@@ -10744,7 +10744,7 @@ function bindEvents() {
 
   els.managementAiSuggestion?.addEventListener("click", (event) => {
     const removeSynonymButton = event.target.closest("button[data-remove-management-ai-synonym]");
-    if (removeSynonymButton && managementAiSuggestion?.kind === "new_topic") {
+    if (removeSynonymButton && ["new_topic", "new_umbrella_topic"].includes(managementAiSuggestion?.kind)) {
       const synonym = String(removeSynonymButton.dataset.removeManagementAiSynonym || "").trim();
       managementAiSuggestion.suggestedSynonyms = normalizeManagementAiSynonyms(
         (managementAiSuggestion.suggestedSynonyms || []).filter((entry) => normalizeText(entry) !== normalizeText(synonym)),
@@ -58946,6 +58946,7 @@ async function requestManagementAiSuggestion(query) {
   return {
     kind: String(payload?.kind || "").trim(),
     topicId: String(payload?.topicId || "").trim(),
+    existingTopicId: String(payload?.existingTopicId || "").trim(),
     subcategoryId: String(payload?.subcategoryId || "").trim(),
     suggestedTopicName: String(payload?.suggestedTopicName || "").trim().slice(0, 120),
     suggestedSynonyms: normalizeManagementAiSynonyms(payload?.suggestedSynonyms, payload?.suggestedTopicName),
@@ -59099,6 +59100,14 @@ function getManagementAiSuggestionTarget(suggestion = managementAiSuggestion) {
     const location = findSubcategoryLocation(suggestion.subcategoryId);
     return location ? { kind: "new_topic", location } : null;
   }
+  if (suggestion.kind === "new_umbrella_topic") {
+    const location = findSubcategoryLocation(suggestion.subcategoryId);
+    const existingLocation = findTopicLocation(suggestion.existingTopicId);
+    if (!location || !existingLocation || existingLocation.subcategory.id !== location.subcategory.id) {
+      return null;
+    }
+    return { kind: "new_umbrella_topic", location, existingLocation };
+  }
   return null;
 }
 
@@ -59141,6 +59150,11 @@ function renderManagementAiSuggestion() {
   const synonymsMarkup = synonyms.length
     ? `<div class="management-ai-synonyms"><span>Vorgeschlagene Synonyme</span><div>${synonyms.map((synonym) => `<button type="button" class="management-ai-synonym-chip" data-remove-management-ai-synonym="${escapeHtml(synonym)}" aria-label="Synonym ${escapeHtml(synonym)} entfernen" title="Nicht übernehmen">${escapeHtml(synonym)} <b>×</b></button>`).join("")}</div><small>Nicht benötigte Begriffe einfach entfernen.</small></div>`
     : "";
+  if (target.kind === "new_umbrella_topic") {
+    const existingTopicName = target.existingLocation.topic.name;
+    panel.innerHTML = `<span class="management-ai-suggestion-kicker">KI-ZUORDNUNG · SAMMELBEGRIFF</span><strong>„${escapeHtml(topicName)}“ als übergeordnetes Thema anlegen</strong><p class="management-ai-suggestion-path">${escapeHtml(category.name)} › ${escapeHtml(subcategory.name)}</p><p><strong>„${escapeHtml(existingTopicName)}“</strong> wird dabei automatisch als Synonym übernommen. Bestehende Anbieter-Zuordnungen bleiben erhalten.</p>${reason}${synonymsMarkup}<button type="button" class="btn btn-success" data-apply-management-ai-suggestion>Sammelbegriff übernehmen</button>`;
+    return;
+  }
   panel.innerHTML = `<span class="management-ai-suggestion-kicker">KI-ZUORDNUNG · NEUES THEMA</span><strong>Neues Thema „${escapeHtml(topicName)}“ vorschlagen</strong><p class="management-ai-suggestion-path">${escapeHtml(category.name)} › ${escapeHtml(subcategory.name)}</p>${reason}${synonymsMarkup}<button type="button" class="btn btn-success" data-apply-management-ai-suggestion>Mit Synonymen anlegen</button>`;
 }
 
@@ -59202,6 +59216,59 @@ async function applyManagementAiSuggestion() {
       topicSubtopics.push(persistence.entry);
       recordCategoryTransferSynonymChanges([], [persistence.entry]);
       showSuccessFeedback(`„${query}“ wurde als Synonym zu „${topic.name}“ gespeichert.`);
+    } else if (target.kind === "new_umbrella_topic") {
+      const { category, subcategory } = target.location;
+      const source = target.existingLocation;
+      const name = String(managementAiSuggestion?.suggestedTopicName || query).trim().slice(0, 120);
+      const existingTopic = findTopicByNormalizedName(name);
+      if (existingTopic) {
+        showWarningFeedback(`Das Thema „${existingTopic.name}“ existiert bereits unter „${existingTopic.categoryName} > ${existingTopic.subcategoryName}“.`, { toast: true });
+        return;
+      }
+      const confirmed = await confirmAction(`„${name}“ als Sammelbegriff anlegen und „${source.topic.name}“ als Synonym übernehmen? Bestehende Anbieter-Zuordnungen werden auf das neue Thema übertragen.`, {
+        title: "KI-Sammelbegriff übernehmen",
+        confirmLabel: "Sammelbegriff anlegen",
+      });
+      if (!confirmed) {
+        return;
+      }
+      const previousCategoriesSnapshot = JSON.parse(JSON.stringify(state.categories));
+      const previousProvidersSnapshot = JSON.parse(JSON.stringify(state.providers));
+      const previousSelection = { categoryId: selectedCategoryId, subcategoryId: selectedSubcategoryId };
+      const sourceTopicId = String(source.topic.id || "").trim();
+      const inheritedSynonyms = [source.topic.name, ...getTopicSubtopics(sourceTopicId).map((entry) => entry.name)];
+      const topic = { id: createId("topic"), name };
+      source.subcategory.topics.splice(source.topicIndex, 1);
+      subcategory.topics.push(topic);
+      replaceTopicIdsForProviders([sourceTopicId], topic.id);
+      selectedCategoryId = category.id;
+      selectedSubcategoryId = subcategory.id;
+      managementCategorySaveRevision += 1;
+      const revision = managementCategorySaveRevision;
+      const persisted = await persistManagementCategoryStructureChange(
+        previousCategoriesSnapshot,
+        previousSelection,
+        "Der neue Sammelbegriff konnte nicht dauerhaft gespeichert werden. Bitte erneut versuchen.",
+        revision,
+        { providersSync: { forceFullSync: true }, previousProvidersSnapshot }
+      );
+      if (!persisted) {
+        return;
+      }
+      const synonymResult = await saveManagementAiSynonyms(topic.id, [
+        ...inheritedSynonyms,
+        ...(managementAiSuggestion?.suggestedSynonyms || []),
+      ]);
+      recordCategoryTransferSynonymChanges([], synonymResult.added);
+      const oldSynonymsDeleted = await deleteTopicSubtopicsOnServer([sourceTopicId]);
+      if (!oldSynonymsDeleted) {
+        showWarningFeedback(`Sammelbegriff „${name}“ wurde angelegt und Anbieter wurden übertragen. Die bisherigen Synonyme von „${source.topic.name}“ konnten serverseitig noch nicht bereinigt werden.`, { toast: true });
+      } else if (synonymResult.failed.length) {
+        showWarningFeedback(`Sammelbegriff „${name}“ wurde angelegt. ${synonymResult.failed.length} Synonym${synonymResult.failed.length === 1 ? "" : "e"} konnte${synonymResult.failed.length === 1 ? "" : "n"} nicht gespeichert werden.`, { toast: true });
+      } else {
+        const additionalSynonymCount = Math.max(0, synonymResult.added.length - 1);
+        showSuccessFeedback(`„${name}“ wurde angelegt; „${source.topic.name}“ und ${additionalSynonymCount} weitere Synonym${additionalSynonymCount === 1 ? "" : "e"} wurden übernommen.`);
+      }
     } else {
       const { category, subcategory } = target.location;
       const name = String(managementAiSuggestion?.suggestedTopicName || query).trim().slice(0, 120);
@@ -60098,12 +60165,21 @@ function getManagementSearchQuery() {
   return normalizeText(managementSearchTerm || "");
 }
 
+function managementSearchTextMatches(searchText, query) {
+  const terms = normalizeText(query || "").split(/\s+/).filter(Boolean);
+  if (!terms.length) {
+    return true;
+  }
+  const normalizedSearchText = normalizeText(searchText || "");
+  return terms.every((term) => normalizedSearchText.includes(term));
+}
+
 function topicMatchesManagementSearch(topic, subcategory, category, query) {
   if (!query) {
     return true;
   }
   const subtopicNames = getTopicSubtopics(topic?.id).map((entry) => entry.name).join(" ");
-  return normalizeText(`${topic?.name || ""} ${subtopicNames} ${subcategory?.name || ""} ${category?.name || ""}`).includes(query);
+  return managementSearchTextMatches(`${topic?.name || ""} ${subtopicNames} ${subcategory?.name || ""} ${category?.name || ""}`, query);
 }
 
 function topicSubtopicsButtonMarkup(topic) {
@@ -60173,7 +60249,7 @@ function subcategoryMatchesManagementSearch(subcategory, category, query) {
   if (!query) {
     return true;
   }
-  if (normalizeText(`${subcategory?.name || ""} ${category?.name || ""}`).includes(query)) {
+  if (managementSearchTextMatches(`${subcategory?.name || ""} ${category?.name || ""}`, query)) {
     return true;
   }
   return (subcategory?.topics || []).some((topic) => topicMatchesManagementSearch(topic, subcategory, category, query));
@@ -60183,7 +60259,7 @@ function categoryMatchesManagementSearch(category, query) {
   if (!query) {
     return true;
   }
-  if (normalizeText(category?.name || "").includes(query)) {
+  if (managementSearchTextMatches(category?.name || "", query)) {
     return true;
   }
   return (category?.subcategories || []).some((subcategory) =>

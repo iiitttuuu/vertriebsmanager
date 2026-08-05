@@ -9,14 +9,15 @@ const RESPONSE_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
-    kind: { type: "string", enum: ["synonym", "new_topic"] },
+    kind: { type: "string", enum: ["synonym", "new_topic", "new_umbrella_topic"] },
     topicId: { type: "string" },
+    existingTopicId: { type: "string" },
     subcategoryId: { type: "string" },
     suggestedTopicName: { type: "string" },
     suggestedSynonyms: { type: "array", items: { type: "string" } },
     reason: { type: "string" },
   },
-  required: ["kind", "topicId", "subcategoryId", "suggestedTopicName", "suggestedSynonyms", "reason"],
+  required: ["kind", "topicId", "existingTopicId", "subcategoryId", "suggestedTopicName", "suggestedSynonyms", "reason"],
 };
 
 const AUDIT_RESPONSE_SCHEMA = {
@@ -160,8 +161,9 @@ function buildInstruction(catalog) {
   return [
     "Du ordnest einen erfolglosen deutschen Suchbegriff einer festen Themen-Taxonomie zu.",
     "Kategorien sind unveränderlich. Du darfst niemals eine Kategorie oder einen Themenbereich neu vorschlagen.",
-    "Entscheidungsreihenfolge: Suche zuerst ein bestehendes Hauptthema, zu dem der Suchbegriff als Synonym passt. Wähle kind synonym nur bei einer klaren inhaltlichen Zuordnung. Erst wenn kein vorhandenes Thema sinnvoll passt, wähle kind new_topic und ordne es einem vorhandenen Themenbereich zu.",
-    "Bei synonym muss topicId exakt eine bestehende topic id aus dem Katalog sein; subcategoryId, suggestedTopicName und suggestedSynonyms bleiben leer.",
+    "Entscheidungsreihenfolge: Prüfe immer beide Richtungen der fachlichen Hierarchie. Ist der Suchbegriff eine konkrete Ausprägung eines bestehenden Hauptthemas, wähle synonym. Ist der Suchbegriff dagegen eindeutig der bessere, übergeordnete Sammelbegriff und ein bestehendes Hauptthema eine konkrete Ausprägung davon, wähle new_umbrella_topic. Erst wenn keine dieser Zuordnungen sinnvoll ist, wähle new_topic und ordne es einem vorhandenen Themenbereich zu.",
+    "Bei synonym muss topicId exakt eine bestehende topic id aus dem Katalog sein; existingTopicId, subcategoryId, suggestedTopicName und suggestedSynonyms bleiben leer.",
+    "Bei new_umbrella_topic ist suggestedTopicName der neue, klar bessere Sammelbegriff. existingTopicId ist exakt die ID des bestehenden, engeren Hauptthemas, das als Synonym unter den neuen Sammelbegriff übernommen wird. subcategoryId muss exakt die ID des Themenbereichs dieses bestehenden Hauptthemas sein; topicId bleibt leer. Wähle dies nur bei einer sehr klaren Hierarchie, zum Beispiel neuer Sammelbegriff ‚Energetische Körperarbeit‘ und bestehendes engeres Thema ‚Reiki‘. suggestedSynonyms enthält nur zusätzliche, passende Unterbegriffe; nenne weder den neuen Sammelbegriff noch das bestehende Hauptthema selbst.",
     "Bei new_topic muss subcategoryId exakt eine bestehende Themenbereich-id sein; topicId bleibt leer. suggestedTopicName ist ein kurzer, sinnvoller deutscher Sammelbegriff, nicht länger als 120 Zeichen und kein bereits bestehendes Thema. suggestedSynonyms enthält 3 bis 8 wichtige Unterbegriffe und alternative Suchbegriffe. Jeder Begriff muss fachlich vollständig unter diesen Sammelbegriff fallen und Anbietern helfen, Angebote, Kurse, Workshops oder Seminare zuverlässig diesem Thema zuzuordnen. Bevorzuge konkrete Leistungsbegriffe, gängige Angebotsvarianten und gebräuchliche Bezeichnungen. Nenne niemals Oberbegriffe, nur lose verwandte oder breitere Themen, allgemeine Marketingbegriffe, den Themenname selbst oder Dubletten. Wenn der Suchbegriff vom Themenname abweicht und klar darunter fällt, nimm ihn als Synonym auf.",
     "Die Begründung ist kurz, sachlich und auf Deutsch. Erfinde keine Taxonomie-IDs.",
     `Katalog: ${JSON.stringify(catalog)}`,
@@ -201,6 +203,7 @@ function normalizeAuditRecommendations(rawRecommendations, catalog) {
 function normalizeSuggestion(rawSuggestion, catalog) {
   const kind = String(rawSuggestion?.kind || "").trim();
   const topicId = cleanText(rawSuggestion?.topicId, 200);
+  const existingTopicId = cleanText(rawSuggestion?.existingTopicId, 200);
   const subcategoryId = cleanText(rawSuggestion?.subcategoryId, 200);
   const suggestedTopicName = cleanText(rawSuggestion?.suggestedTopicName, 120);
   const suggestedSynonyms = Array.from(new Set(
@@ -214,12 +217,23 @@ function normalizeSuggestion(rawSuggestion, catalog) {
   );
   const subcategories = catalog.flatMap((category) => category.subcategories);
   if (kind === "synonym" && topics.some((topic) => topic.id === topicId)) {
-    return { kind, topicId, subcategoryId: "", suggestedTopicName: "", suggestedSynonyms: [], reason };
+    return { kind, topicId, existingTopicId: "", subcategoryId: "", suggestedTopicName: "", suggestedSynonyms: [], reason };
   }
   if (kind === "new_topic" && suggestedTopicName && subcategories.some((subcategory) => subcategory.id === subcategoryId)) {
     const normalizedName = suggestedTopicName.toLocaleLowerCase("de-AT");
     if (!topics.some((topic) => topic.name.toLocaleLowerCase("de-AT") === normalizedName)) {
-      return { kind, topicId: "", subcategoryId, suggestedTopicName, suggestedSynonyms, reason };
+      return { kind, topicId: "", existingTopicId: "", subcategoryId, suggestedTopicName, suggestedSynonyms, reason };
+    }
+  }
+  if (kind === "new_umbrella_topic" && suggestedTopicName && existingTopicId && subcategoryId) {
+    const normalizedName = suggestedTopicName.toLocaleLowerCase("de-AT");
+    const existingTopic = topics.find((topic) => topic.id === existingTopicId);
+    if (
+      existingTopic &&
+      existingTopic.subcategory.id === subcategoryId &&
+      !topics.some((topic) => topic.name.toLocaleLowerCase("de-AT") === normalizedName)
+    ) {
+      return { kind, topicId: "", existingTopicId, subcategoryId, suggestedTopicName, suggestedSynonyms, reason };
     }
   }
   return null;
