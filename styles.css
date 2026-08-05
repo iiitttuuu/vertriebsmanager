@@ -11186,6 +11186,7 @@ body.provider-form-open .topbar {
 
 .topbar-notification-item-text.is-rich p,
 .login-notification-briefing-item-text.is-rich p {
+  min-height: 1.48em;
   margin: 0 0 0.68em;
 }
 

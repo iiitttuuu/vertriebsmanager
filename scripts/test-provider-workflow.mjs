@@ -628,6 +628,8 @@ assert.match(apiSecretarySource, /required: \["reply", "entries", "actions", "cr
 assert.match(indexSource, /data-ceo-secretary-message-format="bullet"/, "Glocken-Nachrichten können als Aufzählung formatiert werden.");
 assert.match(indexSource, /data-ceo-secretary-message-format="ordered"/, "Glocken-Nachrichten können nummeriert werden.");
 assert.match(appSource, /function sanitizeSecretaryEmployeeMessageHtml/, "Nachrichten-Formatierung wird vor dem Speichern sicher bereinigt.");
+assert.match(appSource, /const tagMap = \{ b: "strong", i: "em", div: "p" \}/, "Zeilenumbrüche aus dem Nachrichteneditor bleiben als Absätze erhalten.");
+assert.match(appSource, /escapeHtml\(entry\?\.text \|\| "Neue Benachrichtigung"\)\.replace\(\/\\r\?\\n\/g, "<br>"\)/, "Auch Klartext-Nachrichten behalten ihre Zeilenumbrüche in der Glocke.");
 assert.match(appSource, /richText: entry\.bodyHtml/, "Die Glocke erhält die gespeicherte Nachrichten-Formatierung.");
 assert.match(stylesSource, /\.topbar-notification-dropdown \{[\s\S]*width: min\(640px, calc\(100vw - 34px\)\);/, "Das Glocken-Fenster ist für längere Nachrichten vergrößert.");
 assert.match(appSource, /function handleCeoSecretaryTeamMessageSubmit/, "Sekretär-Nachrichten werden serverseitig gespeichert.");

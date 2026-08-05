@@ -14237,7 +14237,7 @@ function getAdminNotificationTextMarkup(entry) {
   if (entry?.kind === "employee_message" && String(entry?.richText || "").trim()) {
     return sanitizeSecretaryEmployeeMessageHtml(entry.richText);
   }
-  return escapeHtml(entry?.text || "Neue Benachrichtigung");
+  return escapeHtml(entry?.text || "Neue Benachrichtigung").replace(/\r?\n/g, "<br>");
 }
 
 function isAdminNotificationLoginBriefingOpen() {
@@ -63066,9 +63066,9 @@ function sanitizeSecretaryEmployeeMessageHtml(value) {
   const template = document.createElement("template");
   template.innerHTML = raw;
   const output = document.createElement("div");
-  const allowedTags = new Set(["p", "br", "strong", "b", "em", "i", "u", "ul", "ol", "li"]);
+  const allowedTags = new Set(["p", "div", "br", "strong", "b", "em", "i", "u", "ul", "ol", "li"]);
   const droppedTags = new Set(["script", "style", "iframe", "object", "embed", "svg", "math", "form", "input", "button"]);
-  const tagMap = { b: "strong", i: "em" };
+  const tagMap = { b: "strong", i: "em", div: "p" };
   const copyNodes = (sourceParent, targetParent) => {
     Array.from(sourceParent.childNodes).forEach((node) => {
       if (node.nodeType === Node.TEXT_NODE) {
@@ -63089,6 +63089,9 @@ function sanitizeSecretaryEmployeeMessageHtml(value) {
       const target = document.createElement(tagMap[sourceTag] || sourceTag);
       targetParent.appendChild(target);
       copyNodes(node, target);
+      if (target.tagName === "P" && !target.textContent.trim() && !target.querySelector("br, ul, ol")) {
+        target.appendChild(document.createElement("br"));
+      }
     });
   };
   copyNodes(template.content, output);
