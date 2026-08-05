@@ -11231,6 +11231,221 @@ body.provider-form-open .topbar {
   white-space: nowrap;
 }
 
+.gift-card-procurement-card {
+  display: grid;
+  gap: 20px;
+  border: 1px solid rgba(60, 60, 67, 0.14);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 16px 38px rgba(20, 31, 46, 0.06);
+  padding: clamp(18px, 3vw, 28px);
+}
+
+.gift-card-procurement-head,
+.gift-card-procurement-source-head,
+.gift-card-procurement-order {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gift-card-procurement-head h3,
+.gift-card-procurement-head p,
+.gift-card-procurement-order-grid h4 {
+  margin: 0;
+}
+
+.gift-card-procurement-head > div > p:not(.gift-card-calculator-eyebrow) {
+  max-width: 680px;
+  margin-top: 6px;
+  color: #6e6e73;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.gift-card-procurement-sources {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.gift-card-procurement-source,
+.gift-card-procurement-order-form,
+.gift-card-procurement-orders {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 16px;
+  background: #fff;
+  padding: 15px;
+}
+
+.gift-card-procurement-source-head h4,
+.gift-card-procurement-order-grid h4 {
+  color: #1d1d1f;
+  font-size: 0.93rem;
+}
+
+.gift-card-procurement-source-head > span,
+.gift-card-procurement-order-status {
+  border-radius: 999px;
+  background: #f2f2f7;
+  color: #6e6e73;
+  padding: 4px 8px;
+  font-size: 0.67rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.gift-card-procurement-source label,
+.gift-card-procurement-order-form label {
+  display: grid;
+  gap: 5px;
+  color: #3a3a3c;
+  font-size: 0.72rem;
+  font-weight: 680;
+}
+
+.gift-card-procurement-source select,
+.gift-card-procurement-source input,
+.gift-card-procurement-order-form select,
+.gift-card-procurement-order-form input,
+.gift-card-procurement-order-form textarea {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  border-radius: 9px;
+  background: #fff;
+  color: #1d1d1f;
+  font: inherit;
+  padding: 8px 9px;
+}
+
+.gift-card-procurement-order-form textarea {
+  min-height: 58px;
+  resize: vertical;
+}
+
+.gift-card-procurement-history {
+  display: grid;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 9px 0 0;
+  border-top: 1px solid rgba(60, 60, 67, 0.1);
+  list-style: none;
+}
+
+.gift-card-procurement-history li,
+.gift-card-procurement-order {
+  align-items: center;
+}
+
+.gift-card-procurement-history li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 7px;
+  color: #515154;
+  font-size: 0.69rem;
+}
+
+.gift-card-procurement-history li span,
+.gift-card-procurement-order span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gift-card-procurement-history .mini-btn {
+  min-height: 27px;
+  padding: 4px 8px;
+  font-size: 0.66rem;
+}
+
+.gift-card-procurement-empty {
+  margin: 0;
+  color: #6e6e73;
+  font-size: 0.76rem;
+}
+
+.gift-card-procurement-summary {
+  margin: 5px 0 0;
+  color: #6e6e73;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.gift-card-procurement-order-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+  gap: 14px;
+}
+
+.gift-card-procurement-order-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.gift-card-procurement-order-form > div,
+.gift-card-procurement-order-wide,
+.gift-card-procurement-order-form > .btn {
+  grid-column: 1 / -1;
+}
+
+.gift-card-procurement-orders-list {
+  display: grid;
+  gap: 8px;
+}
+
+.gift-card-procurement-order {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(60, 60, 67, 0.1);
+}
+
+.gift-card-procurement-order:last-child {
+  border-bottom: 0;
+}
+
+.gift-card-procurement-order > div:not(.gift-card-procurement-order-actions) {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.gift-card-procurement-order strong {
+  color: #1d1d1f;
+  font-size: 0.75rem;
+}
+
+.gift-card-procurement-order span {
+  color: #6e6e73;
+  font-size: 0.68rem;
+}
+
+.gift-card-procurement-order-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+@media (max-width: 760px) {
+  .gift-card-procurement-head,
+  .gift-card-procurement-order {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .gift-card-procurement-sources,
+  .gift-card-procurement-order-grid,
+  .gift-card-procurement-order-form {
+    grid-template-columns: 1fr;
+  }
+
+  .gift-card-procurement-order-actions {
+    justify-content: flex-start;
+  }
+}
+
 .gift-card-calculator-results {
   display: grid;
   align-content: start;

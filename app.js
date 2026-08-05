@@ -21,6 +21,12 @@ const GIFT_CARD_CALCULATOR_DEFAULT_VALUES = Object.freeze({
   redemptionDays: 90,
   payoutCycleDays: 14,
 });
+const GIFT_CARD_PROCUREMENT_COST_ITEMS = Object.freeze([
+  { key: "cardProductionCost", label: "Plastikkarte" },
+  { key: "packagingCost", label: "Verpackung" },
+  { key: "greetingCardCost", label: "Grußkarte" },
+  { key: "envelopeCost", label: "Kuvert" },
+]);
 const REMOTE_STATE_ROW_ID = "main";
 const REMOTE_SAVE_DEBOUNCE_MS = 450;
 const REMOTE_RETRY_INITIAL_DELAY_MS = 1500;
@@ -629,6 +635,7 @@ const defaultState = {
     financeInvoiceCategories: [...DEFAULT_FINANCE_INVOICE_CATEGORIES],
     financePaymentMethodOptions: DEFAULT_FINANCE_PAYMENT_METHOD_OPTIONS.map((entry) => ({ ...entry })),
     giftCardCalculator: { values: { ...GIFT_CARD_CALCULATOR_DEFAULT_VALUES }, scenarios: [] },
+    giftCardProcurement: { priceHistory: [], orderEntries: [] },
     providerTargetsByCountry: {},
     headerBranding: { logoUrl: "", faviconUrl: "" },
     adminNotificationDismissedById: {},
@@ -2673,6 +2680,20 @@ const els = {
   giftCardResultCosts: document.getElementById("gift-card-result-costs"),
   giftCardResultCoverage: document.getElementById("gift-card-result-coverage"),
   giftCardResultCostPerCard: document.getElementById("gift-card-result-cost-per-card"),
+  giftCardProcurementSources: document.getElementById("gift-card-procurement-sources"),
+  giftCardProcurementApplyPrices: document.getElementById("gift-card-procurement-apply-prices"),
+  giftCardProcurementOrderForm: document.getElementById("gift-card-procurement-order-form"),
+  giftCardOrderCostKey: document.getElementById("gift-card-order-cost-key"),
+  giftCardOrderCompany: document.getElementById("gift-card-order-company"),
+  giftCardOrderInvoice: document.getElementById("gift-card-order-invoice"),
+  giftCardOrderNumber: document.getElementById("gift-card-order-number"),
+  giftCardOrderQuantity: document.getElementById("gift-card-order-quantity"),
+  giftCardOrderUnitCost: document.getElementById("gift-card-order-unit-cost"),
+  giftCardOrderStatus: document.getElementById("gift-card-order-status"),
+  giftCardOrderDate: document.getElementById("gift-card-order-date"),
+  giftCardOrderNotes: document.getElementById("gift-card-order-notes"),
+  giftCardProcurementOrdersSummary: document.getElementById("gift-card-procurement-orders-summary"),
+  giftCardProcurementOrdersList: document.getElementById("gift-card-procurement-orders-list"),
   brandingParamsForm: document.getElementById("branding-params-form"),
   brandingParamsSaveBtn: document.getElementById("branding-params-save-btn"),
   brandingParamsResetBtn: document.getElementById("branding-params-reset-btn"),
@@ -8469,6 +8490,18 @@ function bindEvents() {
   els.giftCardCalculatorSave?.addEventListener("click", () => {
     void handleGiftCardCalculatorSave();
   });
+  els.giftCardProcurementApplyPrices?.addEventListener("click", () => {
+    handleGiftCardProcurementApplyPrices();
+  });
+  els.giftCardProcurementSources?.addEventListener("click", handleGiftCardProcurementClick);
+  els.giftCardProcurementSources?.addEventListener("change", handleGiftCardProcurementSourceChange);
+  els.giftCardProcurementOrderForm?.addEventListener("submit", (event) => {
+    void handleGiftCardProcurementOrderSubmit(event);
+  });
+  els.giftCardOrderCompany?.addEventListener("change", () => {
+    if (els.giftCardOrderInvoice) els.giftCardOrderInvoice.innerHTML = getGiftCardProcurementInvoiceOptions(els.giftCardOrderCompany.value, "");
+  });
+  els.giftCardProcurementOrdersList?.addEventListener("click", handleGiftCardProcurementClick);
 
   els.brandingParamsForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -47140,6 +47173,71 @@ function normalizeGiftCardCalculator(value) {
   return { values: normalizeGiftCardCalculatorValues(source.values || source), scenarios };
 }
 
+function normalizeGiftCardProcurementCostKey(value) {
+  const key = String(value || "").trim();
+  return GIFT_CARD_PROCUREMENT_COST_ITEMS.some((item) => item.key === key) ? key : "";
+}
+
+function normalizeGiftCardProcurementDate(value) {
+  const normalized = String(value || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : "";
+}
+
+function normalizeGiftCardProcurementPriceRecord(entry, index = 0) {
+  if (!entry || typeof entry !== "object") return null;
+  const costKey = normalizeGiftCardProcurementCostKey(entry.costKey);
+  const companyId = String(entry.companyId || "").trim();
+  if (!costKey || !companyId) return null;
+  return {
+    id: String(entry.id || `gift_card_price_${index + 1}`).trim().slice(0, 180),
+    costKey,
+    companyId,
+    invoiceId: String(entry.invoiceId || "").trim().slice(0, 180),
+    unitCost: sanitizeGiftCardCalculatorNumber(entry.unitCost, 0),
+    effectiveDate: normalizeGiftCardProcurementDate(entry.effectiveDate) || getTodayDateInputValue(),
+    createdAt: String(entry.createdAt || "").trim() || new Date().toISOString(),
+    createdByUserId: normalizeUserId(entry.createdByUserId || ""),
+  };
+}
+
+function normalizeGiftCardProcurementOrderRecord(entry, index = 0) {
+  if (!entry || typeof entry !== "object") return null;
+  const costKey = normalizeGiftCardProcurementCostKey(entry.costKey);
+  const companyId = String(entry.companyId || "").trim();
+  if (!costKey || !companyId) return null;
+  const status = String(entry.status || "entwurf").trim().toLowerCase();
+  return {
+    id: String(entry.id || `gift_card_order_${index + 1}`).trim().slice(0, 180),
+    orderNumber: String(entry.orderNumber || "").trim().slice(0, 80),
+    costKey,
+    companyId,
+    invoiceId: String(entry.invoiceId || "").trim().slice(0, 180),
+    quantity: Math.max(0.01, sanitizeGiftCardCalculatorNumber(entry.quantity, 1)),
+    unitCost: sanitizeGiftCardCalculatorNumber(entry.unitCost, 0),
+    status: ["entwurf", "bestellt", "geliefert", "storniert"].includes(status) ? status : "entwurf",
+    orderedAt: normalizeGiftCardProcurementDate(entry.orderedAt) || getTodayDateInputValue(),
+    notes: String(entry.notes || "").trim().slice(0, 500),
+    createdAt: String(entry.createdAt || "").trim() || new Date().toISOString(),
+    createdByUserId: normalizeUserId(entry.createdByUserId || ""),
+  };
+}
+
+function normalizeGiftCardProcurement(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const unique = (rows, normalizer) => {
+    const ids = new Set();
+    return (Array.isArray(rows) ? rows : [])
+      .map(normalizer)
+      .filter((entry) => entry?.id && !ids.has(entry.id) && ids.add(entry.id))
+      .sort((left, right) => `${right.effectiveDate || right.orderedAt || ""}|${right.createdAt}`.localeCompare(`${left.effectiveDate || left.orderedAt || ""}|${left.createdAt}`))
+      .slice(0, 300);
+  };
+  return {
+    priceHistory: unique(source.priceHistory, normalizeGiftCardProcurementPriceRecord),
+    orderEntries: unique(source.orderEntries, normalizeGiftCardProcurementOrderRecord),
+  };
+}
+
 function getGiftCardCalculatorSettings() {
   return normalizeGiftCardCalculator(state.settings?.giftCardCalculator || {});
 }
@@ -47228,6 +47326,7 @@ function renderGiftCardCalculatorSection() {
   const settings = getGiftCardCalculatorSettings();
   applyGiftCardCalculatorValuesToForm(settings.values);
   renderGiftCardCalculatorResults(settings.values);
+  renderGiftCardProcurementSection();
 }
 
 async function persistGiftCardCalculator(nextCalculator, successMessage) {
@@ -47254,6 +47353,231 @@ async function handleGiftCardCalculatorSave() {
   } finally {
     setActionButtonBusy(els.giftCardCalculatorSave, false);
   }
+}
+
+function getGiftCardProcurement() {
+  return normalizeGiftCardProcurement(state.settings?.giftCardProcurement);
+}
+
+function getGiftCardProcurementCostItem(costKey) {
+  return GIFT_CARD_PROCUREMENT_COST_ITEMS.find((item) => item.key === costKey) || null;
+}
+
+function getGiftCardProcurementPriceHistoryForCost(costKey, procurement = getGiftCardProcurement()) {
+  return procurement.priceHistory.filter((entry) => entry.costKey === costKey);
+}
+
+function getCurrentGiftCardProcurementPrice(costKey, procurement = getGiftCardProcurement()) {
+  return getGiftCardProcurementPriceHistoryForCost(costKey, procurement)[0] || null;
+}
+
+function getGiftCardProcurementCompanyOptions(selectedId = "") {
+  const companies = getConversationOrganizations().slice().sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""), "de"));
+  const options = ['<option value="">Firma auswählen</option>'];
+  companies.forEach((company) => {
+    const id = String(company?.id || "").trim();
+    const name = String(company?.name || "").trim();
+    if (!id || !name) return;
+    options.push(`<option value="${escapeHtml(id)}"${id === selectedId ? " selected" : ""}>${escapeHtml(name)}</option>`);
+  });
+  return options.join("");
+}
+
+function getGiftCardProcurementInvoiceOptions(companyId = "", selectedId = "") {
+  const normalizedCompanyId = String(companyId || "").trim();
+  const options = ['<option value="">Keine Rechnung verknüpfen</option>'];
+  getIncomingInvoices()
+    .filter((invoice) => !normalizedCompanyId || String(invoice?.supplierCompanyId || "").trim() === normalizedCompanyId)
+    .forEach((invoice) => {
+      const id = String(invoice?.id || "").trim();
+      if (!id) return;
+      const label = [invoice.invoiceNumber || "Ohne Rechnungsnummer", invoice.invoiceDate, formatGiftCardCalculatorCurrency(invoice.totalNet || 0)].filter(Boolean).join(" · ");
+      options.push(`<option value="${escapeHtml(id)}"${id === selectedId ? " selected" : ""}>${escapeHtml(label)}</option>`);
+    });
+  return options.join("");
+}
+
+function getGiftCardProcurementCompanyName(companyId) {
+  return String(getConversationOrganizationById(companyId)?.name || "Unbekannte Firma").trim();
+}
+
+function getGiftCardProcurementInvoiceLabel(invoiceId) {
+  const invoice = getIncomingInvoiceById(invoiceId);
+  if (!invoice) return "Keine Rechnung verknüpft";
+  return [invoice.invoiceNumber || "Ohne Rechnungsnummer", invoice.invoiceDate].filter(Boolean).join(" · ");
+}
+
+function renderGiftCardProcurementSources() {
+  if (!els.giftCardProcurementSources) return;
+  const procurement = getGiftCardProcurement();
+  const calculatorValues = readGiftCardCalculatorValuesFromForm();
+  els.giftCardProcurementSources.innerHTML = GIFT_CARD_PROCUREMENT_COST_ITEMS.map((item) => {
+    const current = getCurrentGiftCardProcurementPrice(item.key, procurement);
+    const history = getGiftCardProcurementPriceHistoryForCost(item.key, procurement).slice(0, 3);
+    const companyId = String(current?.companyId || "");
+    const invoiceId = String(current?.invoiceId || "");
+    const unitCost = current ? current.unitCost : calculatorValues[item.key];
+    const historyMarkup = history.length
+      ? history.map((entry) => `<li><strong>${escapeHtml(formatGiftCardCalculatorCurrency(entry.unitCost))}</strong><span>${escapeHtml(entry.effectiveDate)} · ${escapeHtml(getGiftCardProcurementCompanyName(entry.companyId))}</span>${entry.invoiceId ? `<button type="button" class="mini-btn" data-gift-card-procurement-open-invoice="${escapeHtml(entry.invoiceId)}">Beleg</button>` : ""}</li>`).join("")
+      : '<li class="gift-card-procurement-empty">Noch kein Preisstand gespeichert.</li>';
+    return `<article class="gift-card-procurement-source" data-gift-card-procurement-source="${escapeHtml(item.key)}">
+      <div class="gift-card-procurement-source-head"><h4>${escapeHtml(item.label)}</h4><span>${history.length} Preisstände</span></div>
+      <label>Lieferant<select data-gift-card-procurement-company>${getGiftCardProcurementCompanyOptions(companyId)}</select></label>
+      <label>Rechnung / Beleg<select data-gift-card-procurement-invoice>${getGiftCardProcurementInvoiceOptions(companyId, invoiceId)}</select></label>
+      <label>Netto-Preis je Einheit (€)<input type="number" min="0" step="0.01" value="${escapeHtml(String(unitCost))}" data-gift-card-procurement-unit-cost /></label>
+      <label>Gültig ab<input type="date" value="${escapeHtml(String(current?.effectiveDate || getTodayDateInputValue()))}" data-gift-card-procurement-effective-date /></label>
+      <button type="button" class="mini-btn" data-gift-card-procurement-save-price="${escapeHtml(item.key)}">Preisstand speichern</button>
+      <ul class="gift-card-procurement-history">${historyMarkup}</ul>
+    </article>`;
+  }).join("");
+}
+
+function renderGiftCardProcurementOrderForm() {
+  if (!els.giftCardProcurementOrderForm) return;
+  const selectedCostKey = normalizeGiftCardProcurementCostKey(els.giftCardOrderCostKey?.value) || GIFT_CARD_PROCUREMENT_COST_ITEMS[0].key;
+  const selectedCompanyId = String(els.giftCardOrderCompany?.value || "").trim();
+  if (els.giftCardOrderCostKey) {
+    els.giftCardOrderCostKey.innerHTML = GIFT_CARD_PROCUREMENT_COST_ITEMS
+      .map((item) => `<option value="${escapeHtml(item.key)}"${item.key === selectedCostKey ? " selected" : ""}>${escapeHtml(item.label)}</option>`)
+      .join("");
+  }
+  if (els.giftCardOrderCompany) els.giftCardOrderCompany.innerHTML = getGiftCardProcurementCompanyOptions(selectedCompanyId);
+  if (els.giftCardOrderInvoice) {
+    els.giftCardOrderInvoice.innerHTML = getGiftCardProcurementInvoiceOptions(selectedCompanyId, String(els.giftCardOrderInvoice.value || "").trim());
+  }
+  if (els.giftCardOrderDate && !els.giftCardOrderDate.value) els.giftCardOrderDate.value = getTodayDateInputValue();
+}
+
+function renderGiftCardProcurementOrders() {
+  if (!els.giftCardProcurementOrdersList) return;
+  const allOrders = getGiftCardProcurement().orderEntries;
+  const activeOrders = allOrders.filter((order) => order.status !== "storniert");
+  const totalOrderValue = activeOrders.reduce((total, order) => total + order.quantity * order.unitCost, 0);
+  const supplierCount = new Set(activeOrders.map((order) => order.companyId)).size;
+  if (els.giftCardProcurementOrdersSummary) {
+    els.giftCardProcurementOrdersSummary.textContent = `${activeOrders.length} aktive Bestellpositionen · ${formatGiftCardCalculatorCurrency(totalOrderValue)} Bestellvolumen · ${supplierCount} Lieferanten`;
+  }
+  const orders = allOrders.slice(0, 12);
+  if (!orders.length) {
+    els.giftCardProcurementOrdersList.innerHTML = '<p class="gift-card-procurement-empty">Noch keine Bestellposition erfasst.</p>';
+    return;
+  }
+  els.giftCardProcurementOrdersList.innerHTML = orders.map((order) => {
+    const item = getGiftCardProcurementCostItem(order.costKey);
+    const total = order.quantity * order.unitCost;
+    return `<article class="gift-card-procurement-order">
+      <div><strong>${escapeHtml(order.orderNumber || "Ohne Bestellnummer")}</strong><span>${escapeHtml(item?.label || order.costKey)} · ${escapeHtml(getGiftCardProcurementCompanyName(order.companyId))}</span></div>
+      <div><strong>${escapeHtml(formatGiftCardCalculatorCurrency(total))}</strong><span>${escapeHtml(`${order.quantity} × ${formatGiftCardCalculatorCurrency(order.unitCost)} · ${order.orderedAt}`)}</span></div>
+      <div class="gift-card-procurement-order-actions"><span class="gift-card-procurement-order-status">${escapeHtml(order.status)}</span>${order.invoiceId ? `<button type="button" class="mini-btn" data-gift-card-procurement-open-invoice="${escapeHtml(order.invoiceId)}">Beleg öffnen</button>` : ""}</div>
+    </article>`;
+  }).join("");
+}
+
+function renderGiftCardProcurementSection() {
+  if (!isSuperAdmin()) return;
+  renderGiftCardProcurementSources();
+  renderGiftCardProcurementOrderForm();
+  renderGiftCardProcurementOrders();
+}
+
+async function persistGiftCardProcurement(nextProcurement, successMessage) {
+  const previousSettings = state.settings;
+  state.settings = normalizeSettings({ ...state.settings, giftCardProcurement: nextProcurement });
+  const persistence = await persistCriticalStateSnapshot({ retries: 3 });
+  if (!persistence?.ok) {
+    state.settings = previousSettings;
+    renderGiftCardProcurementSection();
+    showErrorFeedback("Beschaffungsdaten konnten nicht dauerhaft gespeichert werden. Bitte erneut versuchen.");
+    return false;
+  }
+  renderGiftCardProcurementSection();
+  showSuccessFeedback(successMessage, { toast: false, statusPersistMs: 2200 });
+  return true;
+}
+
+async function handleGiftCardProcurementPriceSave(costKey, sourceElement) {
+  if (!isSuperAdmin() || !sourceElement) return;
+  const normalizedCostKey = normalizeGiftCardProcurementCostKey(costKey);
+  const companyId = String(sourceElement.querySelector("[data-gift-card-procurement-company]")?.value || "").trim();
+  if (!normalizedCostKey || !companyId) {
+    showWarningFeedback("Bitte wähle zuerst einen Lieferanten.");
+    return;
+  }
+  const invoiceId = String(sourceElement.querySelector("[data-gift-card-procurement-invoice]")?.value || "").trim();
+  const unitCost = sanitizeGiftCardCalculatorNumber(sourceElement.querySelector("[data-gift-card-procurement-unit-cost]")?.value, 0);
+  const effectiveDate = normalizeGiftCardProcurementDate(sourceElement.querySelector("[data-gift-card-procurement-effective-date]")?.value) || getTodayDateInputValue();
+  const procurement = getGiftCardProcurement();
+  const record = { id: createId("gift_card_price"), costKey: normalizedCostKey, companyId, invoiceId, unitCost, effectiveDate, createdAt: new Date().toISOString(), createdByUserId: getAuthUid() };
+  await persistGiftCardProcurement({ ...procurement, priceHistory: [record, ...procurement.priceHistory] }, "Preisstand gespeichert.");
+}
+
+function handleGiftCardProcurementApplyPrices() {
+  if (!isSuperAdmin()) return;
+  const procurement = getGiftCardProcurement();
+  const values = readGiftCardCalculatorValuesFromForm();
+  let applied = 0;
+  GIFT_CARD_PROCUREMENT_COST_ITEMS.forEach((item) => {
+    const current = getCurrentGiftCardProcurementPrice(item.key, procurement);
+    if (current) {
+      values[item.key] = current.unitCost;
+      applied += 1;
+    }
+  });
+  if (!applied) {
+    showInfoFeedback("Es sind noch keine Preisstände zum Übernehmen gespeichert.");
+    return;
+  }
+  applyGiftCardCalculatorValuesToForm(values);
+  renderGiftCardCalculatorResults(values);
+  showSuccessFeedback(`${applied} aktuelle Preisstände in die Kalkulation übernommen. Anschließend bitte den Kalkulationsstand speichern.`, { toast: false, statusPersistMs: 2600 });
+}
+
+async function handleGiftCardProcurementOrderSubmit(event) {
+  event.preventDefault();
+  if (!isSuperAdmin()) return;
+  const costKey = normalizeGiftCardProcurementCostKey(els.giftCardOrderCostKey?.value);
+  const companyId = String(els.giftCardOrderCompany?.value || "").trim();
+  if (!costKey || !companyId) {
+    showWarningFeedback("Bitte Kostenstelle und Lieferant auswählen.");
+    return;
+  }
+  const unitCost = sanitizeGiftCardCalculatorNumber(els.giftCardOrderUnitCost?.value, 0);
+  const quantity = Math.max(0.01, sanitizeGiftCardCalculatorNumber(els.giftCardOrderQuantity?.value, 1));
+  const orderedAt = normalizeGiftCardProcurementDate(els.giftCardOrderDate?.value) || getTodayDateInputValue();
+  const invoiceId = String(els.giftCardOrderInvoice?.value || "").trim();
+  const procurement = getGiftCardProcurement();
+  const order = {
+    id: createId("gift_card_order"), orderNumber: String(els.giftCardOrderNumber?.value || "").trim(), costKey, companyId, invoiceId,
+    quantity, unitCost, status: String(els.giftCardOrderStatus?.value || "entwurf").trim(), orderedAt,
+    notes: String(els.giftCardOrderNotes?.value || "").trim(), createdAt: new Date().toISOString(), createdByUserId: getAuthUid(),
+  };
+  const priceRecord = ["bestellt", "geliefert"].includes(order.status) ? {
+    id: createId("gift_card_price"), costKey, companyId, invoiceId, unitCost, effectiveDate: orderedAt, createdAt: new Date().toISOString(), createdByUserId: getAuthUid(),
+  } : null;
+  const saved = await persistGiftCardProcurement({
+    ...procurement,
+    orderEntries: [order, ...procurement.orderEntries],
+    priceHistory: priceRecord ? [priceRecord, ...procurement.priceHistory] : procurement.priceHistory,
+  }, "Bestellposition und Preisstand gespeichert.");
+  if (saved) els.giftCardProcurementOrderForm?.reset();
+}
+
+function handleGiftCardProcurementSourceChange(event) {
+  const companySelect = event.target.closest("[data-gift-card-procurement-company]");
+  if (!companySelect) return;
+  const source = companySelect.closest("[data-gift-card-procurement-source]");
+  const invoiceSelect = source?.querySelector("[data-gift-card-procurement-invoice]");
+  if (invoiceSelect) invoiceSelect.innerHTML = getGiftCardProcurementInvoiceOptions(companySelect.value, "");
+}
+
+function handleGiftCardProcurementClick(event) {
+  const saveButton = event.target.closest("button[data-gift-card-procurement-save-price]");
+  if (saveButton) {
+    void handleGiftCardProcurementPriceSave(saveButton.dataset.giftCardProcurementSavePrice, saveButton.closest("[data-gift-card-procurement-source]"));
+    return;
+  }
+  const invoiceButton = event.target.closest("button[data-gift-card-procurement-open-invoice]");
+  if (invoiceButton) void handleIncomingInvoiceOpenDocument(invoiceButton.dataset.giftCardProcurementOpenInvoice);
 }
 
 function getFinancePaymentMethodOptions() {
@@ -63407,6 +63731,7 @@ function normalizeSettings(settings) {
     financeInvoiceCategories: normalizeFinanceInvoiceCategories(settings?.financeInvoiceCategories),
     financePaymentMethodOptions: normalizeFinancePaymentMethodOptions(settings?.financePaymentMethodOptions),
     giftCardCalculator: normalizeGiftCardCalculator(settings?.giftCardCalculator),
+    giftCardProcurement: normalizeGiftCardProcurement(settings?.giftCardProcurement),
     providerTargetsByCountry: normalizeProviderTargetsByCountry(settings?.providerTargetsByCountry || {}),
     headerBranding: normalizeHeaderBrandingSettings(settings?.headerBranding || {}),
     adminNotificationDismissedById: normalizeAdminNotificationDismissedById(
