@@ -2537,6 +2537,7 @@ const els = {
   managementAiReviewResults: document.getElementById("management-ai-review-results"),
   categoryTransferLogMeta: document.getElementById("category-transfer-log-meta"),
   categoryTransferPrintBtn: document.getElementById("category-transfer-print-btn"),
+  categoryTransferResetBtn: document.getElementById("category-transfer-reset-btn"),
   categoryTransferLogPanel: document.getElementById("category-transfer-log-panel"),
   categoryCsvScope: document.getElementById("category-csv-scope"),
   categoryCsvTargetSelect: document.getElementById("category-csv-target-select"),
@@ -10606,6 +10607,10 @@ function bindEvents() {
 
   els.categoryTransferPrintBtn?.addEventListener("click", () => {
     openCategoryTransferPrintView();
+  });
+
+  els.categoryTransferResetBtn?.addEventListener("click", () => {
+    void resetCategoryTransferLog();
   });
 
   els.categoryCsvImportMappings?.addEventListener("change", () => {
@@ -58802,6 +58807,74 @@ function getCategoryTransferLog() {
   return normalizeCategoryTransferLog(state.settings?.categoryTransferLog || []);
 }
 
+function getCategoryTransferLogPromptDate() {
+  const value = String(state.settings?.categoryTransferLogPromptDate || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+}
+
+function getCategoryTransferLogEntryDate(entry) {
+  const timestamp = Date.parse(String(entry?.createdAt || ""));
+  return Number.isFinite(timestamp) ? toDateInputValue(new Date(timestamp)) : "";
+}
+
+function updateCategoryTransferLog(entries, options = {}) {
+  state.settings = {
+    ...state.settings,
+    categoryTransferLog: normalizeCategoryTransferLog(entries),
+    categoryTransferLogPromptDate: String(options.promptDate ?? getCategoryTransferLogPromptDate()).trim(),
+  };
+  if (options.persist !== false) {
+    saveState({ showFeedback: false });
+  }
+  renderCategoryTransferLogControls();
+}
+
+async function resetCategoryTransferLog() {
+  if (!isSuperAdmin()) {
+    showWarningFeedback("Die Änderungsliste ist nur für Superadmins verfügbar.", { toast: true });
+    return;
+  }
+  const entries = getCategoryTransferLog();
+  if (!entries.length) {
+    showInfoFeedback("Die Änderungsliste ist bereits leer.", { toast: true });
+    return;
+  }
+  const confirmed = await confirmAction(
+    "Soll die Änderungsliste wirklich vollständig geleert werden? Die Kategorien, Themenbereiche, Themen und Synonyme selbst bleiben unverändert.",
+    { title: "Änderungsliste leeren", confirmLabel: "Liste leeren", danger: true }
+  );
+  if (!confirmed) {
+    return;
+  }
+  updateCategoryTransferLog([], { promptDate: getTodayDateInputValue() });
+  showSuccessFeedback("Die Änderungsliste für den Systemtransfer wurde geleert.", { toast: true });
+}
+
+function promptCategoryTransferLogResetForToday() {
+  if (!isSuperAdmin()) {
+    return;
+  }
+  const today = getTodayDateInputValue();
+  if (getCategoryTransferLogPromptDate() === today) {
+    return;
+  }
+  updateCategoryTransferLog(getCategoryTransferLog(), { promptDate: today });
+  void confirmAction(
+    "Heute wurde die Änderungsliste erstmals aktualisiert. Soll die bisherige Liste geleert werden, damit nur die heutigen Änderungen für den Systemtransfer angezeigt werden?",
+    { title: "Neue tägliche Änderungsliste", confirmLabel: "Ja, Liste leeren", danger: true }
+  ).then((shouldClear) => {
+    if (!shouldClear) {
+      return;
+    }
+    const currentEntries = getCategoryTransferLog();
+    updateCategoryTransferLog(
+      currentEntries.filter((entry) => getCategoryTransferLogEntryDate(entry) === today),
+      { promptDate: today }
+    );
+    showSuccessFeedback("Die bisherige Änderungsliste wurde geleert. Sichtbar sind nur die heutigen Änderungen.", { toast: true });
+  });
+}
+
 function recordCategoryTransferChanges(changes, options = {}) {
   const entries = (Array.isArray(changes) ? changes : [])
     .map((change) => ({
@@ -58848,14 +58921,8 @@ function recordCategoryTransferChanges(changes, options = {}) {
     }
     nextLog.unshift(entry);
   });
-  state.settings = {
-    ...state.settings,
-    categoryTransferLog: normalizeCategoryTransferLog(nextLog),
-  };
-  if (options.persist !== false) {
-    saveState({ showFeedback: false });
-  }
-  renderCategoryTransferLogControls();
+  updateCategoryTransferLog(nextLog, { persist: options.persist });
+  promptCategoryTransferLogResetForToday();
 }
 
 function getCategoryStructureEntries(categoriesLike) {
@@ -58944,13 +59011,15 @@ function renderCategoryTransferLogControls() {
   const panel = els.categoryTransferLogPanel;
   const meta = els.categoryTransferLogMeta;
   const button = els.categoryTransferPrintBtn;
-  if (!panel || !meta || !button) {
+  const resetButton = els.categoryTransferResetBtn;
+  if (!panel || !meta || !button || !resetButton) {
     return;
   }
   const allowed = isSuperAdmin();
   const count = getCategoryTransferLog().length;
   panel.classList.toggle("hidden", !allowed);
   button.disabled = !allowed || !count;
+  resetButton.disabled = !allowed || !count;
   meta.textContent = count
     ? `${count} erfasste ${count === 1 ? "Änderung" : "Änderungen"} stehen für den A4-PDF-Export bereit.`
     : "Noch keine neuen oder geänderten Themenbereiche, Themen oder Synonyme erfasst.";
@@ -64667,6 +64736,9 @@ function normalizeSettings(settings) {
       id: String(entry?.id || "").trim(), topic: String(entry?.topic || "").trim().slice(0, 120), note: String(entry?.note || "").trim().slice(0, 400), providerName: String(entry?.providerName || "").trim().slice(0, 180), requestedByName: String(entry?.requestedByName || "").trim().slice(0, 180), requestedByUserId: normalizeUserId(entry?.requestedByUserId || ""), createdAt: String(entry?.createdAt || "").trim(), status: String(entry?.status || "open").trim(), resolvedTopicName: String(entry?.resolvedTopicName || "").trim().slice(0, 180),
     })).filter((entry) => entry.id && entry.topic).slice(0, 500) : [],
     categoryTransferLog: normalizeCategoryTransferLog(settings?.categoryTransferLog || []),
+    categoryTransferLogPromptDate: /^\d{4}-\d{2}-\d{2}$/.test(String(settings?.categoryTransferLogPromptDate || "").trim())
+      ? String(settings.categoryTransferLogPromptDate).trim()
+      : "",
     departments: normalizedDepartments,
     conversationThreads: normalizeConversationThreads(settings?.conversationThreads || []),
     conversationOrganizations: normalizeConversationOrganizations(settings?.conversationOrganizations || []),

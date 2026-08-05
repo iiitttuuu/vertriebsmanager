@@ -17313,6 +17313,13 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   margin: 4px 0 0;
 }
 
+.management-transfer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 @media (max-width: 680px) {
   #management-section > .section-header {
     align-items: stretch;
@@ -17329,6 +17336,10 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   }
 
   .management-transfer-panel .btn {
+    width: 100%;
+  }
+
+  .management-transfer-actions {
     width: 100%;
   }
 }
