@@ -10541,7 +10541,9 @@ function bindEvents() {
   });
 
   els.managementSearchInput?.addEventListener("input", (event) => {
-    managementSearchTerm = String(event.target?.value || "").trim();
+    // Den Wortzwischenraum beim Tippen erhalten: trim() würde einen gerade
+    // eingegebenen Abstand sofort entfernen und das nächste Wort anhängen.
+    managementSearchTerm = String(event.target?.value || "");
     scheduleManagementAiSuggestion();
     queueUiRender("management-search", () => {
       renderManagementSummary();
@@ -58967,7 +58969,7 @@ function normalizeManagementAiSynonyms(values, topicName = "") {
       seen.add(key);
       return true;
     })
-    .slice(0, 12);
+    .slice(0, 20);
 }
 
 async function requestManagementAiStructureReview() {
