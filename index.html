@@ -4716,11 +4716,6 @@
             <span class="gift-card-calculator-private-badge">Nur Superadmin</span>
           </div>
 
-          <div class="gift-card-calculator-intro">
-            <strong>Das Kartenguthaben ist kein Gewinn.</strong>
-            <span>Es bleibt bis zur Partnerauszahlung als offene Verpflichtung sichtbar.</span>
-          </div>
-
           <div class="gift-card-calculator-layout">
             <form id="gift-card-calculator-form" class="gift-card-calculator-form">
               <div class="gift-card-calculator-form-head">
@@ -4797,6 +4792,11 @@
                 </div>
                 <div class="gift-card-management-copy">
                   <p id="gift-card-management-summary" class="gift-card-management-summary"></p>
+                  <div class="gift-card-coverage-chart" aria-label="Kostenabdeckung durch Versand und Verpackung">
+                    <div><span>Kostenabdeckung</span><strong id="gift-card-management-coverage-value">0 %</strong></div>
+                    <div class="gift-card-coverage-track"><span id="gift-card-management-coverage-bar"></span></div>
+                    <small id="gift-card-management-coverage-hint"></small>
+                  </div>
                   <p id="gift-card-management-recommendation" class="gift-card-management-recommendation"></p>
                 </div>
                 <div id="gift-card-management-drivers" class="gift-card-management-drivers"></div>
@@ -4819,7 +4819,7 @@
 
           <article class="gift-card-calculator-scenarios">
             <div class="gift-card-calculator-scenarios-head">
-              <div><p class="gift-card-calculator-eyebrow">Gespeicherte Szenarien</p><h3>Vergleiche deine Annahmen</h3></div>
+              <div><p class="gift-card-calculator-eyebrow">Gespeicherte Szenarien</p><h3>Vergleiche den Beitrag je Karte</h3></div>
               <span id="gift-card-calculator-scenario-count">0</span>
             </div>
             <div id="gift-card-calculator-scenario-list" class="gift-card-calculator-scenario-list"></div>

@@ -632,8 +632,10 @@ assert.match(appSource, /partnerCommissionRate/, "Die Partnerprovision ist als k
 assert.match(indexSource, /gift-card-management-card/, "Der Geschenkkarten-Kalkulator bietet eine kompakte Management-Ansicht.");
 assert.match(appSource, /function getGiftCardManagementInsights/, "Die Management-Ansicht bewertet Kostenhebel und Kostendeckung.");
 assert.match(appSource, /requiredCommissionRate/, "Die Management-Ansicht berechnet die erforderliche Partnerprovision zur Kostendeckung.");
-assert.match(appSource, /Kostenabdeckung/, "Die Management-Ansicht zeigt, ob direkte Kosten über Zusatzentgelte gedeckt sind.");
+assert.match(indexSource, /Kostenabdeckung/, "Die Management-Ansicht zeigt, ob direkte Kosten über Zusatzentgelte gedeckt sind.");
 assert.match(appSource, /Provisionspuffer/, "Die Management-Ansicht zeigt den Sicherheitsabstand zur kostendeckenden Provision.");
+assert.match(indexSource, /gift-card-coverage-chart/, "Die Management-Ansicht visualisiert die Deckung der direkten Kosten.");
+assert.match(appSource, /giftCardCalculatorScenarioList\.innerHTML = entries\.map/, "Gespeicherte Szenarien werden als direkter Beitragsvergleich dargestellt.");
 assert.match(indexSource, /data-ceo-secretary-message-format="bullet"/, "Glocken-Nachrichten können als Aufzählung formatiert werden.");
 assert.match(indexSource, /data-ceo-secretary-message-format="ordered"/, "Glocken-Nachrichten können nummeriert werden.");
 assert.match(appSource, /function sanitizeSecretaryEmployeeMessageHtml/, "Nachrichten-Formatierung wird vor dem Speichern sicher bereinigt.");

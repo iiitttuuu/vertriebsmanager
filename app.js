@@ -2676,6 +2676,9 @@ const els = {
   giftCardResultPayoutHint: document.getElementById("gift-card-result-payout-hint"),
   giftCardManagementStatus: document.getElementById("gift-card-management-status"),
   giftCardManagementSummary: document.getElementById("gift-card-management-summary"),
+  giftCardManagementCoverageValue: document.getElementById("gift-card-management-coverage-value"),
+  giftCardManagementCoverageBar: document.getElementById("gift-card-management-coverage-bar"),
+  giftCardManagementCoverageHint: document.getElementById("gift-card-management-coverage-hint"),
   giftCardManagementDrivers: document.getElementById("gift-card-management-drivers"),
   giftCardManagementRecommendation: document.getElementById("gift-card-management-recommendation"),
   giftCardTimelinePayment: document.getElementById("gift-card-timeline-payment"),
@@ -47245,11 +47248,6 @@ function getGiftCardManagementInsights(model) {
       hint: `je Karte · ${formatGiftCardCalculatorCurrency(model.directCosts)} im Szenario`,
     },
     {
-      label: "Kostenabdeckung",
-      value: `${Math.round(costCoverageRate)} %`,
-      hint: "durch verrechneten Versand und Verpackung",
-    },
-    {
       label: "Provisionspuffer",
       value: commissionBuffer === null ? "–" : `${commissionBuffer >= 0 ? "+" : ""}${commissionBuffer.toFixed(1).replace(".", ",")} PP`,
       hint: requiredCommissionRate === null ? "Guthaben fehlt für die Berechnung" : `kostendeckend ab ${requiredCommissionRate.toFixed(1).replace(".", ",")} % Provision`,
@@ -47268,7 +47266,7 @@ function getGiftCardManagementInsights(model) {
       : "";
     recommendation = `Für Kostendeckung fehlen ${formatGiftCardCalculatorCurrency(issueShortfallPerCard)} je Karte bei Versand und Verpackung${commissionHint}.`;
   }
-  return { signals, status, statusKind, summary, recommendation };
+  return { signals, status, statusKind, summary, recommendation, costCoverageRate, chargedAddonsPerCard, directCostPerCard };
 }
 
 function renderGiftCardManagementInsights(model) {
@@ -47279,6 +47277,14 @@ function renderGiftCardManagementInsights(model) {
     els.giftCardManagementStatus.classList.add(insights.statusKind);
   }
   if (els.giftCardManagementSummary) els.giftCardManagementSummary.textContent = insights.summary;
+  if (els.giftCardManagementCoverageValue) els.giftCardManagementCoverageValue.textContent = `${Math.round(insights.costCoverageRate)} %`;
+  if (els.giftCardManagementCoverageBar) {
+    els.giftCardManagementCoverageBar.style.width = `${Math.min(100, Math.max(0, insights.costCoverageRate))}%`;
+    els.giftCardManagementCoverageBar.classList.toggle("is-covered", insights.costCoverageRate >= 100);
+  }
+  if (els.giftCardManagementCoverageHint) {
+    els.giftCardManagementCoverageHint.textContent = `${formatGiftCardCalculatorCurrency(insights.chargedAddonsPerCard)} verrechnet von ${formatGiftCardCalculatorCurrency(insights.directCostPerCard)} direkten Kosten je Karte`;
+  }
   if (els.giftCardManagementDrivers) {
     els.giftCardManagementDrivers.innerHTML = insights.signals
       .map((signal) => `<div class="gift-card-management-driver"><span>${escapeHtml(signal.label)}</span><strong class="${signal.tone || ""}">${escapeHtml(signal.value)}</strong><small>${escapeHtml(signal.hint)}</small></div>`)
@@ -47314,15 +47320,24 @@ function renderGiftCardCalculatorScenarios() {
   const settings = getGiftCardCalculatorSettings();
   if (els.giftCardCalculatorScenarioCount) els.giftCardCalculatorScenarioCount.textContent = String(settings.scenarios.length);
   if (!els.giftCardCalculatorScenarioList) return;
-  els.giftCardCalculatorScenarioList.innerHTML = settings.scenarios.length
-    ? settings.scenarios.map((scenario) => {
-        const model = calculateGiftCardEconomics(scenario.values);
-        return `<article class="gift-card-calculator-scenario-item">
-          <div><strong>${escapeHtml(scenario.name)}</strong><span>${escapeHtml(`${scenario.values.units} ${scenario.values.units === 1 ? "Karte" : "Karten"} · ${scenario.values.partnerCommissionRate} % Provision · ${formatGiftCardCalculatorCurrency(model.totalContribution)}`)}</span></div>
-          <div class="gift-card-calculator-scenario-actions"><button type="button" class="mini-btn" data-gift-card-scenario-load="${escapeHtml(scenario.id)}">Laden</button><button type="button" class="mini-btn danger" data-gift-card-scenario-delete="${escapeHtml(scenario.id)}" aria-label="Szenario löschen">✕</button></div>
-        </article>`;
-      }).join("")
-    : '<p class="gift-card-calculator-scenario-empty">Speichere eine Annahme, um Varianten schnell vergleichen zu können.</p>';
+  const currentModel = calculateGiftCardEconomics(readGiftCardCalculatorValuesFromForm());
+  const entries = [
+    { name: "Aktuelle Eingabe", model: currentModel, isCurrent: true },
+    ...settings.scenarios.map((scenario) => ({ name: scenario.name, model: calculateGiftCardEconomics(scenario.values), scenario })),
+  ];
+  const largestContribution = Math.max(0.01, ...entries.map((entry) => Math.abs(entry.model.totalContribution / entry.model.values.units)));
+  els.giftCardCalculatorScenarioList.innerHTML = entries.map((entry) => {
+    const contributionPerCard = entry.model.totalContribution / entry.model.values.units;
+    const width = Math.max(4, (Math.abs(contributionPerCard) / largestContribution) * 100);
+    const impactClass = contributionPerCard < 0 ? "is-negative" : "is-positive";
+    const actions = entry.isCurrent
+      ? '<span class="gift-card-calculator-scenario-current">Aktuell</span>'
+      : `<div class="gift-card-calculator-scenario-actions"><button type="button" class="mini-btn" data-gift-card-scenario-load="${escapeHtml(entry.scenario.id)}">Laden</button><button type="button" class="mini-btn danger" data-gift-card-scenario-delete="${escapeHtml(entry.scenario.id)}" aria-label="Szenario löschen">✕</button></div>`;
+    return `<article class="gift-card-calculator-scenario-item${entry.isCurrent ? " is-current" : ""}">
+      <div class="gift-card-calculator-scenario-main"><div><strong>${escapeHtml(entry.name)}</strong><span>${formatGiftCardCalculatorCurrency(contributionPerCard)} je Karte</span></div><div class="gift-card-calculator-scenario-impact" aria-label="${escapeHtml(`${formatGiftCardCalculatorCurrency(contributionPerCard)} Beitrag je Karte`)}"><span class="${impactClass}" style="--gift-card-impact-width: ${width}%"></span></div></div>
+      ${actions}
+    </article>`;
+  }).join("");
 }
 
 function renderGiftCardCalculatorSection() {
