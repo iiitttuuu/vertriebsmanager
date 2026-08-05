@@ -2222,6 +2222,18 @@ body::after {
   letter-spacing: -0.01em;
 }
 
+#management-section > .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#management-section > .section-header #management-save-btn {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
 .section-header p {
   margin: 6px 0 0;
   color: var(--muted);
@@ -17077,6 +17089,67 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   overflow: hidden;
 }
 
+.management-tools-accordion {
+  margin-bottom: 10px;
+  border: 1px solid #cbd9e8;
+  border-radius: 8px;
+  background: #f8fbff;
+  overflow: hidden;
+}
+
+.management-tools-accordion summary {
+  min-height: 42px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  color: #203c5a;
+  font-size: 0.82rem;
+  font-weight: 800;
+  list-style: none;
+}
+
+.management-tools-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.management-tools-accordion summary::after {
+  content: "+";
+  width: 22px;
+  height: 22px;
+  border: 1px solid #b9cce0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #426583;
+  font-size: 0.9rem;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.management-tools-accordion[open] summary::after {
+  content: "−";
+}
+
+.management-tools-accordion summary small {
+  margin-left: auto;
+  color: #68788f;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.management-tools-accordion-content {
+  padding: 0 9px 9px;
+  border-top: 1px solid #dce6f0;
+}
+
+.management-tools-accordion-content > .management-export-accordion {
+  margin: 9px 0 0;
+}
+
 .management-export-accordion summary {
   min-height: 38px;
   padding: 9px 11px;
@@ -17155,6 +17228,15 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
 }
 
 @media (max-width: 680px) {
+  #management-section > .section-header {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  #management-section > .section-header #management-save-btn {
+    width: 100%;
+  }
+
   .management-transfer-panel {
     align-items: stretch;
     flex-direction: column;

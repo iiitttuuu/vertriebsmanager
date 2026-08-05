@@ -4540,19 +4540,25 @@
 
           <div id="management-ai-suggestion" class="management-ai-suggestion hidden" aria-live="polite"></div>
 
-          <details id="management-ai-review-panel" class="management-export-accordion management-ai-review hidden">
+          <details class="management-tools-accordion">
             <summary>
-              <span>KI-Strukturprüfung</span>
-              <small>Nur klare, relevante Verbesserungen</small>
+              <span>Verwaltungswerkzeuge</span>
+              <small>KI-Prüfung, CSV und Systemtransfer</small>
             </summary>
-            <div class="management-ai-review-content">
-              <p>Prüft Themenbereiche, Themen und Synonyme auf logische Zuordnung und bessere Auffindbarkeit für Angebote, Kurse, Workshops und Seminare. Es werden keine Änderungen automatisch vorgenommen.</p>
-              <button type="button" id="management-ai-review-btn" class="btn btn-primary">Struktur prüfen</button>
-              <div id="management-ai-review-results" class="management-ai-review-results hidden" aria-live="polite"></div>
-            </div>
-          </details>
+            <div class="management-tools-accordion-content">
+              <details id="management-ai-review-panel" class="management-export-accordion management-ai-review hidden">
+                <summary>
+                  <span>KI-Strukturprüfung</span>
+                  <small>Nur klare, relevante Verbesserungen</small>
+                </summary>
+                <div class="management-ai-review-content">
+                  <p>Prüft Themenbereiche, Themen und Synonyme auf logische Zuordnung und bessere Auffindbarkeit für Angebote, Kurse, Workshops und Seminare. Es werden keine Änderungen automatisch vorgenommen.</p>
+                  <button type="button" id="management-ai-review-btn" class="btn btn-primary">Struktur prüfen</button>
+                  <div id="management-ai-review-results" class="management-ai-review-results hidden" aria-live="polite"></div>
+                </div>
+              </details>
 
-          <details class="management-export-accordion">
+              <details class="management-export-accordion">
             <summary>
               <span>CSV Export</span>
               <small>Kategorien, Themenbereiche und Themen</small>
@@ -4575,9 +4581,9 @@
               <button type="button" id="category-csv-download-btn" class="btn btn-success">CSV herunterladen</button>
               <p id="category-csv-meta" class="management-search-meta"></p>
             </div>
-          </details>
+              </details>
 
-          <details class="management-export-accordion management-import-accordion">
+              <details class="management-export-accordion management-import-accordion">
             <summary>
               <span>Kategorie per CSV aktualisieren</span>
               <small>Nur Themenbereiche und Themen – Anbieter bleiben verknüpft</small>
@@ -4599,9 +4605,9 @@
               <div id="category-csv-import-mappings" class="management-import-mappings hidden" aria-live="polite"></div>
               <button type="button" id="category-csv-import-apply-btn" class="btn btn-success" disabled>Änderungen übernehmen</button>
             </div>
-          </details>
+              </details>
 
-          <details id="category-transfer-log-panel" class="management-export-accordion management-transfer-accordion">
+              <details id="category-transfer-log-panel" class="management-export-accordion management-transfer-accordion">
             <summary>
               <span>Änderungsliste für Systemtransfer</span>
               <small>Neue und geänderte Themenbereiche, Themen und Synonyme</small>
@@ -4612,6 +4618,8 @@
                 <p id="category-transfer-log-meta" class="management-search-meta"></p>
               </div>
               <button type="button" id="category-transfer-print-btn" class="btn btn-primary">Liste drucken / PDF</button>
+            </div>
+              </details>
             </div>
           </details>
 
