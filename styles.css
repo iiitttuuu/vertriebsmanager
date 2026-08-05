@@ -16991,6 +16991,49 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   margin-top: 2px;
 }
 
+.management-ai-topic-name-editor {
+  display: grid;
+  gap: 5px;
+  max-width: 520px;
+  padding: 9px;
+  border: 1px solid #b8d4c1;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.management-ai-topic-name-editor > span {
+  color: #35594b;
+  font-size: 0.73rem;
+  font-weight: 800;
+}
+
+.management-ai-topic-name-editor input {
+  width: 100%;
+  min-height: 34px;
+  box-sizing: border-box;
+  border: 1px solid #8ab79a;
+  border-radius: 5px;
+  background: #fff;
+  color: #183d29;
+  font: inherit;
+  font-weight: 700;
+  padding: 6px 8px;
+}
+
+.management-ai-topic-name-editor input:focus {
+  outline: 2px solid rgba(43, 122, 69, 0.22);
+  border-color: #28723c;
+}
+
+.management-ai-topic-name-editor small {
+  color: #68788f;
+  font-size: 0.69rem;
+}
+
+.management-ai-refresh-synonyms {
+  font-size: 0.73rem;
+}
+
 .management-ai-synonyms {
   display: grid;
   gap: 6px;

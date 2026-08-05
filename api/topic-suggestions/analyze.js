@@ -20,6 +20,15 @@ const RESPONSE_SCHEMA = {
   required: ["kind", "topicId", "existingTopicId", "subcategoryId", "suggestedTopicName", "suggestedSynonyms", "reason"],
 };
 
+const SYNONYM_RESPONSE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    suggestedSynonyms: { type: "array", items: { type: "string" } },
+  },
+  required: ["suggestedSynonyms"],
+};
+
 const AUDIT_RESPONSE_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -170,6 +179,15 @@ function buildInstruction(catalog) {
   ].join("\n");
 }
 
+function buildSynonymInstruction(topicName) {
+  return [
+    "Du erstellst Synonyme für ein deutsches Thema in einer Taxonomie für Anbieter-Angebote, Kurse, Workshops und Seminare.",
+    `Thema: ${JSON.stringify(topicName)}`,
+    "Nenne 8 bis 15 wichtige Unterbegriffe und alternative Suchbegriffe. Jeder Begriff muss vollständig unter das Thema fallen und Anbietern helfen, ihre Angebote zuverlässig zuzuordnen.",
+    "Bevorzuge konkrete Leistungsbegriffe, gängige Angebotsvarianten und gebräuchliche Bezeichnungen. Nenne weder den Themenname selbst noch Oberbegriffe, nur lose verwandte Begriffe, allgemeine Marketingbegriffe oder Dubletten.",
+  ].join("\n");
+}
+
 function buildAuditInstruction(catalog) {
   return [
     "Prüfe diese feste deutsche Themen-Taxonomie für die Zuordnung von Anbieter-Angeboten, Kursen, Workshops und Seminaren.",
@@ -261,10 +279,13 @@ export default async function handler(req, res) {
       return;
     }
     const body = parseBody(req);
-    const auditMode = String(body?.mode || "").trim().toLowerCase() === "audit";
+    const mode = String(body?.mode || "").trim().toLowerCase();
+    const auditMode = mode === "audit";
+    const synonymMode = mode === "synonyms";
     const query = cleanText(body?.query);
+    const topicName = cleanText(body?.topicName);
     const catalog = sanitizeCatalog(body?.catalog);
-    if ((!auditMode && query.length < 2) || !catalog.length) {
+    if ((auditMode && !catalog.length) || (synonymMode && topicName.length < 2) || (!auditMode && !synonymMode && (query.length < 2 || !catalog.length))) {
       sendJson(res, 400, { error: "Suchbegriff oder Themenstruktur ist ungültig." });
       return;
     }
@@ -278,10 +299,10 @@ export default async function handler(req, res) {
           model: String(process.env.OPENAI_TOPIC_SUGGESTION_MODEL || process.env.OPENAI_CEO_SECRETARY_MODEL || "gpt-5.6-luna").trim(),
           store: false,
           reasoning: { effort: "low" },
-          text: { format: { type: "json_schema", name: auditMode ? "topic_structure_audit" : "topic_suggestion", strict: true, schema: auditMode ? AUDIT_RESPONSE_SCHEMA : RESPONSE_SCHEMA } },
+          text: { format: { type: "json_schema", name: auditMode ? "topic_structure_audit" : synonymMode ? "topic_synonyms" : "topic_suggestion", strict: true, schema: auditMode ? AUDIT_RESPONSE_SCHEMA : synonymMode ? SYNONYM_RESPONSE_SCHEMA : RESPONSE_SCHEMA } },
           input: [
-            { role: "developer", content: [{ type: "input_text", text: auditMode ? buildAuditInstruction(catalog) : buildInstruction(catalog) }] },
-            { role: "user", content: [{ type: "input_text", text: auditMode ? "Prüfe die Taxonomie jetzt." : query }] },
+            { role: "developer", content: [{ type: "input_text", text: auditMode ? buildAuditInstruction(catalog) : synonymMode ? buildSynonymInstruction(topicName) : buildInstruction(catalog) }] },
+            { role: "user", content: [{ type: "input_text", text: auditMode ? "Prüfe die Taxonomie jetzt." : synonymMode ? topicName : query }] },
           ],
         }),
         signal: controller.signal,
@@ -298,7 +319,11 @@ export default async function handler(req, res) {
         sendJson(res, 502, { error: "Die KI-Zuordnung konnte keinen sicheren Vorschlag erstellen." });
         return;
       }
-      const result = auditMode ? { recommendations: normalizeAuditRecommendations(parsed?.recommendations, catalog) } : normalizeSuggestion(parsed, catalog);
+      const result = auditMode
+        ? { recommendations: normalizeAuditRecommendations(parsed?.recommendations, catalog) }
+        : synonymMode
+          ? { suggestedSynonyms: Array.from(new Set((Array.isArray(parsed?.suggestedSynonyms) ? parsed.suggestedSynonyms : []).map((entry) => cleanText(entry, 120)).filter((entry) => entry && entry.toLocaleLowerCase("de-AT") !== topicName.toLocaleLowerCase("de-AT")))).slice(0, 20) }
+          : normalizeSuggestion(parsed, catalog);
       if (!result) {
         sendJson(res, 502, { error: "Die KI-Zuordnung konnte keinen gültigen Vorschlag erstellen." });
         return;

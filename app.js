@@ -10747,12 +10747,17 @@ function bindEvents() {
   });
 
   els.managementAiSuggestion?.addEventListener("click", (event) => {
+    const refreshSynonymsButton = event.target.closest("button[data-refresh-management-ai-synonyms]");
+    if (refreshSynonymsButton && ["new_topic", "new_umbrella_topic"].includes(managementAiSuggestion?.kind)) {
+      void refreshManagementAiSynonyms(refreshSynonymsButton);
+      return;
+    }
     const removeSynonymButton = event.target.closest("button[data-remove-management-ai-synonym]");
     if (removeSynonymButton && ["new_topic", "new_umbrella_topic"].includes(managementAiSuggestion?.kind)) {
       const synonym = String(removeSynonymButton.dataset.removeManagementAiSynonym || "").trim();
       managementAiSuggestion.suggestedSynonyms = normalizeManagementAiSynonyms(
         (managementAiSuggestion.suggestedSynonyms || []).filter((entry) => normalizeText(entry) !== normalizeText(synonym)),
-        managementAiSuggestion.suggestedTopicName
+        getManagementAiSuggestedTopicName()
       );
       renderManagementAiSuggestion();
       return;
@@ -10762,6 +10767,14 @@ function bindEvents() {
       return;
     }
     void applyManagementAiSuggestion();
+  });
+
+  els.managementAiSuggestion?.addEventListener("input", (event) => {
+    const topicNameInput = event.target.closest("input[data-management-ai-topic-name]");
+    if (!topicNameInput || !["new_topic", "new_umbrella_topic"].includes(managementAiSuggestion?.kind)) {
+      return;
+    }
+    managementAiSuggestion.editedTopicName = String(topicNameInput.value || "").slice(0, 120);
   });
 
   els.managementAiReviewBtn?.addEventListener("click", () => {
@@ -59032,6 +59045,27 @@ async function requestManagementAiSuggestion(query) {
   };
 }
 
+async function requestManagementAiSynonyms(topicName) {
+  const accessToken = await getAuthAccessToken();
+  if (!accessToken) {
+    throw new Error("Login-Token fehlt.");
+  }
+  const response = await fetch(TOPIC_AI_SUGGESTION_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      "X-Supabase-Url": String(window.APP_CONFIG?.SUPABASE_URL || "").trim(),
+    },
+    body: JSON.stringify({ mode: "synonyms", topicName, catalog: getManagementAiCatalog() }),
+  });
+  const payload = await readApiJsonPayload(response);
+  if (!response.ok) {
+    throw new Error(String(payload?.error || "Die Synonym-Prüfung ist gerade nicht erreichbar."));
+  }
+  return normalizeManagementAiSynonyms(payload?.suggestedSynonyms, topicName);
+}
+
 function normalizeManagementAiSynonyms(values, topicName = "") {
   const normalizedTopicName = normalizeText(topicName);
   const seen = new Set();
@@ -59046,6 +59080,10 @@ function normalizeManagementAiSynonyms(values, topicName = "") {
       return true;
     })
     .slice(0, 20);
+}
+
+function getManagementAiSuggestedTopicName(suggestion = managementAiSuggestion) {
+  return String(suggestion?.editedTopicName ?? suggestion?.suggestedTopicName ?? "").trim().slice(0, 120);
 }
 
 async function requestManagementAiStructureReview() {
@@ -59223,17 +59261,39 @@ function renderManagementAiSuggestion() {
     return;
   }
   const { category, subcategory } = target.location;
-  const topicName = managementAiSuggestion.suggestedTopicName || query;
+  const topicName = getManagementAiSuggestedTopicName() || query;
   const synonyms = normalizeManagementAiSynonyms(managementAiSuggestion.suggestedSynonyms, topicName);
+  const topicNameEditor = `<label class="management-ai-topic-name-editor"><span>Name des neuen Themas</span><input type="text" value="${escapeHtml(topicName)}" maxlength="120" data-management-ai-topic-name><small>Vor dem Speichern anpassbar.</small></label>`;
   const synonymsMarkup = synonyms.length
     ? `<div class="management-ai-synonyms"><span>Vorgeschlagene Synonyme</span><div>${synonyms.map((synonym) => `<button type="button" class="management-ai-synonym-chip" data-remove-management-ai-synonym="${escapeHtml(synonym)}" aria-label="Synonym ${escapeHtml(synonym)} entfernen" title="Nicht übernehmen">${escapeHtml(synonym)} <b>×</b></button>`).join("")}</div><small>Nicht benötigte Begriffe einfach entfernen.</small></div>`
-    : "";
+    : `<div class="management-ai-synonyms"><span>Noch keine Synonyme vorgeschlagen</span></div>`;
+  const refreshSynonyms = `<button type="button" class="btn btn-secondary management-ai-refresh-synonyms" data-refresh-management-ai-synonyms>Synonyme für diesen Namen neu prüfen</button>`;
   if (target.kind === "new_umbrella_topic") {
     const existingTopicName = target.existingLocation.topic.name;
-    panel.innerHTML = `<span class="management-ai-suggestion-kicker">KI-ZUORDNUNG · SAMMELBEGRIFF</span><strong>„${escapeHtml(topicName)}“ als übergeordnetes Thema anlegen</strong><p class="management-ai-suggestion-path">${escapeHtml(category.name)} › ${escapeHtml(subcategory.name)}</p><p><strong>„${escapeHtml(existingTopicName)}“</strong> wird dabei automatisch als Synonym übernommen. Bestehende Anbieter-Zuordnungen bleiben erhalten.</p>${reason}${synonymsMarkup}<button type="button" class="btn btn-success" data-apply-management-ai-suggestion>Sammelbegriff übernehmen</button>`;
+    panel.innerHTML = `<span class="management-ai-suggestion-kicker">KI-ZUORDNUNG · SAMMELBEGRIFF</span><strong>Neuen übergeordneten Sammelbegriff anlegen</strong>${topicNameEditor}<p class="management-ai-suggestion-path">${escapeHtml(category.name)} › ${escapeHtml(subcategory.name)}</p><p><strong>„${escapeHtml(existingTopicName)}“</strong> wird dabei automatisch als Synonym übernommen. Bestehende Anbieter-Zuordnungen bleiben erhalten.</p>${reason}${synonymsMarkup}${refreshSynonyms}<button type="button" class="btn btn-success" data-apply-management-ai-suggestion>Sammelbegriff übernehmen</button>`;
     return;
   }
-  panel.innerHTML = `<span class="management-ai-suggestion-kicker">KI-ZUORDNUNG · NEUES THEMA</span><strong>Neues Thema „${escapeHtml(topicName)}“ vorschlagen</strong><p class="management-ai-suggestion-path">${escapeHtml(category.name)} › ${escapeHtml(subcategory.name)}</p>${reason}${synonymsMarkup}<button type="button" class="btn btn-success" data-apply-management-ai-suggestion>Mit Synonymen anlegen</button>`;
+  panel.innerHTML = `<span class="management-ai-suggestion-kicker">KI-ZUORDNUNG · NEUES THEMA</span><strong>Neues Thema vorschlagen</strong>${topicNameEditor}<p class="management-ai-suggestion-path">${escapeHtml(category.name)} › ${escapeHtml(subcategory.name)}</p>${reason}${synonymsMarkup}${refreshSynonyms}<button type="button" class="btn btn-success" data-apply-management-ai-suggestion>Mit Synonymen anlegen</button>`;
+}
+
+async function refreshManagementAiSynonyms(button) {
+  if (!isSuperAdmin() || !["new_topic", "new_umbrella_topic"].includes(managementAiSuggestion?.kind)) {
+    return;
+  }
+  const topicName = getManagementAiSuggestedTopicName();
+  if (topicName.length < 2) {
+    showWarningFeedback("Bitte zuerst einen Namen mit mindestens zwei Zeichen eingeben.", { toast: true });
+    return;
+  }
+  setActionButtonBusy(button, true, "Prüft …");
+  try {
+    managementAiSuggestion.suggestedSynonyms = await requestManagementAiSynonyms(topicName);
+    renderManagementAiSuggestion();
+  } catch (error) {
+    showErrorFeedback(String(error?.message || "Synonyme konnten nicht neu geprüft werden."), { toast: true });
+  } finally {
+    setActionButtonBusy(button, false);
+  }
 }
 
 async function saveManagementAiSynonyms(topicId, names) {
@@ -59297,7 +59357,8 @@ async function applyManagementAiSuggestion() {
     } else if (target.kind === "new_umbrella_topic") {
       const { category, subcategory } = target.location;
       const source = target.existingLocation;
-      const name = String(managementAiSuggestion?.suggestedTopicName || query).trim().slice(0, 120);
+      const name = getManagementAiSuggestedTopicName();
+      if (name.length < 2) throw new Error("Bitte einen Namen für das neue Thema eingeben.");
       const existingTopic = findTopicByNormalizedName(name);
       if (existingTopic) {
         showWarningFeedback(`Das Thema „${existingTopic.name}“ existiert bereits unter „${existingTopic.categoryName} > ${existingTopic.subcategoryName}“.`, { toast: true });
@@ -59349,7 +59410,8 @@ async function applyManagementAiSuggestion() {
       }
     } else {
       const { category, subcategory } = target.location;
-      const name = String(managementAiSuggestion?.suggestedTopicName || query).trim().slice(0, 120);
+      const name = getManagementAiSuggestedTopicName();
+      if (name.length < 2) throw new Error("Bitte einen Namen für das neue Thema eingeben.");
       const existingTopic = findTopicByNormalizedName(name);
       if (existingTopic) {
         showWarningFeedback(`Das Thema „${existingTopic.name}“ existiert bereits unter „${existingTopic.categoryName} > ${existingTopic.subcategoryName}“.`, { toast: true });
