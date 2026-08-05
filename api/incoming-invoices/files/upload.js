@@ -6,13 +6,18 @@ export const config = {
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
+function getEnvironmentSecret(value) {
+  const normalized = String(value || "").trim();
+  return ["", "\"\"", "''", "undefined", "null"].includes(normalized.toLowerCase()) ? "" : normalized;
+}
+
 function sendMethodNotAllowed(res) {
   res.status(405).json({ error: "Method not allowed" });
 }
 
 function getSupabaseConfig() {
   const supabaseUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
-  const serviceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  const serviceRoleKey = getEnvironmentSecret(process.env.SUPABASE_SERVICE_ROLE_KEY);
   const bucket = String(process.env.SUPABASE_STORAGE_BUCKET_INCOMING || "incoming-documents").trim();
   return {
     supabaseUrl,
@@ -86,7 +91,9 @@ async function ensureStorageBucket(supabaseUrl, serviceRoleKey, bucket) {
     },
   });
   if (response.ok) return;
-  if (response.status !== 404) {
+  const errorText = await response.text().catch(() => "");
+  const bucketMissing = response.status === 404 || (response.status === 400 && /bucket.+not found/i.test(errorText));
+  if (!bucketMissing) {
     throw new Error("Supabase Storage-Bucket konnte nicht geprüft werden.");
   }
 
