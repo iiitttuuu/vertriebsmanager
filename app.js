@@ -12775,7 +12775,9 @@ async function deleteTopicSubtopicsOnServer(topicIds) {
     }
   }
   const topicIdSet = new Set(normalizedTopicIds);
+  const deletedEntries = topicSubtopics.filter((entry) => topicIdSet.has(entry.topicId));
   topicSubtopics = topicSubtopics.filter((entry) => !topicIdSet.has(entry.topicId));
+  recordCategoryTransferSynonymChanges(deletedEntries, []);
   return true;
 }
 
@@ -12865,6 +12867,7 @@ async function openTopicSubtopicsModal(topicId) {
     }
     topicSubtopics = topicSubtopics.filter((entry) => entry.id !== subtopicId);
     recordCategoryTransferChanges([{
+      entityKey: `synonym:${subtopicId}`,
       entityType: "synonym",
       action: "entfernt",
       categoryName: findTopicLocation(normalizedTopicId)?.category?.name || "",
@@ -12916,6 +12919,7 @@ async function openTopicSubtopicsModal(topicId) {
         Object.assign(subtopic, { name, normalizedName });
       }
       recordCategoryTransferChanges([{
+        entityKey: `synonym:${subtopicId}`,
         entityType: "synonym",
         action: "geändert",
         categoryName: findTopicLocation(normalizedTopicId)?.category?.name || "",
@@ -12968,6 +12972,7 @@ async function openTopicSubtopicsModal(topicId) {
     }
     topicSubtopics.push(inserted);
     recordCategoryTransferChanges([{
+      entityKey: `synonym:${inserted.id}`,
       entityType: "synonym",
       action: "neu",
       categoryName: findTopicLocation(normalizedTopicId)?.category?.name || "",
@@ -58680,12 +58685,13 @@ function normalizeCategoryTransferLog(entriesLike) {
       const entityType = String(entry?.entityType || "").trim().toLowerCase();
       const action = String(entry?.action || "").trim().toLowerCase();
       const createdAt = String(entry?.createdAt || "").trim();
-      if (!id || !allowedTypes.has(entityType) || !allowedActions.has(action) || !createdAt || seenIds.has(id)) {
+      if (!id || !allowedTypes.has(entityType) || !allowedActions.has(action) || action === "entfernt" || !createdAt || seenIds.has(id)) {
         return null;
       }
       seenIds.add(id);
       return {
         id,
+        entityKey: String(entry?.entityKey || "").trim().slice(0, 240),
         entityType,
         action,
         categoryName: String(entry?.categoryName || "").trim().slice(0, 160),
@@ -58709,6 +58715,7 @@ function recordCategoryTransferChanges(changes, options = {}) {
   const entries = (Array.isArray(changes) ? changes : [])
     .map((change) => ({
       id: createId("category_transfer"),
+      entityKey: String(change?.entityKey || "").trim().slice(0, 240),
       entityType: String(change?.entityType || "").trim().toLowerCase(),
       action: String(change?.action || "").trim().toLowerCase(),
       categoryName: String(change?.categoryName || "").trim(),
@@ -58722,9 +58729,37 @@ function recordCategoryTransferChanges(changes, options = {}) {
   if (!entries.length) {
     return;
   }
+  let nextLog = getCategoryTransferLog();
+  entries.forEach((entry) => {
+    if (!entry.entityKey) {
+      nextLog = [entry, ...nextLog];
+      return;
+    }
+    const previousEntries = nextLog.filter((candidate) => candidate.entityKey === entry.entityKey);
+    if (entry.action === "entfernt") {
+      nextLog = nextLog.filter((candidate) => candidate.entityKey !== entry.entityKey);
+      return;
+    }
+    const original = previousEntries[previousEntries.length - 1] || null;
+    if (entry.action === "geändert" && original) {
+      if (original.action === "neu") {
+        nextLog = nextLog.filter((candidate) => candidate.entityKey !== entry.entityKey);
+        nextLog.unshift({ ...original, categoryName: entry.categoryName, subcategoryName: entry.subcategoryName, topicName: entry.topicName, newValue: entry.newValue || original.newValue, createdAt: entry.createdAt });
+        return;
+      }
+      if (normalizeText(entry.newValue) === normalizeText(original.previousValue)) {
+        nextLog = nextLog.filter((candidate) => candidate.entityKey !== entry.entityKey);
+        return;
+      }
+      nextLog = nextLog.filter((candidate) => candidate.entityKey !== entry.entityKey);
+      nextLog.unshift({ ...original, categoryName: entry.categoryName, subcategoryName: entry.subcategoryName, topicName: entry.topicName, newValue: entry.newValue, createdAt: entry.createdAt });
+      return;
+    }
+    nextLog.unshift(entry);
+  });
   state.settings = {
     ...state.settings,
-    categoryTransferLog: normalizeCategoryTransferLog([...entries, ...getCategoryTransferLog()]),
+    categoryTransferLog: normalizeCategoryTransferLog(nextLog),
   };
   if (options.persist !== false) {
     saveState({ showFeedback: false });
@@ -58761,27 +58796,27 @@ function getCategoryStructureTransferChanges(previousCategories, nextCategories)
   after.subcategories.forEach((next, id) => {
     const previous = before.subcategories.get(id);
     if (!previous) {
-      changes.push({ entityType: "themenbereich", action: "neu", ...next, newValue: next.subcategoryName });
+      changes.push({ entityKey: `themenbereich:${id}`, entityType: "themenbereich", action: "neu", ...next, newValue: next.subcategoryName });
     } else if (previous.categoryName !== next.categoryName || previous.subcategoryName !== next.subcategoryName) {
-      changes.push({ entityType: "themenbereich", action: "geändert", ...next, previousValue: `${previous.categoryName} › ${previous.subcategoryName}`, newValue: `${next.categoryName} › ${next.subcategoryName}` });
+      changes.push({ entityKey: `themenbereich:${id}`, entityType: "themenbereich", action: "geändert", ...next, previousValue: `${previous.categoryName} › ${previous.subcategoryName}`, newValue: `${next.categoryName} › ${next.subcategoryName}` });
     }
   });
   before.subcategories.forEach((previous, id) => {
     if (!after.subcategories.has(id)) {
-      changes.push({ entityType: "themenbereich", action: "entfernt", ...previous, previousValue: previous.subcategoryName });
+      changes.push({ entityKey: `themenbereich:${id}`, entityType: "themenbereich", action: "entfernt", ...previous, previousValue: previous.subcategoryName });
     }
   });
   after.topics.forEach((next, id) => {
     const previous = before.topics.get(id);
     if (!previous) {
-      changes.push({ entityType: "thema", action: "neu", ...next, newValue: next.topicName });
+      changes.push({ entityKey: `thema:${id}`, entityType: "thema", action: "neu", ...next, newValue: next.topicName });
     } else if (previous.categoryName !== next.categoryName || previous.subcategoryName !== next.subcategoryName || previous.topicName !== next.topicName) {
-      changes.push({ entityType: "thema", action: "geändert", ...next, previousValue: `${previous.categoryName} › ${previous.subcategoryName} › ${previous.topicName}`, newValue: `${next.categoryName} › ${next.subcategoryName} › ${next.topicName}` });
+      changes.push({ entityKey: `thema:${id}`, entityType: "thema", action: "geändert", ...next, previousValue: `${previous.categoryName} › ${previous.subcategoryName} › ${previous.topicName}`, newValue: `${next.categoryName} › ${next.subcategoryName} › ${next.topicName}` });
     }
   });
   before.topics.forEach((previous, id) => {
     if (!after.topics.has(id)) {
-      changes.push({ entityType: "thema", action: "entfernt", ...previous, previousValue: previous.topicName });
+      changes.push({ entityKey: `thema:${id}`, entityType: "thema", action: "entfernt", ...previous, previousValue: previous.topicName });
     }
   });
   return changes;
@@ -58801,14 +58836,14 @@ function recordCategoryTransferSynonymChanges(previousEntries, nextEntries) {
     const previous = before.get(id);
     const path = getTopicPath(next?.topicId);
     if (!previous) {
-      changes.push({ entityType: "synonym", action: "neu", ...path, newValue: next?.name || "" });
+      changes.push({ entityKey: `synonym:${id}`, entityType: "synonym", action: "neu", ...path, newValue: next?.name || "" });
     } else if (String(previous?.name || "") !== String(next?.name || "") || String(previous?.topicId || "") !== String(next?.topicId || "")) {
-      changes.push({ entityType: "synonym", action: "geändert", ...path, previousValue: previous?.name || "", newValue: next?.name || "" });
+      changes.push({ entityKey: `synonym:${id}`, entityType: "synonym", action: "geändert", ...path, previousValue: previous?.name || "", newValue: next?.name || "" });
     }
   });
   before.forEach((previous, id) => {
     if (!after.has(id)) {
-      changes.push({ entityType: "synonym", action: "entfernt", ...getTopicPath(previous?.topicId), previousValue: previous?.name || "" });
+      changes.push({ entityKey: `synonym:${id}`, entityType: "synonym", action: "entfernt", ...getTopicPath(previous?.topicId), previousValue: previous?.name || "" });
     }
   });
   recordCategoryTransferChanges(changes);
@@ -58840,14 +58875,16 @@ function openCategoryTransferPrintView() {
     showWarningFeedback("Für den Systemtransfer sind noch keine Änderungen erfasst.", { toast: true });
     return;
   }
-  const labels = { themenbereich: "Themenbereich", thema: "Thema", synonym: "Synonym", neu: "Neu", geändert: "Geändert", entfernt: "Entfernt" };
+  const labels = { themenbereich: "Themenbereich", thema: "Thema", synonym: "Synonym", neu: "Hinzugefügt", geändert: "Geändert" };
   const rows = entries.map((entry) => {
     const path = [entry.categoryName, entry.subcategoryName, entry.topicName].filter(Boolean).join(" › ") || "–";
-    const value = entry.action === "neu" ? entry.newValue : entry.action === "entfernt" ? entry.previousValue : `${entry.previousValue || "–"} → ${entry.newValue || "–"}`;
+    const value = entry.action === "neu"
+      ? `<strong>Hinzugefügt:</strong> ${escapeHtml(entry.newValue || "–")}`
+      : `<strong>Bisher:</strong> ${escapeHtml(entry.previousValue || "–")}<br><strong>Neu:</strong> ${escapeHtml(entry.newValue || "–")}`;
     const date = new Date(entry.createdAt);
-    return `<tr><td>${escapeHtml(Number.isFinite(date.getTime()) ? date.toLocaleString("de-AT") : entry.createdAt)}</td><td>${escapeHtml(labels[entry.entityType] || entry.entityType)}</td><td>${escapeHtml(labels[entry.action] || entry.action)}</td><td>${escapeHtml(path)}</td><td>${escapeHtml(value || "–")}</td></tr>`;
+    return `<tr><td>${escapeHtml(Number.isFinite(date.getTime()) ? date.toLocaleString("de-AT") : entry.createdAt)}</td><td>${escapeHtml(labels[entry.entityType] || entry.entityType)}</td><td><span class="status ${entry.action === "neu" ? "is-new" : "is-changed"}">${escapeHtml(labels[entry.action] || entry.action)}</span></td><td>${escapeHtml(path)}</td><td>${value}</td></tr>`;
   }).join("");
-  const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Systemtransfer – Themenänderungen</title><style>@page{size:A4;margin:14mm}body{font-family:Arial,sans-serif;color:#18324d;margin:0}h1{font-size:19px;margin:0 0 5px}.meta{margin:0 0 14px;color:#58708a;font-size:10pt}table{width:100%;border-collapse:collapse;font-size:8.5pt}th,td{border:1px solid #cdd9e5;padding:6px;vertical-align:top;text-align:left}th{background:#edf4fb;font-size:8pt;text-transform:uppercase}tr{break-inside:avoid}.foot{margin-top:10px;color:#58708a;font-size:8pt}</style></head><body><h1>Änderungsliste für Systemtransfer</h1><p class="meta">Neue und geänderte Themenbereiche, Themen und Synonyme · erstellt am ${escapeHtml(new Date().toLocaleString("de-AT"))}</p><table><thead><tr><th>Datum</th><th>Bereich</th><th>Änderung</th><th>Zuordnung</th><th>Wert</th></tr></thead><tbody>${rows}</tbody></table><p class="foot">Diese Liste kann im Druckdialog als PDF gespeichert oder direkt ausgedruckt werden.</p></body></html>`;
+  const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Systemtransfer – Themenänderungen</title><style>@page{size:A4;margin:14mm}body{font-family:Arial,sans-serif;color:#18324d;margin:0}h1{font-size:19px;margin:0 0 5px}.meta{margin:0 0 14px;color:#58708a;font-size:10pt}table{width:100%;border-collapse:collapse;font-size:8.5pt}th,td{border:1px solid #cdd9e5;padding:7px;vertical-align:top;text-align:left}th{background:#edf4fb;font-size:8pt;text-transform:uppercase}tr{break-inside:avoid}.status{display:inline-block;padding:3px 6px;border-radius:99px;font-size:7.5pt;font-weight:700}.is-new{background:#e5f6e9;color:#20723a}.is-changed{background:#fff0d7;color:#8a5415}.foot{margin-top:10px;color:#58708a;font-size:8pt}</style></head><body><h1>Änderungsliste für Systemtransfer</h1><p class="meta">Aktueller Netto-Stand: neue und geänderte Themenbereiche, Themen und Synonyme · erstellt am ${escapeHtml(new Date().toLocaleString("de-AT"))}</p><table><thead><tr><th>Datum</th><th>Art</th><th>Status</th><th>Zuordnung</th><th>Änderung im Detail</th></tr></thead><tbody>${rows}</tbody></table><p class="foot">Wieder entfernte oder zurückgesetzte Änderungen werden nicht ausgegeben. Diese Liste kann im Druckdialog als PDF gespeichert oder direkt ausgedruckt werden.</p></body></html>`;
   const printWindow = window.open("", "_blank", "width=1100,height=820");
   if (!printWindow) {
     showWarningFeedback("Popup blockiert. Bitte Popups erlauben, um die PDF-Ansicht zu öffnen.", { toast: true });
