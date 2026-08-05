@@ -11344,12 +11344,9 @@ body.provider-form-open .topbar {
 
 .gift-card-management-card {
   display: grid;
-  grid-template-columns: minmax(230px, 0.78fr) minmax(0, 1.22fr);
-  gap: 18px 28px;
-  border: 1px solid rgba(60, 60, 67, 0.12);
-  border-radius: 24px;
-  background: linear-gradient(145deg, #fbfbfd, #f4f7fb);
-  padding: clamp(18px, 3vw, 26px);
+  gap: 14px;
+  border-top: 1px solid rgba(60, 60, 67, 0.13);
+  padding-top: 20px;
 }
 
 .gift-card-management-head {
@@ -11357,7 +11354,6 @@ body.provider-form-open .topbar {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  grid-column: 1 / -1;
 }
 
 .gift-card-management-head h3 {
@@ -11539,10 +11535,6 @@ body.provider-form-open .topbar {
 
 @media (max-width: 860px) {
   .gift-card-calculator-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .gift-card-management-card {
     grid-template-columns: 1fr;
   }
 
