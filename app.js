@@ -47214,20 +47214,17 @@ function setGiftCardCalculatorResult(element, value, options = {}) {
 
 function getGiftCardManagementInsights(model) {
   const { values } = model;
-  const paymentFeePerCard = (model.directCosts / values.units) - values.cardProductionCost - values.shippingCost - values.packagingCost;
-  const drivers = [
-    { label: "Plastikkarte", amount: values.cardProductionCost },
-    { label: "Versand nach Verrechnung", amount: values.shippingCost - values.shippingCharged },
-    { label: "Verpackung nach Verrechnung", amount: values.packagingCost - values.packagingCharged },
-    { label: "Zahlungsgebühr", amount: paymentFeePerCard },
-  ].filter((driver) => driver.amount > 0.004).sort((left, right) => right.amount - left.amount);
+  const directCostPerCard = model.directCosts / values.units;
+  const chargedAddonsPerCard = values.shippingCharged + values.packagingCharged;
+  const costCoverageRate = directCostPerCard > 0 ? (chargedAddonsPerCard / directCostPerCard) * 100 : 100;
   const requiredCommissionRate = values.cardValue > 0
     ? Math.max(0, (-model.issuanceContribution / values.units / values.cardValue) * 100)
     : null;
   const issueShortfallPerCard = Math.max(0, -model.issuanceContribution / values.units);
+  const commissionBuffer = requiredCommissionRate === null ? null : values.partnerCommissionRate - requiredCommissionRate;
   let status = "Stabil";
   let statusKind = "is-good";
-  let summary = "Die Zusatzkosten sind gedeckt und die Provision erzeugt einen positiven Beitrag.";
+  let summary = `Von ${formatGiftCardCalculatorCurrency(directCostPerCard)} direkten Kosten je Karte sind ${Math.round(costCoverageRate)} % über Versand und Verpackung gedeckt.`;
   if (model.totalContribution < -0.004) {
     status = "Kritisch";
     statusKind = "is-critical";
@@ -47241,18 +47238,37 @@ function getGiftCardManagementInsights(model) {
     statusKind = "is-caution";
     summary = "Das Szenario ist kostendeckend, hat aber noch keinen nennenswerten Puffer.";
   }
-  const topDriver = drivers[0];
-  let recommendation = "Die Kostenstruktur ist solide. Behalte besonders den größten Kostenhebel im Blick.";
+  const signals = [
+    {
+      label: "Direkte Kosten",
+      value: formatGiftCardCalculatorCurrency(directCostPerCard),
+      hint: `je Karte · ${formatGiftCardCalculatorCurrency(model.directCosts)} im Szenario`,
+    },
+    {
+      label: "Kostenabdeckung",
+      value: `${Math.round(costCoverageRate)} %`,
+      hint: "durch verrechneten Versand und Verpackung",
+    },
+    {
+      label: "Provisionspuffer",
+      value: commissionBuffer === null ? "–" : `${commissionBuffer >= 0 ? "+" : ""}${commissionBuffer.toFixed(1).replace(".", ",")} PP`,
+      hint: requiredCommissionRate === null ? "Guthaben fehlt für die Berechnung" : `kostendeckend ab ${requiredCommissionRate.toFixed(1).replace(".", ",")} % Provision`,
+      tone: commissionBuffer !== null && commissionBuffer < 0 ? "is-negative" : "",
+    },
+    {
+      label: "Liquiditätsbindung",
+      value: formatGiftCardCalculatorCurrency(model.liability),
+      hint: `offenes Guthaben bis etwa Tag ${model.expectedPayoutDay}`,
+    },
+  ];
+  let recommendation = "Versand und Verpackung decken die direkten Kosten bereits. Die Provision bleibt dein zusätzlicher Ertrag.";
   if (issueShortfallPerCard > 0.004) {
     const commissionHint = requiredCommissionRate !== null
       ? ` oder mindestens ${requiredCommissionRate.toFixed(2).replace(".", ",")} % Partnerprovision`
       : "";
     recommendation = `Für Kostendeckung fehlen ${formatGiftCardCalculatorCurrency(issueShortfallPerCard)} je Karte bei Versand und Verpackung${commissionHint}.`;
-  } else if (topDriver) {
-    const reduction = Math.min(0.5, topDriver.amount);
-    recommendation = `${topDriver.label} um ${formatGiftCardCalculatorCurrency(reduction)} je Karte zu senken, verbessert dieses Szenario um ${formatGiftCardCalculatorCurrency(reduction * values.units)}.`;
   }
-  return { drivers, status, statusKind, summary, recommendation };
+  return { signals, status, statusKind, summary, recommendation };
 }
 
 function renderGiftCardManagementInsights(model) {
@@ -47264,9 +47280,9 @@ function renderGiftCardManagementInsights(model) {
   }
   if (els.giftCardManagementSummary) els.giftCardManagementSummary.textContent = insights.summary;
   if (els.giftCardManagementDrivers) {
-    els.giftCardManagementDrivers.innerHTML = insights.drivers.length
-      ? insights.drivers.map((driver, index) => `<div class="gift-card-management-driver"><span>${index === 0 ? `Größter Hebel · ${escapeHtml(driver.label)}` : escapeHtml(driver.label)}</span><strong>${formatGiftCardCalculatorCurrency(driver.amount)} <small>je Karte</small></strong></div>`).join("")
-      : '<p class="gift-card-management-empty">Trage Ausgabekosten ein, um ihre Hebelwirkung zu sehen.</p>';
+    els.giftCardManagementDrivers.innerHTML = insights.signals
+      .map((signal) => `<div class="gift-card-management-driver"><span>${escapeHtml(signal.label)}</span><strong class="${signal.tone || ""}">${escapeHtml(signal.value)}</strong><small>${escapeHtml(signal.hint)}</small></div>`)
+      .join("");
   }
   if (els.giftCardManagementRecommendation) els.giftCardManagementRecommendation.textContent = insights.recommendation;
 }
