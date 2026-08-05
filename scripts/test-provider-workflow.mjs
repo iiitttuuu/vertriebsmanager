@@ -615,6 +615,9 @@ assert.match(appSource, /function mergeEmployeeLastLoginAtByUserId/, "Login-Zeit
 assert.match(appSource, /automaticLoginPopupShownForSession/, "Pro Anmeldung wird höchstens ein automatisches Pop-up geöffnet.");
 assert.match(appSource, /await persistCriticalStateSnapshot\(\{ retries: 3 \}\)/, "Die Auswahl „Nicht mehr automatisch anzeigen“ wird zentral gespeichert.");
 assert.match(indexSource, /id="ceo-secretary-team-message-form"/, "Der Sekretär bietet ein Formular für Mitarbeiternachrichten.");
+assert.match(indexSource, /data-ceo-secretary-view="notifications"[\s\S]*>Glocke/, "Glockenmeldungen haben einen eigenen CEO-Office-Tab.");
+assert.match(indexSource, /id="ceo-secretary-view-notifications"[\s\S]*id="ceo-secretary-team-message-form"/, "Das Nachrichtenformular liegt ausschließlich im Glocken-Tab.");
+assert.match(appSource, /\["secretary", "briefing", "memory", "notifications"\]/, "Der Glocken-Tab wird im CEO Office als gültige Ansicht gerendert.");
 assert.match(appSource, /function handleCeoSecretaryTeamMessageSubmit/, "Sekretär-Nachrichten werden serverseitig gespeichert.");
 assert.match(appSource, /kind: "employee_message"/, "Empfänger sehen Sekretär-Nachrichten in ihrer Glocke.");
 assert.match(indexSource, /id="login-notification-briefing-close" class="btn btn-success">Schließen/, "Der Login-Hinweis lässt sich schließen.");

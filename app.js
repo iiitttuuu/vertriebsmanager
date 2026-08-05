@@ -1959,6 +1959,7 @@ const els = {
   ceoSecretaryViewSecretary: document.getElementById("ceo-secretary-view-secretary"),
   ceoSecretaryViewBriefing: document.getElementById("ceo-secretary-view-briefing"),
   ceoSecretaryViewMemory: document.getElementById("ceo-secretary-view-memory"),
+  ceoSecretaryViewNotifications: document.getElementById("ceo-secretary-view-notifications"),
   ceoSecretaryChatFeed: document.getElementById("ceo-secretary-chat-feed"),
   ceoSecretaryLearningStatus: document.getElementById("ceo-secretary-learning-status"),
   ceoSecretarySuggestionButtons: document.querySelectorAll("[data-ceo-secretary-suggestion]"),
@@ -35941,7 +35942,7 @@ function renderCeoSecretaryLegacySection() {
 
 function normalizeCeoSecretaryView(value) {
   const view = String(value || "").trim().toLowerCase();
-  return ["secretary", "briefing", "memory"].includes(view) ? view : "secretary";
+  return ["secretary", "briefing", "memory", "notifications"].includes(view) ? view : "secretary";
 }
 
 function setCeoSecretaryActiveView(nextView) {
@@ -36327,6 +36328,7 @@ function renderCeoSecretarySection() {
     secretary: els.ceoSecretaryViewSecretary,
     briefing: els.ceoSecretaryViewBriefing,
     memory: els.ceoSecretaryViewMemory,
+    notifications: els.ceoSecretaryViewNotifications,
   };
   Object.entries(panels).forEach(([view, panel]) => panel?.classList.toggle("hidden", view !== ceoSecretaryActiveView));
   const memoryCount = ceoSecretaryPreferences.memory.length;

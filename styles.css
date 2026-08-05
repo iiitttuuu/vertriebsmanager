@@ -26294,62 +26294,64 @@ body {
 
 /* Sekretär: direkte, persönliche Mitarbeiter-Nachrichten. */
 .ceo-secretary-team-message-card {
-  margin-top: 16px;
-  border: 1px solid #cbdcf1;
-  border-radius: 18px;
-  background: linear-gradient(145deg, #ffffff 0%, #f3f8ff 100%);
-  box-shadow: 0 10px 24px rgba(26, 69, 117, 0.07);
-  padding: 18px;
+  border: 1px solid rgba(60, 60, 67, 0.14);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 42px rgba(20, 31, 46, 0.08);
+  padding: clamp(20px, 4vw, 32px);
 }
 
 .ceo-secretary-team-message-head h3 {
-  margin: 2px 0 0;
-  color: #173f72;
-  font-size: 1rem;
+  max-width: 620px;
+  margin: 3px 0 0;
+  color: #1d1d1f;
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  letter-spacing: -0.025em;
 }
 
 .ceo-secretary-team-message-head > div > p:not(.ceo-secretary-eyebrow) {
-  margin: 6px 0 0;
-  color: #59718e;
-  font-size: 0.82rem;
-  line-height: 1.45;
+  max-width: 620px;
+  margin: 8px 0 0;
+  color: #6e6e73;
+  font-size: 0.92rem;
+  line-height: 1.5;
 }
 
 .ceo-secretary-team-message-form {
   display: grid;
-  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.6fr);
-  gap: 12px;
-  margin-top: 15px;
+  grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1.65fr);
+  gap: 16px;
+  margin-top: 26px;
 }
 
 .ceo-secretary-team-message-form label {
   display: grid;
-  gap: 6px;
-  color: #365676;
-  font-size: 0.75rem;
-  font-weight: 700;
+  gap: 8px;
+  color: #1d1d1f;
+  font-size: 0.78rem;
+  font-weight: 750;
 }
 
 .ceo-secretary-team-message-form select,
 .ceo-secretary-team-message-form textarea {
   width: 100%;
-  border: 1px solid #c8d9ea;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.9);
-  color: #1d3857;
-  padding: 10px 11px;
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  border-radius: 14px;
+  background: #fbfbfd;
+  color: #1d1d1f;
+  padding: 12px 13px;
   font: inherit;
 }
 
 .ceo-secretary-team-message-form textarea {
-  min-height: 86px;
+  min-height: 116px;
   resize: vertical;
 }
 
 .ceo-secretary-team-message-form select:focus,
 .ceo-secretary-team-message-form textarea:focus {
   border-color: #0071e3;
-  outline: 3px solid rgba(0, 113, 227, 0.16);
+  outline: 3px solid rgba(0, 113, 227, 0.14);
 }
 
 .ceo-secretary-team-message-actions {
@@ -26361,9 +26363,10 @@ body {
 }
 
 .ceo-secretary-team-message-actions .btn {
-  min-width: 178px;
+  min-width: 168px;
   border-color: #0071e3;
   background: #0071e3;
+  border-radius: 999px;
   box-shadow: none;
 }
 
@@ -26375,8 +26378,8 @@ body {
 
 .ceo-secretary-team-message-status {
   margin: 0;
-  color: #59718e;
-  font-size: 0.78rem;
+  color: #6e6e73;
+  font-size: 0.82rem;
 }
 
 .ceo-secretary-team-message-status[data-tone="success"] {
@@ -28448,5 +28451,211 @@ tr.provider-row-created:hover td {
   .conversation-meta-form > .form-actions,
   .conversation-meta-form > .conversation-danger-zone {
     grid-column: auto;
+  }
+}
+
+/* CEO Office – zurückhaltende, Apple-inspirierte Informationshierarchie. */
+.ceo-secretary-section {
+  max-width: 1120px;
+  gap: 20px;
+  padding: clamp(20px, 4vw, 40px);
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(0, 113, 227, 0.09), transparent 30%),
+    #f5f5f7;
+  box-shadow: 0 22px 60px rgba(28, 28, 31, 0.07);
+}
+
+.ceo-secretary-header {
+  padding-bottom: 2px;
+}
+
+.ceo-secretary-header h2 {
+  color: #1d1d1f;
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  letter-spacing: -0.045em;
+  line-height: 1.06;
+}
+
+.ceo-secretary-header p:not(.ceo-secretary-eyebrow) {
+  max-width: 580px;
+  color: #6e6e73;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.ceo-secretary-private-badge {
+  border-color: rgba(60, 60, 67, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+  color: #515154;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.ceo-secretary-view-tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: min(100%, 596px);
+  gap: 2px;
+  padding: 3px;
+  border-color: rgba(60, 60, 67, 0.14);
+  border-radius: 14px;
+  background: rgba(118, 118, 128, 0.12);
+}
+
+.ceo-secretary-view-tab {
+  min-height: 42px;
+  border-radius: 11px;
+  color: #6e6e73;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.ceo-secretary-view-tab:hover,
+.ceo-secretary-view-tab.is-active {
+  color: #1d1d1f;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.ceo-secretary-assistant-card,
+.ceo-secretary-briefing-focus,
+.ceo-secretary-memory {
+  border-color: rgba(60, 60, 67, 0.14);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 42px rgba(20, 31, 46, 0.07);
+}
+
+.ceo-secretary-assistant-head {
+  gap: 13px;
+  padding: 19px 22px;
+  border-bottom-color: rgba(60, 60, 67, 0.11);
+}
+
+.ceo-secretary-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #0071e3, #0a84ff);
+  box-shadow: 0 5px 12px rgba(0, 113, 227, 0.22);
+}
+
+.ceo-secretary-assistant-head h3 {
+  color: #1d1d1f;
+  font-size: 1.03rem;
+  letter-spacing: -0.015em;
+}
+
+.ceo-secretary-learning-status {
+  border-color: rgba(52, 199, 89, 0.22);
+  background: rgba(52, 199, 89, 0.1);
+  color: #248a3d;
+  padding: 6px 9px;
+}
+
+.ceo-secretary-chat-feed {
+  min-height: 238px;
+  padding: 20px 22px;
+  background: linear-gradient(180deg, #fff 0%, #fbfbfd 100%);
+}
+
+.ceo-secretary-chat-message.is-assistant,
+.ceo-secretary-chat-message.is-thinking {
+  border-color: rgba(60, 60, 67, 0.12);
+  background: #f2f2f7;
+}
+
+.ceo-secretary-chat-message.is-user {
+  background: #0071e3;
+}
+
+.ceo-secretary-chat-message p {
+  color: #1d1d1f;
+  font-size: 0.9rem;
+}
+
+.ceo-secretary-chat-message span,
+.ceo-secretary-chat-message small {
+  color: #6e6e73;
+}
+
+.ceo-secretary-suggestions {
+  gap: 8px;
+}
+
+.ceo-secretary-suggestions button,
+.ceo-secretary-briefing-open-memory {
+  border-color: rgba(60, 60, 67, 0.14);
+  color: #0071e3;
+  font-weight: 650;
+}
+
+.ceo-secretary-message-form {
+  border-color: rgba(60, 60, 67, 0.14);
+  border-radius: 20px;
+  box-shadow: 0 10px 24px rgba(20, 31, 46, 0.04);
+  padding: 15px 17px;
+}
+
+.ceo-secretary-message-form textarea {
+  color: #1d1d1f;
+}
+
+.ceo-secretary-message-actions {
+  border-top-color: rgba(60, 60, 67, 0.11);
+}
+
+.ceo-secretary-message-actions .ceo-secretary-save-btn {
+  border-radius: 999px;
+  border-color: #0071e3;
+  background: #0071e3;
+  box-shadow: none;
+}
+
+.ceo-secretary-briefing-focus {
+  gap: 15px;
+  padding: clamp(22px, 4vw, 34px);
+}
+
+.ceo-secretary-briefing-focus h3,
+.ceo-secretary-memory-toolbar h3 {
+  color: #1d1d1f;
+  letter-spacing: -0.03em;
+}
+
+.ceo-secretary-briefing-summary,
+.ceo-secretary-focus-item small,
+.ceo-secretary-briefing-empty {
+  color: #6e6e73;
+}
+
+.ceo-secretary-focus-item {
+  gap: 13px;
+  border-top-color: rgba(60, 60, 67, 0.11);
+  padding-top: 14px;
+}
+
+.ceo-secretary-focus-item strong {
+  color: #1d1d1f;
+}
+
+.ceo-secretary-memory {
+  padding: clamp(18px, 3vw, 28px);
+}
+
+@media (max-width: 700px) {
+  .ceo-secretary-section {
+    border-radius: 22px;
+    padding: 18px;
+  }
+
+  .ceo-secretary-view-tab {
+    min-height: 44px;
+    padding-inline: 5px;
+    font-size: 0.75rem;
+  }
+
+  .ceo-secretary-assistant-head,
+  .ceo-secretary-chat-feed {
+    padding-inline: 16px;
   }
 }

@@ -2199,6 +2199,7 @@
             <button type="button" class="ceo-secretary-view-tab is-active" data-ceo-secretary-view="secretary" role="tab" aria-selected="true">Sekretär</button>
             <button type="button" class="ceo-secretary-view-tab" data-ceo-secretary-view="briefing" role="tab" aria-selected="false">Briefing</button>
             <button type="button" class="ceo-secretary-view-tab" data-ceo-secretary-view="memory" role="tab" aria-selected="false">Gedächtnis</button>
+            <button type="button" class="ceo-secretary-view-tab" data-ceo-secretary-view="notifications" role="tab" aria-selected="false">Glocke</button>
           </div>
 
           <div id="ceo-secretary-loading" class="ceo-secretary-loading hidden">Dein Sekretär bereitet sich vor ...</div>
@@ -2240,37 +2241,6 @@
               </form>
               <button type="button" id="ceo-secretary-cancel-edit-btn" class="mini-btn hidden">Bearbeitung abbrechen</button>
 
-              <article class="ceo-secretary-team-message-card">
-                <div class="ceo-secretary-team-message-head">
-                  <div>
-                    <p class="ceo-secretary-eyebrow">Mitarbeiter informieren</p>
-                    <h3>Nachricht an die Glocke senden</h3>
-                    <p>Die Nachricht wird direkt als persönliche Meldung im CRM angezeigt.</p>
-                  </div>
-                </div>
-                <form id="ceo-secretary-team-message-form" class="ceo-secretary-team-message-form">
-                  <label>
-                    Empfänger
-                    <select id="ceo-secretary-team-message-recipient" required>
-                      <option value="">Mitarbeiter werden geladen …</option>
-                    </select>
-                  </label>
-                  <label>
-                    Nachricht
-                    <textarea
-                      id="ceo-secretary-team-message-body"
-                      rows="3"
-                      maxlength="800"
-                      placeholder="z. B. Bitte ruf mich heute noch an."
-                      required
-                    ></textarea>
-                  </label>
-                  <div class="ceo-secretary-team-message-actions">
-                    <p id="ceo-secretary-team-message-status" class="ceo-secretary-team-message-status" aria-live="polite"></p>
-                    <button type="submit" id="ceo-secretary-team-message-send" class="btn btn-success">Nachricht senden</button>
-                  </div>
-                </form>
-              </article>
             </section>
 
             <section id="ceo-secretary-view-briefing" class="ceo-secretary-view-panel hidden" role="tabpanel">
@@ -2309,6 +2279,40 @@
                 </div>
                 <div id="ceo-secretary-entry-list" class="ceo-secretary-entry-list"></div>
                 <p id="ceo-secretary-empty" class="empty hidden"></p>
+              </article>
+            </section>
+
+            <section id="ceo-secretary-view-notifications" class="ceo-secretary-view-panel hidden" role="tabpanel">
+              <article class="ceo-secretary-team-message-card">
+                <div class="ceo-secretary-team-message-head">
+                  <div>
+                    <p class="ceo-secretary-eyebrow">Mitarbeiter informieren</p>
+                    <h3>Eine klare Nachricht, direkt an die richtige Person.</h3>
+                    <p>Sie erscheint persönlich in der Glocke des Empfängers – ohne den Gesprächsfaden zu unterbrechen.</p>
+                  </div>
+                </div>
+                <form id="ceo-secretary-team-message-form" class="ceo-secretary-team-message-form">
+                  <label>
+                    Empfänger
+                    <select id="ceo-secretary-team-message-recipient" required>
+                      <option value="">Mitarbeiter werden geladen …</option>
+                    </select>
+                  </label>
+                  <label>
+                    Nachricht
+                    <textarea
+                      id="ceo-secretary-team-message-body"
+                      rows="4"
+                      maxlength="800"
+                      placeholder="z. B. Bitte ruf mich heute noch an."
+                      required
+                    ></textarea>
+                  </label>
+                  <div class="ceo-secretary-team-message-actions">
+                    <p id="ceo-secretary-team-message-status" class="ceo-secretary-team-message-status" aria-live="polite">Persönliche Nachricht, sichtbar in der Glocke.</p>
+                    <button type="submit" id="ceo-secretary-team-message-send" class="btn btn-success">An Glocke senden</button>
+                  </div>
+                </form>
               </article>
             </section>
           </div>
