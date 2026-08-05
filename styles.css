@@ -29695,6 +29695,14 @@ body {
   font-weight: 700;
 }
 
+.my-account-version {
+  width: fit-content;
+  margin-top: 4px;
+  color: #6e6e73;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
 .my-account-password-form {
   padding: 21px;
 }

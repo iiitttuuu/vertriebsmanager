@@ -3,11 +3,11 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/app-provider-workflow-v67",
+      "source": "/app-provider-workflow-v68",
       "destination": "/app.js"
     },
     {
-      "source": "/styles-provider-workflow-v66",
+      "source": "/styles-provider-workflow-v67",
       "destination": "/styles.css"
     },
     {
@@ -21,6 +21,24 @@
     {
       "source": "/styles-provider-workflow-v65",
       "destination": "/styles.css"
+    },
+    {
+      "source": "/app-provider-workflow-v68",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v67",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     },
     {
       "source": "/styles-provider-workflow-v57",

@@ -1777,6 +1777,7 @@ const els = {
   myAccountName: document.getElementById("my-account-name"),
   myAccountEmail: document.getElementById("my-account-email"),
   myAccountRole: document.getElementById("my-account-role"),
+  myAccountVersion: document.getElementById("my-account-version"),
   myAccountPasswordForm: document.getElementById("my-account-password-form"),
   myAccountPasswordSubmit: document.getElementById("my-account-password-submit"),
   myAccountPasswordFeedback: document.getElementById("my-account-password-feedback"),
@@ -3555,6 +3556,12 @@ function setMyAccountPasswordFeedback(message = "", tone = "") {
   els.myAccountPasswordFeedback.classList.toggle("is-error", tone === "error");
 }
 
+function getDesktopApplicationVersion() {
+  const applicationScript = document.querySelector('script[src*="app-provider-workflow-v"]');
+  const versionMatch = String(applicationScript?.getAttribute("src") || "").match(/app-provider-workflow-(v\d+)/i);
+  return versionMatch?.[1] || "–";
+}
+
 function renderMyAccountSection() {
   const currentUser = getCurrentUser();
   const userName = String(currentUser?.name || authProfile?.full_name || "Benutzer").trim() || "Benutzer";
@@ -3569,6 +3576,9 @@ function renderMyAccountSection() {
   }
   if (els.myAccountRole) {
     els.myAccountRole.textContent = role;
+  }
+  if (els.myAccountVersion) {
+    els.myAccountVersion.textContent = `CRM-Version ${getDesktopApplicationVersion()}`;
   }
   refreshMyAccountPasswordRules();
   renderMyInventorySection();
