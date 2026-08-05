@@ -58812,11 +58812,6 @@ function getCategoryTransferLogPromptDate() {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
 }
 
-function getCategoryTransferLogEntryDate(entry) {
-  const timestamp = Date.parse(String(entry?.createdAt || ""));
-  return Number.isFinite(timestamp) ? toDateInputValue(new Date(timestamp)) : "";
-}
-
 function updateCategoryTransferLog(entries, options = {}) {
   state.settings = {
     ...state.settings,
@@ -58850,50 +58845,8 @@ async function resetCategoryTransferLog() {
   showSuccessFeedback("Die Änderungsliste für den Systemtransfer wurde geleert.", { toast: true });
 }
 
-function promptCategoryTransferLogResetForToday() {
-  if (!isSuperAdmin()) {
-    return;
-  }
-  const today = getTodayDateInputValue();
-  if (getCategoryTransferLogPromptDate() === today) {
-    return;
-  }
-  updateCategoryTransferLog(getCategoryTransferLog(), { promptDate: today });
-  void confirmAction(
-    "Heute wurde die Änderungsliste erstmals aktualisiert. Soll die bisherige Liste geleert werden, damit nur die heutigen Änderungen für den Systemtransfer angezeigt werden?",
-    { title: "Neue tägliche Änderungsliste", confirmLabel: "Ja, Liste leeren", danger: true }
-  ).then((shouldClear) => {
-    if (!shouldClear) {
-      return;
-    }
-    const currentEntries = getCategoryTransferLog();
-    updateCategoryTransferLog(
-      currentEntries.filter((entry) => getCategoryTransferLogEntryDate(entry) === today),
-      { promptDate: today }
-    );
-    showSuccessFeedback("Die bisherige Änderungsliste wurde geleert. Sichtbar sind nur die heutigen Änderungen.", { toast: true });
-  });
-}
-
-function recordCategoryTransferChanges(changes, options = {}) {
-  const entries = (Array.isArray(changes) ? changes : [])
-    .map((change) => ({
-      id: createId("category_transfer"),
-      entityKey: String(change?.entityKey || "").trim().slice(0, 240),
-      entityType: String(change?.entityType || "").trim().toLowerCase(),
-      action: String(change?.action || "").trim().toLowerCase(),
-      categoryName: String(change?.categoryName || "").trim(),
-      subcategoryName: String(change?.subcategoryName || "").trim(),
-      topicName: String(change?.topicName || "").trim(),
-      previousValue: String(change?.previousValue || "").trim(),
-      newValue: String(change?.newValue || "").trim(),
-      createdAt: new Date().toISOString(),
-    }))
-    .filter((entry) => entry.entityType && entry.action);
-  if (!entries.length) {
-    return;
-  }
-  let nextLog = getCategoryTransferLog();
+function mergeCategoryTransferLogChanges(existingLog, entries) {
+  let nextLog = normalizeCategoryTransferLog(existingLog);
   entries.forEach((entry) => {
     if (!entry.entityKey) {
       nextLog = [entry, ...nextLog];
@@ -58921,8 +58874,54 @@ function recordCategoryTransferChanges(changes, options = {}) {
     }
     nextLog.unshift(entry);
   });
+  return normalizeCategoryTransferLog(nextLog);
+}
+
+function promptCategoryTransferLogResetForToday(currentChanges) {
+  if (!isSuperAdmin()) {
+    return;
+  }
+  const today = getTodayDateInputValue();
+  if (getCategoryTransferLogPromptDate() === today) {
+    return;
+  }
+  updateCategoryTransferLog(getCategoryTransferLog(), { promptDate: today });
+  void confirmAction(
+    "Heute wurde die Änderungsliste erstmals aktualisiert. Soll die bisherige Liste geleert werden, damit ab jetzt nur die aktuellen Änderungen für den Systemtransfer angezeigt werden?",
+    { title: "Neue tägliche Änderungsliste", confirmLabel: "Ja, Liste leeren", danger: true }
+  ).then((shouldClear) => {
+    if (!shouldClear) {
+      return;
+    }
+    updateCategoryTransferLog(
+      mergeCategoryTransferLogChanges([], currentChanges),
+      { promptDate: today }
+    );
+    showSuccessFeedback("Die bisherige Änderungsliste wurde geleert. Sichtbar sind nur die aktuellen Änderungen.", { toast: true });
+  });
+}
+
+function recordCategoryTransferChanges(changes, options = {}) {
+  const entries = (Array.isArray(changes) ? changes : [])
+    .map((change) => ({
+      id: createId("category_transfer"),
+      entityKey: String(change?.entityKey || "").trim().slice(0, 240),
+      entityType: String(change?.entityType || "").trim().toLowerCase(),
+      action: String(change?.action || "").trim().toLowerCase(),
+      categoryName: String(change?.categoryName || "").trim(),
+      subcategoryName: String(change?.subcategoryName || "").trim(),
+      topicName: String(change?.topicName || "").trim(),
+      previousValue: String(change?.previousValue || "").trim(),
+      newValue: String(change?.newValue || "").trim(),
+      createdAt: new Date().toISOString(),
+    }))
+    .filter((entry) => entry.entityType && entry.action);
+  if (!entries.length) {
+    return;
+  }
+  const nextLog = mergeCategoryTransferLogChanges(getCategoryTransferLog(), entries);
   updateCategoryTransferLog(nextLog, { persist: options.persist });
-  promptCategoryTransferLogResetForToday();
+  promptCategoryTransferLogResetForToday(entries);
 }
 
 function getCategoryStructureEntries(categoriesLike) {
