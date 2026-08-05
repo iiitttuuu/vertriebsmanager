@@ -2529,6 +2529,7 @@ const els = {
   managementSearchInput: document.getElementById("management-search-input"),
   managementSearchReset: document.getElementById("management-search-reset"),
   managementSearchMeta: document.getElementById("management-search-meta"),
+  managementSearchSynonymMatch: document.getElementById("management-search-synonym-match"),
   managementAiSuggestion: document.getElementById("management-ai-suggestion"),
   managementAiReviewPanel: document.getElementById("management-ai-review-panel"),
   managementAiReviewBtn: document.getElementById("management-ai-review-btn"),
@@ -58675,6 +58676,7 @@ function renderManagementSummary() {
       els.managementSearchMeta.textContent = `${results.categories.length} Kategorien · ${results.subcategories.length} Themenbereiche · ${results.topics.length} Themen gefunden`;
     }
   }
+  renderManagementSearchSynonymMatch(query);
 }
 
 function normalizeCategoryTransferLog(entriesLike) {
@@ -60165,6 +60167,45 @@ async function applyCategoryCsvImport() {
 
 function getManagementSearchQuery() {
   return normalizeText(managementSearchTerm || "");
+}
+
+function getManagementSearchSynonymMatches(query = getManagementSearchQuery()) {
+  const normalizedQuery = normalizeText(query || "");
+  if (!normalizedQuery) {
+    return [];
+  }
+  const matches = [];
+  state.categories.forEach((category) => {
+    (category?.subcategories || []).forEach((subcategory) => {
+      (subcategory?.topics || []).forEach((topic) => {
+        if (getTopicSubtopics(topic?.id).some((entry) => entry.normalizedName === normalizedQuery)) {
+          matches.push({ category, subcategory, topic });
+        }
+      });
+    });
+  });
+  return matches;
+}
+
+function renderManagementSearchSynonymMatch(query = getManagementSearchQuery()) {
+  const panel = els.managementSearchSynonymMatch;
+  if (!panel) {
+    return;
+  }
+  const matches = getManagementSearchSynonymMatches(query);
+  if (!matches.length) {
+    panel.classList.add("hidden");
+    panel.innerHTML = "";
+    return;
+  }
+  const searchTerm = String(managementSearchTerm || "").trim() || query;
+  panel.classList.remove("hidden");
+  if (matches.length === 1) {
+    const match = matches[0];
+    panel.innerHTML = `<strong>Dein Suchbegriff „${escapeHtml(searchTerm)}“ ist dem Thema „${escapeHtml(match.topic.name)}“ zugeordnet.</strong><span>${escapeHtml(match.category.name)} › ${escapeHtml(match.subcategory.name)}</span>`;
+    return;
+  }
+  panel.innerHTML = `<strong>Dein Suchbegriff „${escapeHtml(searchTerm)}“ ist als Synonym mehreren Themen zugeordnet.</strong><span>${matches.map((match) => escapeHtml(`${match.category.name} › ${match.subcategory.name} › ${match.topic.name}`)).join(" · ")}</span>`;
 }
 
 function managementSearchTextMatches(searchText, query) {
