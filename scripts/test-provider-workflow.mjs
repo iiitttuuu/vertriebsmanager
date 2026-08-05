@@ -633,6 +633,7 @@ assert.match(indexSource, /id="gift-card-procurement-sources"/, "Die Geschenkkar
 assert.match(appSource, /function normalizeGiftCardProcurement/, "Preisstände werden strukturiert gespeichert.");
 assert.match(appSource, /function handleGiftCardProcurementPriceSave/, "Preisstände lassen sich je Kostenstelle mit einem Lieferanten sichern.");
 assert.match(appSource, /data-gift-card-procurement-quantity/, "Preisstände erfassen die Stückzahl des jeweiligen Belegs.");
+assert.match(appSource, /totalNetInput\.value = String\(invoice\.totalNet \|\| 0\)/, "Die Auswahl einer Rechnung übernimmt ihren Nettobetrag in den Preisstand.");
 assert.match(appSource, /function handleGiftCardProcurementPriceDelete/, "Gespeicherte Preisstände können wieder gelöscht werden.");
 assert.match(indexSource, /data-gift-card-tab="procurement"/, "Beschaffung und Nachweis sind als eigener Geschenkkarten-Tab verfügbar.");
 assert.match(appSource, /function handleGiftCardProcurementOpenInvoice/, "Verknüpfte Rechnungsbelege werden vor dem Öffnen zuverlässig geladen.");

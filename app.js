@@ -47422,7 +47422,7 @@ function renderGiftCardProcurementSources() {
       <label>Lieferant<select data-gift-card-procurement-company>${getGiftCardProcurementCompanyOptions(companyId)}</select></label>
       <label>Rechnung / Beleg<select data-gift-card-procurement-invoice>${getGiftCardProcurementInvoiceOptions(companyId, invoiceId)}</select></label>
       <label>Menge auf diesem Beleg<input type="number" min="0.01" step="0.01" value="${escapeHtml(String(quantity))}" data-gift-card-procurement-quantity /></label>
-      <label>Netto-Betrag dieser Position (€)<input type="number" min="0" step="0.01" value="${escapeHtml(String(totalNet))}" data-gift-card-procurement-total-net /></label>
+      <label>Netto-Betrag dieser Position (€)<input type="number" min="0" step="0.01" value="${escapeHtml(String(totalNet))}" data-gift-card-procurement-total-net /><small>Wird aus der gewählten Rechnung übernommen und kann bei Sammelrechnungen angepasst werden.</small></label>
       <p class="gift-card-procurement-unit-price">Preis je Einheit: <strong data-gift-card-procurement-unit-price>${escapeHtml(formatGiftCardCalculatorCurrency(unitCost))}</strong></p>
       <label>Gültig ab<input type="date" value="${escapeHtml(String(current?.effectiveDate || getTodayDateInputValue()))}" data-gift-card-procurement-effective-date /></label>
       <button type="button" class="mini-btn" data-gift-card-procurement-save-price="${escapeHtml(item.key)}">Preisstand speichern</button>
@@ -47505,21 +47505,34 @@ function handleGiftCardProcurementApplyPrices() {
 
 function handleGiftCardProcurementSourceChange(event) {
   const companySelect = event.target.closest("[data-gift-card-procurement-company]");
-  if (!companySelect) return;
-  const source = companySelect.closest("[data-gift-card-procurement-source]");
-  const invoiceSelect = source?.querySelector("[data-gift-card-procurement-invoice]");
-  if (invoiceSelect) invoiceSelect.innerHTML = getGiftCardProcurementInvoiceOptions(companySelect.value, "");
+  if (companySelect) {
+    const source = companySelect.closest("[data-gift-card-procurement-source]");
+    const invoiceSelect = source?.querySelector("[data-gift-card-procurement-invoice]");
+    if (invoiceSelect) invoiceSelect.innerHTML = getGiftCardProcurementInvoiceOptions(companySelect.value, "");
+    return;
+  }
+  const invoiceSelect = event.target.closest("[data-gift-card-procurement-invoice]");
+  if (!invoiceSelect) return;
+  const invoice = getIncomingInvoiceById(invoiceSelect.value);
+  const source = invoiceSelect.closest("[data-gift-card-procurement-source]");
+  const totalNetInput = source?.querySelector("[data-gift-card-procurement-total-net]");
+  if (invoice && totalNetInput) {
+    totalNetInput.value = String(invoice.totalNet || 0);
+    updateGiftCardProcurementUnitPrice(source);
+  }
 }
 
-function handleGiftCardProcurementSourceInput(event) {
-  const input = event.target.closest("[data-gift-card-procurement-quantity], [data-gift-card-procurement-total-net]");
-  if (!input) return;
-  const source = input.closest("[data-gift-card-procurement-source]");
+function updateGiftCardProcurementUnitPrice(source) {
   const quantity = Math.max(0.01, sanitizeGiftCardCalculatorNumber(source?.querySelector("[data-gift-card-procurement-quantity]")?.value, 1));
   const totalNet = sanitizeGiftCardCalculatorNumber(source?.querySelector("[data-gift-card-procurement-total-net]")?.value, 0);
   const price = totalNet / quantity;
   const output = source?.querySelector("[data-gift-card-procurement-unit-price]");
   if (output) output.textContent = formatGiftCardCalculatorCurrency(price);
+}
+
+function handleGiftCardProcurementSourceInput(event) {
+  const input = event.target.closest("[data-gift-card-procurement-quantity], [data-gift-card-procurement-total-net]");
+  if (input) updateGiftCardProcurementUnitPrice(input.closest("[data-gift-card-procurement-source]"));
 }
 
 async function handleGiftCardProcurementOpenInvoice(invoiceId) {

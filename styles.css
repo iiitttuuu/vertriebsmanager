@@ -11347,6 +11347,13 @@ body.provider-form-open .topbar {
   font-weight: 680;
 }
 
+.gift-card-procurement-source label small {
+  color: #6e6e73;
+  font-size: 0.66rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
 .gift-card-procurement-source select,
 .gift-card-procurement-source input,
 .gift-card-procurement-order-form select,
