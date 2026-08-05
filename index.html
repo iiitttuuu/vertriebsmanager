@@ -4769,6 +4769,13 @@
             </form>
 
             <aside class="gift-card-calculator-results" aria-live="polite">
+              <div class="gift-card-calculator-results-head">
+                <div>
+                  <p class="gift-card-calculator-eyebrow">Ergebnis</p>
+                  <h3>Wirtschaftlichkeit</h3>
+                </div>
+                <span>Gesamtes Szenario</span>
+              </div>
               <article class="gift-card-calculator-result-card is-primary">
                 <span>Gesamtergebnis im Szenario</span>
                 <strong id="gift-card-result-total">0,00 €</strong>
@@ -4780,21 +4787,23 @@
                 <article class="gift-card-calculator-result-card"><span>Offenes Guthaben</span><strong id="gift-card-result-liability">0,00 €</strong><small>Verpflichtung gegenüber Karteninhabern</small></article>
                 <article class="gift-card-calculator-result-card"><span>Partnerauszahlung</span><strong id="gift-card-result-payout">0,00 €</strong><small id="gift-card-result-payout-hint">Voraussichtlich nach Tag 0</small></article>
               </div>
-              <article id="gift-card-calculator-warning" class="gift-card-calculator-warning"></article>
-              <article class="gift-card-management-card" aria-labelledby="gift-card-management-title">
-                <div class="gift-card-management-head">
-                  <div>
-                    <p class="gift-card-calculator-eyebrow">Management-Ansicht</p>
-                    <h3 id="gift-card-management-title">Was verdient Aufmerksamkeit?</h3>
-                  </div>
-                  <span id="gift-card-management-status" class="gift-card-management-status">Neutral</span>
-                </div>
-                <p id="gift-card-management-summary" class="gift-card-management-summary"></p>
-                <div id="gift-card-management-drivers" class="gift-card-management-drivers"></div>
-                <p id="gift-card-management-recommendation" class="gift-card-management-recommendation"></p>
-              </article>
             </aside>
           </div>
+
+          <article class="gift-card-management-card" aria-labelledby="gift-card-management-title">
+            <div class="gift-card-management-head">
+              <div>
+                <p class="gift-card-calculator-eyebrow">Management-Ansicht</p>
+                <h3 id="gift-card-management-title">Deine nächste wirtschaftliche Entscheidung</h3>
+              </div>
+              <span id="gift-card-management-status" class="gift-card-management-status">Neutral</span>
+            </div>
+            <div class="gift-card-management-copy">
+              <p id="gift-card-management-summary" class="gift-card-management-summary"></p>
+              <p id="gift-card-management-recommendation" class="gift-card-management-recommendation"></p>
+            </div>
+            <div id="gift-card-management-drivers" class="gift-card-management-drivers"></div>
+          </article>
 
           <article class="gift-card-calculator-liquid-card">
             <div>

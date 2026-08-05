@@ -11250,8 +11250,33 @@ body.provider-form-open .topbar {
 
 .gift-card-calculator-results {
   display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: clamp(18px, 3vw, 24px);
+}
+
+.gift-card-calculator-results-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
-  padding: 16px;
+}
+
+.gift-card-calculator-results-head h3 {
+  margin: 0;
+  color: #1d1d1f;
+  font-size: 1.18rem;
+  letter-spacing: -0.025em;
+}
+
+.gift-card-calculator-results-head > span {
+  border-radius: 999px;
+  background: #f2f2f7;
+  color: #6e6e73;
+  padding: 6px 9px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .gift-card-calculator-result-grid {
@@ -11317,27 +11342,14 @@ body.provider-form-open .topbar {
   color: #fff;
 }
 
-.gift-card-calculator-warning {
-  border-radius: 14px;
-  background: rgba(52, 199, 89, 0.1);
-  color: #248a3d;
-  padding: 11px 12px;
-  font-size: 0.77rem;
-  line-height: 1.42;
-}
-
-.gift-card-calculator-warning.is-warning {
-  background: rgba(255, 149, 0, 0.12);
-  color: #9b5a00;
-}
-
 .gift-card-management-card {
   display: grid;
-  gap: 13px;
+  grid-template-columns: minmax(230px, 0.78fr) minmax(0, 1.22fr);
+  gap: 18px 28px;
   border: 1px solid rgba(60, 60, 67, 0.12);
-  border-radius: 18px;
+  border-radius: 24px;
   background: linear-gradient(145deg, #fbfbfd, #f4f7fb);
-  padding: 16px;
+  padding: clamp(18px, 3vw, 26px);
 }
 
 .gift-card-management-head {
@@ -11345,6 +11357,7 @@ body.provider-form-open .topbar {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  grid-column: 1 / -1;
 }
 
 .gift-card-management-head h3 {
@@ -11383,8 +11396,15 @@ body.provider-form-open .topbar {
   line-height: 1.43;
 }
 
+.gift-card-management-copy {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
 .gift-card-management-drivers {
   display: grid;
+  align-content: start;
   gap: 7px;
 }
 
@@ -11418,6 +11438,8 @@ body.provider-form-open .topbar {
 .gift-card-management-recommendation {
   border-top: 1px solid rgba(60, 60, 67, 0.1);
   padding-top: 11px;
+  color: #1d1d1f;
+  font-weight: 650;
 }
 
 .gift-card-calculator-liquid-card,
@@ -11520,6 +11542,10 @@ body.provider-form-open .topbar {
     grid-template-columns: 1fr;
   }
 
+  .gift-card-management-card {
+    grid-template-columns: 1fr;
+  }
+
   .gift-card-calculator-timeline {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -11534,7 +11560,8 @@ body.provider-form-open .topbar {
   .gift-card-calculator-header,
   .gift-card-calculator-actions,
   .gift-card-calculator-scenario-item,
-  .gift-card-management-head {
+  .gift-card-management-head,
+  .gift-card-calculator-results-head {
     align-items: stretch;
     flex-direction: column;
   }

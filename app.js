@@ -2674,7 +2674,6 @@ const els = {
   giftCardResultLiability: document.getElementById("gift-card-result-liability"),
   giftCardResultPayout: document.getElementById("gift-card-result-payout"),
   giftCardResultPayoutHint: document.getElementById("gift-card-result-payout-hint"),
-  giftCardCalculatorWarning: document.getElementById("gift-card-calculator-warning"),
   giftCardManagementStatus: document.getElementById("gift-card-management-status"),
   giftCardManagementSummary: document.getElementById("gift-card-management-summary"),
   giftCardManagementDrivers: document.getElementById("gift-card-management-drivers"),
@@ -47291,17 +47290,6 @@ function renderGiftCardCalculatorResults(valuesLike = readGiftCardCalculatorValu
   setGiftCardCalculatorResult(els.giftCardTimelinePayout, -model.partnerPayout);
   if (els.giftCardTimelineRedemptionDay) els.giftCardTimelineRedemptionDay.textContent = `Tag ${model.values.redemptionDays}`;
   if (els.giftCardTimelinePayoutDay) els.giftCardTimelinePayoutDay.textContent = `Tag ${model.expectedPayoutDay}`;
-  if (els.giftCardCalculatorWarning) {
-    const issueLoss = model.issuanceContribution < 0;
-    const noCommission = model.values.partnerCommissionRate === 0;
-    const warning = issueLoss
-      ? "Die verrechneten Zusatzkosten decken die Ausgabekosten noch nicht."
-      : noCommission
-        ? "Ohne Partnerprovision entsteht der Ertrag ausschließlich über Versand und Verpackung."
-        : "Die Kalkulation trennt Ausgabekosten, offene Guthabenverpflichtung und Provision sauber.";
-    els.giftCardCalculatorWarning.textContent = warning;
-    els.giftCardCalculatorWarning.classList.toggle("is-warning", issueLoss || noCommission);
-  }
   renderGiftCardManagementInsights(model);
   return model;
 }
