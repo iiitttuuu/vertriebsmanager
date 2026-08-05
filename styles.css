@@ -10933,6 +10933,176 @@ body.provider-form-open .topbar {
   }
 }
 
+/* Formatierten Sekretär-Nachrichten bleibt ihre Struktur in der Glocke erhalten. */
+.ceo-secretary-rich-editor-shell {
+  overflow: hidden;
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  border-radius: 14px;
+  background: #fbfbfd;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.ceo-secretary-rich-editor-shell:focus-within {
+  border-color: #0071e3;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.14);
+}
+
+.ceo-secretary-rich-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  min-height: 43px;
+  border-bottom: 1px solid rgba(60, 60, 67, 0.12);
+  background: rgba(118, 118, 128, 0.07);
+  padding: 6px 8px;
+}
+
+.ceo-secretary-rich-editor-action {
+  min-width: 30px;
+  height: 29px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #3a3a3c;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.ceo-secretary-rich-editor-action:hover,
+.ceo-secretary-rich-editor-action:focus-visible {
+  background: rgba(0, 113, 227, 0.12);
+  color: #0071e3;
+  outline: none;
+}
+
+.ceo-secretary-rich-editor-action.is-list,
+.ceo-secretary-rich-editor-action.is-clear {
+  min-width: auto;
+}
+
+.ceo-secretary-rich-editor-divider {
+  width: 1px;
+  height: 19px;
+  margin: 0 2px;
+  background: rgba(60, 60, 67, 0.18);
+}
+
+.ceo-secretary-rich-editor {
+  min-height: 126px;
+  max-height: 300px;
+  overflow-y: auto;
+  color: #1d1d1f;
+  padding: 13px;
+  font: inherit;
+  font-size: 0.94rem;
+  font-weight: 400;
+  line-height: 1.52;
+  outline: none;
+  white-space: pre-wrap;
+}
+
+.ceo-secretary-rich-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #8e8e93;
+  pointer-events: none;
+}
+
+.ceo-secretary-rich-editor p {
+  margin: 0 0 0.7em;
+}
+
+.ceo-secretary-rich-editor p:last-child,
+.ceo-secretary-rich-editor ul:last-child,
+.ceo-secretary-rich-editor ol:last-child {
+  margin-bottom: 0;
+}
+
+.ceo-secretary-rich-editor ul,
+.ceo-secretary-rich-editor ol {
+  margin: 0 0 0.7em;
+  padding-left: 1.4em;
+}
+
+.ceo-secretary-rich-editor-hint {
+  display: block;
+  margin-top: 7px;
+  color: #6e6e73;
+  font-size: 0.74rem;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.topbar-notification-dropdown {
+  width: min(640px, calc(100vw - 34px));
+  max-height: min(620px, calc(100vh - 92px));
+  padding: 14px;
+}
+
+.topbar-notification-list {
+  gap: 10px;
+}
+
+.topbar-notification-item {
+  display: block;
+  padding: 12px 14px;
+}
+
+.topbar-notification-item:focus-visible {
+  border-color: #0071e3;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.16);
+  outline: none;
+}
+
+.topbar-notification-item-text.is-rich,
+.login-notification-briefing-item-text.is-rich {
+  white-space: normal;
+  line-height: 1.48;
+}
+
+.topbar-notification-item-text.is-rich p,
+.login-notification-briefing-item-text.is-rich p {
+  margin: 0 0 0.68em;
+}
+
+.topbar-notification-item-text.is-rich p:last-child,
+.login-notification-briefing-item-text.is-rich p:last-child,
+.topbar-notification-item-text.is-rich ul:last-child,
+.login-notification-briefing-item-text.is-rich ul:last-child,
+.topbar-notification-item-text.is-rich ol:last-child,
+.login-notification-briefing-item-text.is-rich ol:last-child {
+  margin-bottom: 0;
+}
+
+.topbar-notification-item-text.is-rich ul,
+.topbar-notification-item-text.is-rich ol,
+.login-notification-briefing-item-text.is-rich ul,
+.login-notification-briefing-item-text.is-rich ol {
+  margin: 0 0 0.68em;
+  padding-left: 1.35em;
+}
+
+.login-notification-briefing-item-text {
+  margin: 0;
+  color: #344d69;
+  font-size: 0.82rem;
+  line-height: 1.42;
+}
+
+@media (max-width: 700px) {
+  .topbar-notification-dropdown {
+    width: min(100vw - 24px, 640px);
+    max-height: min(620px, calc(100vh - 72px));
+    padding: 11px;
+  }
+
+  .ceo-secretary-rich-editor-toolbar {
+    gap: 3px;
+  }
+}
+
 .provider-section-box {
   border: 1px solid #d8e3f2;
   border-left: 4px solid var(--provider-section-accent, #d8e3f2);

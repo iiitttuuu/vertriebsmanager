@@ -618,6 +618,11 @@ assert.match(indexSource, /id="ceo-secretary-team-message-form"/, "Der Sekretär
 assert.match(indexSource, /data-ceo-secretary-view="notifications"[\s\S]*>Glocke/, "Glockenmeldungen haben einen eigenen CEO-Office-Tab.");
 assert.match(indexSource, /id="ceo-secretary-view-notifications"[\s\S]*id="ceo-secretary-team-message-form"/, "Das Nachrichtenformular liegt ausschließlich im Glocken-Tab.");
 assert.match(appSource, /\["secretary", "briefing", "memory", "notifications"\]/, "Der Glocken-Tab wird im CEO Office als gültige Ansicht gerendert.");
+assert.match(indexSource, /data-ceo-secretary-message-format="bullet"/, "Glocken-Nachrichten können als Aufzählung formatiert werden.");
+assert.match(indexSource, /data-ceo-secretary-message-format="ordered"/, "Glocken-Nachrichten können nummeriert werden.");
+assert.match(appSource, /function sanitizeSecretaryEmployeeMessageHtml/, "Nachrichten-Formatierung wird vor dem Speichern sicher bereinigt.");
+assert.match(appSource, /richText: entry\.bodyHtml/, "Die Glocke erhält die gespeicherte Nachrichten-Formatierung.");
+assert.match(stylesSource, /\.topbar-notification-dropdown \{[\s\S]*width: min\(640px, calc\(100vw - 34px\)\);/, "Das Glocken-Fenster ist für längere Nachrichten vergrößert.");
 assert.match(appSource, /function handleCeoSecretaryTeamMessageSubmit/, "Sekretär-Nachrichten werden serverseitig gespeichert.");
 assert.match(appSource, /kind: "employee_message"/, "Empfänger sehen Sekretär-Nachrichten in ihrer Glocke.");
 assert.match(indexSource, /id="login-notification-briefing-close" class="btn btn-success">Schließen/, "Der Login-Hinweis lässt sich schließen.");

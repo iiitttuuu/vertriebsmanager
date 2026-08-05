@@ -1966,6 +1966,7 @@ const els = {
   ceoSecretaryTeamMessageForm: document.getElementById("ceo-secretary-team-message-form"),
   ceoSecretaryTeamMessageRecipient: document.getElementById("ceo-secretary-team-message-recipient"),
   ceoSecretaryTeamMessageBody: document.getElementById("ceo-secretary-team-message-body"),
+  ceoSecretaryTeamMessageFormatButtons: document.querySelectorAll("[data-ceo-secretary-message-format]"),
   ceoSecretaryTeamMessageStatus: document.getElementById("ceo-secretary-team-message-status"),
   ceoSecretaryTeamMessageSend: document.getElementById("ceo-secretary-team-message-send"),
   ceoSecretaryBriefingHeading: document.getElementById("ceo-secretary-briefing-heading"),
@@ -4639,7 +4640,7 @@ function bindEvents() {
       return;
     }
 
-    const notificationButton = event.target.closest("button[data-admin-notification-id]");
+    const notificationButton = event.target.closest("[data-admin-notification-id]");
     if (!notificationButton) {
       return;
     }
@@ -4687,6 +4688,17 @@ function bindEvents() {
     if (notificationKind === "partner_request") {
       renderPartnerRequestBoard();
     }
+  });
+  els.adminNotificationList?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    const notificationItem = event.target.closest("[data-admin-notification-id]");
+    if (!notificationItem) {
+      return;
+    }
+    event.preventDefault();
+    notificationItem.click();
   });
   els.providerTransferRejectClose?.addEventListener("click", () => {
     closeProviderTransferRejectModal();
@@ -5684,6 +5696,12 @@ function bindEvents() {
   els.ceoSecretaryTeamMessageForm?.addEventListener("submit", (event) => {
     event.preventDefault();
     void handleCeoSecretaryTeamMessageSubmit();
+  });
+  els.ceoSecretaryTeamMessageFormatButtons?.forEach((button) => {
+    button.addEventListener("mousedown", (event) => event.preventDefault());
+    button.addEventListener("click", () => {
+      applyCeoSecretaryTeamMessageFormat(button.dataset.ceoSecretaryMessageFormat || "");
+    });
   });
   els.ceoSecretaryTypeButtons?.forEach((button) => {
     button.addEventListener("click", () => {
@@ -13121,6 +13139,7 @@ function getSecretaryEmployeeMessageNotifications(actorUserId = "") {
         tone: "info",
         senderName: entry.sentByName,
         text: entry.body,
+        richText: entry.bodyHtml,
         createdAt: entry.sentAt,
         createdAtMs: Number.isFinite(sentAtMs) ? sentAtMs : 0,
         persistent: true,
@@ -14202,6 +14221,13 @@ function setAdminNotificationDropdownOpen(open) {
   }
 }
 
+function getAdminNotificationTextMarkup(entry) {
+  if (entry?.kind === "employee_message" && String(entry?.richText || "").trim()) {
+    return sanitizeSecretaryEmployeeMessageHtml(entry.richText);
+  }
+  return escapeHtml(entry?.text || "Neue Benachrichtigung");
+}
+
 function isAdminNotificationLoginBriefingOpen() {
   return Boolean(
     els.loginNotificationBriefingModal && !els.loginNotificationBriefingModal.classList.contains("hidden")
@@ -14237,7 +14263,7 @@ function renderAdminNotificationLoginBriefingEntries() {
           <span>${escapeHtml(getAdminNotificationKindLabel(entry.kind, entry))}</span>
           ${timeLabel ? `<time>${escapeHtml(timeLabel)}</time>` : ""}
         </div>
-        <p>${escapeHtml(entry.text || "Neue Benachrichtigung")}</p>
+        <div class="login-notification-briefing-item-text ${entry?.kind === "employee_message" ? "is-rich" : ""}">${getAdminNotificationTextMarkup(entry)}</div>
         <button
           type="button"
           class="login-notification-briefing-dismiss"
@@ -14361,8 +14387,7 @@ function renderAdminNotifications() {
         : "";
       return `
         <div class="topbar-notification-entry ${toneClass}">
-          <button
-            type="button"
+          <div
             class="topbar-notification-item"
             data-admin-notification-id="${escapeHtml(entry.id)}"
             data-admin-notification-kind="${escapeHtml(entry.kind)}"
@@ -14371,13 +14396,14 @@ function renderAdminNotifications() {
             data-admin-notification-request-id="${escapeHtml(entry.requestId || "")}"
             data-admin-notification-note-id="${escapeHtml(entry.noteId || "")}"
             role="menuitem"
+            tabindex="0"
           >
             <span class="topbar-notification-item-head">
               <span class="topbar-notification-item-kind">${escapeHtml(getAdminNotificationKindLabel(entry.kind, entry))}</span>
               <span class="topbar-notification-item-time">${escapeHtml(timeLabel || "")}</span>
             </span>
-            <span class="topbar-notification-item-text">${escapeHtml(entry.text)}</span>
-          </button>
+            <div class="topbar-notification-item-text ${entry?.kind === "employee_message" ? "is-rich" : ""}">${getAdminNotificationTextMarkup(entry)}</div>
+          </div>
           ${actionMarkup}
           ${
             dismissible
@@ -36156,6 +36182,39 @@ function setCeoSecretaryTeamMessageStatus(message = "", tone = "") {
   els.ceoSecretaryTeamMessageStatus.dataset.tone = text ? String(tone || "info").trim() : "";
 }
 
+function getCeoSecretaryTeamMessageDraft() {
+  const rawHtml = String(els.ceoSecretaryTeamMessageBody?.innerHTML || "");
+  const bodyHtml = sanitizeSecretaryEmployeeMessageHtml(rawHtml);
+  return {
+    bodyHtml,
+    body: getSecretaryEmployeeMessagePlainText(bodyHtml),
+  };
+}
+
+function applyCeoSecretaryTeamMessageFormat(action) {
+  const editor = els.ceoSecretaryTeamMessageBody;
+  if (!editor || !document.execCommand) {
+    return;
+  }
+  editor.focus();
+  const commands = {
+    bold: "bold",
+    italic: "italic",
+    bullet: "insertUnorderedList",
+    ordered: "insertOrderedList",
+    clear: "removeFormat",
+  };
+  const command = commands[String(action || "").trim()];
+  if (!command) {
+    return;
+  }
+  document.execCommand(command, false);
+  if (action === "clear") {
+    document.execCommand("formatBlock", false, "p");
+  }
+  editor.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 // Die Glocke bleibt die verlässliche Quelle. Push informiert nur zusätzlich,
 // wenn die Person die installierte Vertriebs-App dafür ausdrücklich aktiviert hat.
 async function dispatchEmployeeMessagePush(message) {
@@ -36210,7 +36269,7 @@ async function handleCeoSecretaryTeamMessageSubmit() {
   if (!isSuperAdmin()) {
     return;
   }
-  const body = String(els.ceoSecretaryTeamMessageBody?.value || "").trim();
+  const { body, bodyHtml } = getCeoSecretaryTeamMessageDraft();
   const recipientSelection = String(els.ceoSecretaryTeamMessageRecipient?.value || "").trim();
   const recipients = getCeoSecretaryMessageRecipients();
   const senderUserId = normalizeUserId(getCurrentActorInfo()?.userId || "");
@@ -36224,6 +36283,11 @@ async function handleCeoSecretaryTeamMessageSubmit() {
     els.ceoSecretaryTeamMessageBody?.focus();
     return;
   }
+  if (body.length > 800) {
+    setCeoSecretaryTeamMessageStatus("Die Nachricht darf maximal 800 Zeichen enthalten.", "error");
+    els.ceoSecretaryTeamMessageBody?.focus();
+    return;
+  }
   if (!recipientUserIds.length) {
     setCeoSecretaryTeamMessageStatus("Bitte mindestens einen aktiven Mitarbeiter auswählen.", "error");
     return;
@@ -36233,7 +36297,8 @@ async function handleCeoSecretaryTeamMessageSubmit() {
   const sentAt = new Date().toISOString();
   const message = {
     id: createId("employee_message"),
-    body: body.slice(0, 800),
+    body,
+    bodyHtml,
     recipientUserIds,
     sentAt,
     sentByUserId: normalizeUserId(actor?.userId || ""),
@@ -36257,7 +36322,7 @@ async function handleCeoSecretaryTeamMessageSubmit() {
       return;
     }
     if (els.ceoSecretaryTeamMessageBody) {
-      els.ceoSecretaryTeamMessageBody.value = "";
+      els.ceoSecretaryTeamMessageBody.innerHTML = "";
     }
     const recipientLabel = recipientSelection === "all"
       ? `an ${recipientUserIds.length} aktive Mitarbeiter`
@@ -62837,6 +62902,59 @@ function normalizeOnboardingProgressByUserId(progressLike) {
   return normalized;
 }
 
+function sanitizeSecretaryEmployeeMessageHtml(value) {
+  const raw = String(value || "").trim().slice(0, 12000);
+  if (!raw) {
+    return "";
+  }
+  if (typeof document === "undefined") {
+    return escapeHtml(raw).replace(/\r?\n/g, "<br>");
+  }
+  const template = document.createElement("template");
+  template.innerHTML = raw;
+  const output = document.createElement("div");
+  const allowedTags = new Set(["p", "br", "strong", "b", "em", "i", "u", "ul", "ol", "li"]);
+  const droppedTags = new Set(["script", "style", "iframe", "object", "embed", "svg", "math", "form", "input", "button"]);
+  const tagMap = { b: "strong", i: "em" };
+  const copyNodes = (sourceParent, targetParent) => {
+    Array.from(sourceParent.childNodes).forEach((node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        targetParent.appendChild(document.createTextNode(node.textContent || ""));
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return;
+      }
+      const sourceTag = String(node.tagName || "").toLowerCase();
+      if (droppedTags.has(sourceTag)) {
+        return;
+      }
+      if (!allowedTags.has(sourceTag)) {
+        copyNodes(node, targetParent);
+        return;
+      }
+      const target = document.createElement(tagMap[sourceTag] || sourceTag);
+      targetParent.appendChild(target);
+      copyNodes(node, target);
+    });
+  };
+  copyNodes(template.content, output);
+  return output.innerHTML.trim();
+}
+
+function getSecretaryEmployeeMessagePlainText(value) {
+  const safeHtml = sanitizeSecretaryEmployeeMessageHtml(value);
+  if (!safeHtml) {
+    return "";
+  }
+  if (typeof document === "undefined") {
+    return safeHtml.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/gi, " ").trim();
+  }
+  const container = document.createElement("div");
+  container.innerHTML = safeHtml;
+  return String(container.innerText || container.textContent || "").replace(/\u00a0/g, " ").trim();
+}
+
 function normalizeSecretaryEmployeeMessages(messagesLike) {
   if (!Array.isArray(messagesLike)) {
     return [];
@@ -62845,7 +62963,8 @@ function normalizeSecretaryEmployeeMessages(messagesLike) {
   return messagesLike
     .map((entry) => {
       const id = String(entry?.id || "").trim().slice(0, 180);
-      const body = String(entry?.body || entry?.message || "").trim().slice(0, 800);
+      const bodyHtml = sanitizeSecretaryEmployeeMessageHtml(entry?.bodyHtml || entry?.richText || entry?.html || "");
+      const body = String(entry?.body || entry?.message || getSecretaryEmployeeMessagePlainText(bodyHtml) || "").trim().slice(0, 800);
       const recipientUserIds = Array.from(
         new Set(
           (Array.isArray(entry?.recipientUserIds) ? entry.recipientUserIds : entry?.recipientUserId ? [entry.recipientUserId] : [])
@@ -62862,6 +62981,7 @@ function normalizeSecretaryEmployeeMessages(messagesLike) {
       return {
         id,
         body,
+        bodyHtml: getSecretaryEmployeeMessagePlainText(bodyHtml).length <= 800 ? bodyHtml : "",
         recipientUserIds,
         sentAt: new Date(sentAtMs).toISOString(),
         sentByUserId: normalizeUserId(entry?.sentByUserId || entry?.createdByUserId || ""),

@@ -2300,13 +2300,27 @@
                   </label>
                   <label>
                     Nachricht
-                    <textarea
+                    <div class="ceo-secretary-rich-editor-shell">
+                      <div class="ceo-secretary-rich-editor-toolbar" role="toolbar" aria-label="Nachricht formatieren">
+                        <button type="button" class="ceo-secretary-rich-editor-action" data-ceo-secretary-message-format="bold" title="Fett" aria-label="Fett"><strong>B</strong></button>
+                        <button type="button" class="ceo-secretary-rich-editor-action" data-ceo-secretary-message-format="italic" title="Kursiv" aria-label="Kursiv"><em>I</em></button>
+                        <span class="ceo-secretary-rich-editor-divider" aria-hidden="true"></span>
+                        <button type="button" class="ceo-secretary-rich-editor-action is-list" data-ceo-secretary-message-format="bullet" title="Aufzählung" aria-label="Aufzählung">• Liste</button>
+                        <button type="button" class="ceo-secretary-rich-editor-action is-list" data-ceo-secretary-message-format="ordered" title="Nummerierung" aria-label="Nummerierung">1. Liste</button>
+                        <button type="button" class="ceo-secretary-rich-editor-action is-clear" data-ceo-secretary-message-format="clear" title="Formatierung entfernen" aria-label="Formatierung entfernen">Zurücksetzen</button>
+                      </div>
+                      <div
                       id="ceo-secretary-team-message-body"
-                      rows="4"
-                      maxlength="800"
+                      class="ceo-secretary-rich-editor"
+                      contenteditable="true"
+                      role="textbox"
+                      aria-multiline="true"
+                      aria-label="Nachricht"
+                      data-placeholder="z. B. Bitte ruf mich heute noch an."
                       placeholder="z. B. Bitte ruf mich heute noch an."
-                      required
-                    ></textarea>
+                    ></div>
+                    </div>
+                    <small class="ceo-secretary-rich-editor-hint">Fett, Kursiv und Listen werden in der Glocke genauso angezeigt.</small>
                   </label>
                   <div class="ceo-secretary-team-message-actions">
                     <p id="ceo-secretary-team-message-status" class="ceo-secretary-team-message-status" aria-live="polite">Persönliche Nachricht, sichtbar in der Glocke.</p>
