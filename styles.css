@@ -30865,6 +30865,164 @@ tr.provider-row-created:hover td {
   color: #1d1d1f;
 }
 
+.ceo-secretary-briefing-detail-trigger {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 2px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  padding: 4px 6px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ceo-secretary-focus-item .ceo-secretary-briefing-detail-trigger,
+.ceo-secretary-commitment-item .ceo-secretary-briefing-detail-trigger {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ceo-secretary-briefing-detail-trigger:hover,
+.ceo-secretary-briefing-detail-trigger:focus-visible {
+  background: rgba(0, 113, 227, 0.08);
+  outline: none;
+}
+
+.ceo-secretary-briefing-detail-trigger strong,
+.ceo-secretary-briefing-detail-trigger small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ceo-secretary-detail-dialog {
+  width: min(640px, calc(100vw - 48px));
+}
+
+.ceo-secretary-detail-head {
+  align-items: flex-start;
+}
+
+.ceo-secretary-detail-head h3 {
+  margin: 0;
+  color: #1d1d1f;
+  font-size: 1.2rem;
+  letter-spacing: -0.025em;
+}
+
+.ceo-secretary-detail-body {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.ceo-secretary-detail-meta,
+.ceo-secretary-detail-links > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.ceo-secretary-detail-meta > span,
+.ceo-secretary-detail-link {
+  border-radius: 999px;
+  background: #f2f2f7;
+  color: #515154;
+  padding: 5px 9px;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.ceo-secretary-detail-meta > span.is-open {
+  background: rgba(0, 113, 227, 0.11);
+  color: #0064c8;
+}
+
+.ceo-secretary-detail-meta > span.is-completed {
+  background: rgba(52, 199, 89, 0.13);
+  color: #248a3d;
+}
+
+.ceo-secretary-detail-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.ceo-secretary-detail-facts > div {
+  min-width: 0;
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 13px;
+  background: rgba(248, 248, 250, 0.82);
+  padding: 10px 12px;
+}
+
+.ceo-secretary-detail-facts dt,
+.ceo-secretary-detail-note > span,
+.ceo-secretary-detail-links > span {
+  color: #6e6e73;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ceo-secretary-detail-facts dd {
+  margin: 4px 0 0;
+  color: #1d1d1f;
+  font-size: 0.84rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.ceo-secretary-detail-note,
+.ceo-secretary-detail-links {
+  display: grid;
+  gap: 7px;
+}
+
+.ceo-secretary-detail-note p,
+.ceo-secretary-detail-links p {
+  margin: 0;
+  color: #3a3a3c;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.ceo-secretary-detail-links p {
+  color: #6e6e73;
+  font-size: 0.82rem;
+}
+
+.ceo-secretary-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+@media (max-width: 560px) {
+  .ceo-secretary-detail-dialog {
+    width: min(100%, calc(100vw - 28px));
+    padding: 20px;
+  }
+
+  .ceo-secretary-detail-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .ceo-secretary-detail-actions .mini-btn,
+  .ceo-secretary-detail-actions .btn {
+    width: 100%;
+  }
+}
+
 .ceo-secretary-memory {
   padding: clamp(18px, 3vw, 28px);
 }

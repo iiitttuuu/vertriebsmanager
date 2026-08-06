@@ -956,6 +956,7 @@ let ceoSecretarySearchTerm = "";
 let ceoSecretaryFilter = "all";
 let ceoSecretaryEntryType = "note";
 let ceoSecretaryEditingId = "";
+let ceoSecretaryDetailEntryId = "";
 let ceoSecretaryActiveView = "secretary";
 let ceoSecretaryAssistantWorking = false;
 let ceoSecretaryPreferencesLoaded = false;
@@ -2046,6 +2047,13 @@ const els = {
   ceoSecretaryQuickReplyText: document.getElementById("ceo-secretary-quick-reply-text"),
   ceoSecretaryQuickCancel: document.getElementById("ceo-secretary-quick-cancel"),
   ceoSecretaryQuickSave: document.getElementById("ceo-secretary-quick-save"),
+  ceoSecretaryDetailModal: document.getElementById("ceo-secretary-detail-modal"),
+  ceoSecretaryDetailTitle: document.getElementById("ceo-secretary-detail-title"),
+  ceoSecretaryDetailBody: document.getElementById("ceo-secretary-detail-body"),
+  ceoSecretaryDetailClose: document.getElementById("ceo-secretary-detail-close"),
+  ceoSecretaryDetailOpenMemory: document.getElementById("ceo-secretary-detail-open-memory"),
+  ceoSecretaryDetailEdit: document.getElementById("ceo-secretary-detail-edit"),
+  ceoSecretaryDetailToggle: document.getElementById("ceo-secretary-detail-toggle"),
   conversationOverviewInfo: document.getElementById("conversation-overview-info"),
   conversationNotesDetailBody: document.getElementById("conversation-notes-detail-body"),
   conversationDetailTabButtons: document.querySelectorAll("button[data-conversation-detail-tab-target]"),
@@ -4700,6 +4708,12 @@ function bindEvents() {
   document.addEventListener("keydown", handleA11yModalFocusTrap, true);
   document.addEventListener("keydown", handleA11yTablistNavigation);
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && isCeoSecretaryDetailModalOpen()) {
+      event.preventDefault();
+      closeCeoSecretaryDetailModal();
+      event.stopImmediatePropagation();
+      return;
+    }
     if (event.key === "Escape" && isCeoSecretaryQuickModalOpen()) {
       event.preventDefault();
       closeCeoSecretaryQuickModal();
@@ -5890,6 +5904,31 @@ function bindEvents() {
     event.preventDefault();
     void handleCeoSecretaryQuickCaptureSubmit();
   });
+  els.ceoSecretaryDetailClose?.addEventListener("click", closeCeoSecretaryDetailModal);
+  els.ceoSecretaryDetailModal?.addEventListener("click", (event) => {
+    if (event.target === els.ceoSecretaryDetailModal) {
+      closeCeoSecretaryDetailModal();
+    }
+  });
+  els.ceoSecretaryDetailOpenMemory?.addEventListener("click", () => {
+    if (!ceoSecretaryDetailEntryId) {
+      return;
+    }
+    ceoSecretarySearchTerm = "";
+    ceoSecretaryFilter = "all";
+    closeCeoSecretaryDetailModal();
+    setCeoSecretaryActiveView("memory");
+  });
+  els.ceoSecretaryDetailEdit?.addEventListener("click", () => {
+    const entryId = ceoSecretaryDetailEntryId;
+    closeCeoSecretaryDetailModal();
+    beginCeoSecretaryEdit(entryId);
+  });
+  els.ceoSecretaryDetailToggle?.addEventListener("click", () => {
+    if (ceoSecretaryDetailEntryId) {
+      void handleCeoSecretaryToggleCompleted(ceoSecretaryDetailEntryId);
+    }
+  });
 
   els.ceoSecretaryCaptureForm?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -5972,6 +6011,25 @@ function bindEvents() {
     const toggleButton = event.target.closest("button[data-ceo-secretary-toggle]");
     if (toggleButton) {
       void handleCeoSecretaryToggleCompleted(toggleButton.dataset.ceoSecretaryToggle || "");
+      return;
+    }
+    const detailButton = event.target.closest("button[data-ceo-secretary-detail]");
+    if (detailButton) {
+      openCeoSecretaryDetailModal(detailButton.dataset.ceoSecretaryDetail || "");
+    }
+  });
+  els.ceoSecretaryCommitmentList?.addEventListener("click", (event) => {
+    if (!isSuperAdmin()) {
+      return;
+    }
+    const toggleButton = event.target.closest("button[data-ceo-secretary-toggle]");
+    if (toggleButton) {
+      void handleCeoSecretaryToggleCompleted(toggleButton.dataset.ceoSecretaryToggle || "");
+      return;
+    }
+    const detailButton = event.target.closest("button[data-ceo-secretary-detail]");
+    if (detailButton) {
+      openCeoSecretaryDetailModal(detailButton.dataset.ceoSecretaryDetail || "");
     }
   });
 
@@ -29731,6 +29789,7 @@ function syncBodyModalOpenState() {
   const providerInvitationResetModalOpen = isProviderInvitationResetModalOpen();
   const adminNotificationLoginBriefingOpen = isAdminNotificationLoginBriefingOpen();
   const ceoSecretaryQuickModalOpen = isCeoSecretaryQuickModalOpen();
+  const ceoSecretaryDetailModalOpen = isCeoSecretaryDetailModalOpen();
   document.body.classList.toggle(
     "modal-open",
     employeeModalOpen ||
@@ -29770,7 +29829,8 @@ function syncBodyModalOpenState() {
       providerInvitationInfoModalOpen ||
       providerInvitationResetModalOpen ||
       adminNotificationLoginBriefingOpen ||
-      ceoSecretaryQuickModalOpen
+      ceoSecretaryQuickModalOpen ||
+      ceoSecretaryDetailModalOpen
   );
   syncModalA11yState();
 }
@@ -35483,6 +35543,16 @@ function getCeoSecretaryEntryTypeLabel(type) {
   return CEO_SECRETARY_ENTRY_TYPE_LABELS[sanitizeCeoSecretaryEntryType(type)] || "Notiz";
 }
 
+function getCeoSecretaryPriorityLabel(priority) {
+  const labels = {
+    low: "Niedrig",
+    normal: "Normal",
+    high: "Hoch",
+    critical: "Kritisch",
+  };
+  return labels[sanitizeCeoSecretaryPriority(priority)] || "Normal";
+}
+
 function getCeoSecretaryActorName() {
   const user = getCurrentUser();
   return String(user?.name || user?.fullName || user?.full_name || user?.email || "").trim();
@@ -36218,6 +36288,70 @@ function isCeoSecretaryQuickModalOpen() {
   return Boolean(els.ceoSecretaryQuickModal && !els.ceoSecretaryQuickModal.classList.contains("hidden"));
 }
 
+function isCeoSecretaryDetailModalOpen() {
+  return Boolean(els.ceoSecretaryDetailModal && !els.ceoSecretaryDetailModal.classList.contains("hidden"));
+}
+
+function renderCeoSecretaryDetailModal() {
+  const entry = getCeoSecretaryEntryById(ceoSecretaryDetailEntryId);
+  if (!entry || !els.ceoSecretaryDetailBody) {
+    return false;
+  }
+  const linkedEntities = getCeoSecretaryLinkedEntities(entry.id);
+  const isActionable = ["task", "followup"].includes(sanitizeCeoSecretaryEntryType(entry.type));
+  const statusLabel = entry.completed ? "Erledigt" : "Offen";
+  const dueLabel = getCeoSecretaryDueLabel(entry) || "Kein Termin gesetzt";
+  const updatedLabel = formatCeoSecretaryEntryTimestamp(entry.updatedAt || entry.createdAt) || "Unbekannt";
+  if (els.ceoSecretaryDetailTitle) {
+    els.ceoSecretaryDetailTitle.textContent = entry.title;
+  }
+  els.ceoSecretaryDetailBody.innerHTML = `<div class="ceo-secretary-detail-meta">
+      <span>${escapeHtml(getCeoSecretaryEntryTypeLabel(entry.type))}</span>
+      <span class="${entry.completed ? "is-completed" : "is-open"}">${escapeHtml(statusLabel)}</span>
+      <span>Priorität: ${escapeHtml(getCeoSecretaryPriorityLabel(entry.priority))}</span>
+    </div>
+    <dl class="ceo-secretary-detail-facts">
+      <div><dt>Termin</dt><dd>${escapeHtml(dueLabel)}</dd></div>
+      <div><dt>Zuletzt bearbeitet</dt><dd>${escapeHtml(updatedLabel)}</dd></div>
+      ${entry.context ? `<div><dt>Kontext</dt><dd>${escapeHtml(entry.context)}</dd></div>` : ""}
+    </dl>
+    <section class="ceo-secretary-detail-note">
+      <span>Notiz</span>
+      <p>${escapeHtml(entry.body)}</p>
+    </section>
+    <section class="ceo-secretary-detail-links">
+      <span>Verknüpfte Datensätze</span>
+      ${linkedEntities.length ? `<div>${linkedEntities.map((entity) => `<span class="ceo-secretary-detail-link">${escapeHtml(`${entity.label} · ${entity.type === "company" ? "Firma" : entity.type === "provider" ? "Anbieter" : "Mitarbeiter"}`)}</span>`).join("")}</div>` : "<p>Keine CRM-Verknüpfung erkannt.</p>"}
+    </section>`;
+  if (els.ceoSecretaryDetailToggle) {
+    els.ceoSecretaryDetailToggle.classList.toggle("hidden", !isActionable);
+    els.ceoSecretaryDetailToggle.textContent = entry.completed ? "Wieder öffnen" : "Erledigt";
+  }
+  return true;
+}
+
+function openCeoSecretaryDetailModal(entryId) {
+  if (!isSuperAdmin() || !els.ceoSecretaryDetailModal) {
+    return;
+  }
+  ceoSecretaryDetailEntryId = String(entryId || "").trim();
+  if (!renderCeoSecretaryDetailModal()) {
+    ceoSecretaryDetailEntryId = "";
+    return;
+  }
+  els.ceoSecretaryDetailModal.classList.remove("hidden");
+  syncBodyModalOpenState();
+}
+
+function closeCeoSecretaryDetailModal() {
+  if (!els.ceoSecretaryDetailModal) {
+    return;
+  }
+  els.ceoSecretaryDetailModal.classList.add("hidden");
+  ceoSecretaryDetailEntryId = "";
+  syncBodyModalOpenState();
+}
+
 function setCeoSecretaryQuickStatus(message = "", tone = "") {
   if (!els.ceoSecretaryQuickStatus) {
     return;
@@ -36505,6 +36639,9 @@ async function handleCeoSecretaryToggleCompleted(entryId) {
     ceoSecretaryLastError = getCeoSecretaryRemoteErrorMessage(error);
   }
   renderCeoSecretarySection();
+  if (isCeoSecretaryDetailModalOpen() && ceoSecretaryDetailEntryId === entry.id) {
+    renderCeoSecretaryDetailModal();
+  }
 }
 
 async function handleCeoSecretaryDelete(entryId) {
@@ -36850,10 +36987,10 @@ function renderCeoSecretaryBriefing() {
     els.ceoSecretaryFocusList.innerHTML = focusEntries
       .map((entry, index) => `<article class="ceo-secretary-focus-item ${isCeoSecretaryEntryOverdue(entry) ? "is-overdue" : ""}">
         <span>${index + 1}</span>
-        <div>
+        <button type="button" class="ceo-secretary-briefing-detail-trigger" data-ceo-secretary-detail="${escapeHtml(entry.id)}" aria-label="Details zu ${escapeHtml(entry.title)} öffnen">
           <strong>${escapeHtml(entry.title)}</strong>
           <small>${escapeHtml(entry.context || getCeoSecretaryDueLabel(entry) || "Offene Schleife")}</small>
-        </div>
+        </button>
         <button type="button" class="mini-btn success" data-ceo-secretary-toggle="${escapeHtml(entry.id)}">Erledigt</button>
       </article>`)
       .join("");
@@ -36869,10 +37006,10 @@ function renderCeoSecretaryBriefing() {
   if (els.ceoSecretaryCommitmentList) {
     els.ceoSecretaryCommitmentList.innerHTML = commitmentEntries.length
       ? commitmentEntries.slice(0, 4).map((entry) => `<article class="ceo-secretary-commitment-item ${isCeoSecretaryEntryOverdue(entry) ? "is-overdue" : ""}">
-          <div>
+          <button type="button" class="ceo-secretary-briefing-detail-trigger" data-ceo-secretary-detail="${escapeHtml(entry.id)}" aria-label="Details zu ${escapeHtml(entry.title)} öffnen">
             <strong>${escapeHtml(entry.title)}</strong>
             <small>${escapeHtml(entry.context || getCeoSecretaryDueLabel(entry) || "Offene Zusage")}</small>
-          </div>
+          </button>
           <button type="button" class="mini-btn success" data-ceo-secretary-toggle="${escapeHtml(entry.id)}">Erledigt</button>
         </article>`).join("")
       : '<p class="ceo-secretary-commitment-empty">Alles nachgehalten.</p>';
