@@ -1039,6 +1039,10 @@ let suppressNextSignedOutAuthMessage = false;
 let rolesRightsObserver = null;
 let rolesRightsRenderQueued = false;
 let rolesRightsShowDifferencesOnly = false;
+let rolePagePermissionOverrides = new Map();
+let rolePagePermissionCatalog = new Map();
+let rolePagePermissionsLoaded = false;
+let rolePagePermissionsUnavailable = false;
 let explicitSignOutInProgress = false;
 let overviewNavSubmenuOpen = false;
 let organizationNavSubmenuOpen = false;
@@ -4562,6 +4566,7 @@ async function bootstrapAfterAuth(flowId = 0) {
   setUsersView("list");
   setProvidersView("list");
   setupRolesRightsAutoRefresh();
+  await hydrateRolePagePermissions();
   showAuthGate("Dashboard-Daten werden geladen...");
   const initialDataPromise = hydrateInitialDashboardData(flowId);
   const initialDataReady = await waitForInitialDashboardData(initialDataPromise);
@@ -4969,6 +4974,16 @@ function bindEvents() {
   els.rolesRightsDiffOnly?.addEventListener("change", () => {
     rolesRightsShowDifferencesOnly = Boolean(els.rolesRightsDiffOnly?.checked);
     renderRolesRightsSection();
+  });
+  els.rolesRightsBody?.addEventListener("click", (event) => {
+    const permissionButton = event.target.closest("button[data-role-page-permission]");
+    if (!permissionButton || !isSuperAdmin()) {
+      return;
+    }
+    void handleRolePagePermissionToggle(
+      permissionButton.dataset.rolePagePermission,
+      permissionButton.dataset.rolePagePermissionRole
+    );
   });
 
   els.navButtons.forEach((button) => {
@@ -17681,8 +17696,98 @@ function updateSidebarNavigationVisibilityForRole(user = getCurrentUser()) {
   });
 }
 
+function getRolePagePermissionKey(sectionId = "") {
+  const normalizedSectionId = String(sectionId || "").trim().toLowerCase();
+  return normalizedSectionId ? `page:${normalizedSectionId}` : "";
+}
+
+function getRolePagePermissionOverride(roleLike, sectionId) {
+  const role = normalizeUserRole(roleLike);
+  const permissionKey = getRolePagePermissionKey(sectionId);
+  return role && permissionKey ? rolePagePermissionOverrides.get(`${role}:${permissionKey}`) || "" : "";
+}
+
+function isRolePagePermissionCatalogAssignable(sectionId) {
+  const entry = rolePagePermissionCatalog.get(getRolePagePermissionKey(sectionId));
+  return Boolean(entry?.isAssignable);
+}
+
+async function hydrateRolePagePermissions() {
+  const client = getSupabaseClient();
+  if (!client || !getAuthUid()) {
+    return false;
+  }
+  const [catalogResult, overridesResult] = await Promise.all([
+    client.from("permission_catalog").select("permission_key,section_id,label,scope,sensitivity,is_assignable"),
+    client.from("role_permission_overrides").select("role,permission_key,effect,updated_at"),
+  ]);
+  if (catalogResult.error || overridesResult.error) {
+    rolePagePermissionsUnavailable = true;
+    return false;
+  }
+  rolePagePermissionCatalog = new Map(
+    (catalogResult.data || [])
+      .filter((entry) => String(entry?.scope || "") === "page")
+      .map((entry) => [String(entry.permission_key || ""), { ...entry, isAssignable: entry.is_assignable === true }])
+  );
+  rolePagePermissionOverrides = new Map(
+    (overridesResult.data || []).map((entry) => [
+      `${normalizeUserRole(entry.role)}:${String(entry.permission_key || "")}`,
+      String(entry.effect || "").toLowerCase(),
+    ])
+  );
+  rolePagePermissionsLoaded = true;
+  rolePagePermissionsUnavailable = false;
+  updateSidebarNavigationVisibilityForRole();
+  renderRolesRightsSection();
+  return true;
+}
+
+async function syncRolePagePermissionCatalog() {
+  if (!isSuperAdmin() || !rolePagePermissionsLoaded) {
+    return;
+  }
+  const client = getSupabaseClient();
+  const entries = getRolesRightsCandidateSectionIds().map((sectionId) => ({
+    permission_key: getRolePagePermissionKey(sectionId),
+    section_id: sectionId,
+    label: getRolesRightsSectionLabel(sectionId),
+  }));
+  const { error } = await client.rpc("register_page_permission_catalog", { entries });
+  if (!error) {
+    await hydrateRolePagePermissions();
+  }
+}
+
+async function handleRolePagePermissionToggle(sectionId, roleLike) {
+  const role = normalizeUserRole(roleLike);
+  const permissionKey = getRolePagePermissionKey(sectionId);
+  if (!role || !permissionKey || !isRolePagePermissionCatalogAssignable(sectionId)) {
+    showWarningFeedback("Diese kritische Berechtigung kann nicht im Editor geändert werden.");
+    return;
+  }
+  const currentAllowed = resolveAccessibleSectionForRole(sectionId, role) === sectionId;
+  const nextEffect = currentAllowed ? "deny" : "allow";
+  if (!(await confirmDeleteAction(`${nextEffect === "allow" ? "Zugriff freigeben" : "Zugriff entziehen"}: ${getRoleLabel(role)} → ${getRolesRightsSectionLabel(sectionId)}?`))) {
+    return;
+  }
+  const client = getSupabaseClient();
+  const { error } = await client.rpc("set_role_permission_override", {
+    target_role: role,
+    target_permission_key: permissionKey,
+    next_effect: nextEffect,
+  });
+  if (error) {
+    showWarningFeedback(`Berechtigung konnte nicht gespeichert werden (${String(error.message || "Unbekannter Fehler")}).`);
+    return;
+  }
+  await hydrateRolePagePermissions();
+  showSuccessFeedback("Berechtigung gespeichert und protokolliert.");
+}
+
 function resolveAccessibleSectionForRole(targetId, roleLike) {
-  let sectionId = String(targetId || "").trim();
+  const requestedSectionId = String(targetId || "").trim();
+  let sectionId = requestedSectionId;
   const normalizedRole = normalizeUserRole(roleLike);
   const fallbackSectionId = getDefaultSectionForRole(normalizedRole);
   if (sectionId === "org-chart-section") {
@@ -17749,6 +17854,13 @@ function resolveAccessibleSectionForRole(targetId, roleLike) {
   }
   if (roleSales && !isAllowedSalesNavigationTarget(sectionId, normalizedRole)) {
     sectionId = "sales-dashboard-section";
+  }
+  const override = getRolePagePermissionOverride(normalizedRole, requestedSectionId);
+  if (override === "deny" && sectionId === requestedSectionId) {
+    sectionId = fallbackSectionId;
+  }
+  if (override === "allow" && Array.from(els.panels || []).some((panel) => panel.id === requestedSectionId)) {
+    sectionId = requestedSectionId;
   }
   return sectionId;
 }
@@ -17904,9 +18016,13 @@ function renderRolesRightsSection() {
         const allowed = Boolean(row.allowedByRole[roleEntry.id]);
         const cellClass = allowed ? "is-allowed" : "is-denied";
         const label = allowed ? "✓" : "✕";
+        const editable = isSuperAdmin() && rolePagePermissionsLoaded && isRolePagePermissionCatalogAssignable(row.sectionId);
+        const control = editable
+          ? `<button type="button" class="roles-rights-badge ${cellClass}" data-role-page-permission="${escapeHtml(row.sectionId)}" data-role-page-permission-role="${escapeHtml(roleEntry.id)}" title="${escapeHtml(`${allowed ? "Zugriff entziehen" : "Zugriff freigeben"}: ${roleEntry.label}`)}">${label}</button>`
+          : `<span class="roles-rights-badge ${cellClass}">${label}</span>`;
         return `
           <td class="roles-rights-cell ${cellClass}" title="${escapeHtml(roleEntry.label)}">
-            <span class="roles-rights-badge ${cellClass}">${label}</span>
+            ${control}
           </td>
         `;
       }).join("");
@@ -17925,8 +18041,13 @@ function renderRolesRightsSection() {
   const filterInfo = rolesRightsShowDifferencesOnly
     ? ` · angezeigt: ${visibleRows.length}/${rows.length} (nur Unterschiede)`
     : "";
+  const permissionsInfo = rolePagePermissionsUnavailable
+    ? " · Rechte-Editor nicht verfügbar: sichere Standardregeln aktiv"
+    : rolePagePermissionsLoaded
+      ? " · Rechte-Editor aktiv"
+      : "";
   els.rolesRightsMeta.textContent =
-    `${rows.length} Bereiche${filterInfo} · zuletzt aktualisiert: ${formatRolesRightsTimestamp(new Date())}`;
+    `${rows.length} Bereiche${filterInfo}${permissionsInfo} · zuletzt aktualisiert: ${formatRolesRightsTimestamp(new Date())}`;
 }
 
 function queueRolesRightsRender() {
@@ -62641,6 +62762,7 @@ function setActiveSection(targetId) {
   }
   if (targetId === "roles-rights-section") {
     renderRolesRightsSection();
+    void syncRolePagePermissionCatalog();
   }
   if (targetId === "inventory-section") {
     renderInventorySection();

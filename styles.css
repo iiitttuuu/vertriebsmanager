@@ -2419,6 +2419,17 @@ body::after {
   background: #f1f5fb;
 }
 
+button.roles-rights-badge {
+  cursor: pointer;
+}
+
+button.roles-rights-badge:hover,
+button.roles-rights-badge:focus-visible {
+  filter: brightness(0.96);
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 .superadmin-mfa-modal {
   z-index: 3800;
 }

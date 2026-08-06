@@ -440,8 +440,8 @@ assert.match(
   /hasExplicitProviderTableSyncAction\(providersSync\)[\s\S]*providers_sync_failed/,
   "Explizite Anbieter-Änderungen fallen nicht still auf app_state zurück."
 );
-assert.match(indexSource, /app-provider-workflow-v76/, "Die Anbieter-Statuslogik wird ohne Browser-Cache geladen.");
-assert.match(indexSource, /styles-provider-workflow-v73/, "Die Anbieter-Statusleiste wird ohne Browser-Cache gestaltet.");
+assert.match(indexSource, /app-provider-workflow-v77/, "Die Anbieter-Statuslogik wird ohne Browser-Cache geladen.");
+assert.match(indexSource, /styles-provider-workflow-v74/, "Die Anbieter-Statusleiste wird ohne Browser-Cache gestaltet.");
 assert.match(
   indexSource,
   /id="roles-rights-section" class="panel card superadmin-only-view"[\s\S]*automatisch erzeugt/,
@@ -461,6 +461,11 @@ assert.match(
   indexSource,
   /id="superadmin-mfa-qr"[\s\S]*id="superadmin-mfa-code"/,
   "Die MFA-Oberfläche zeigt einen QR-Code und fragt den Authenticator-Code ab."
+);
+assert.match(
+  appSource,
+  /async function handleRolePagePermissionToggle\([\s\S]*set_role_permission_override[\s\S]*Berechtigung gespeichert und protokolliert/,
+  "Seitenrechte werden ausschließlich über die auditierbare Server-Funktion geändert."
 );
 assert.match(
   indexSource,
