@@ -2466,9 +2466,11 @@ const els = {
   incomingInvoicesTableBody: document.getElementById("incoming-invoices-table-body"),
   incomingInvoicesTableMeta: document.getElementById("incoming-invoices-table-meta"),
   incomingOffersViewButtons: document.querySelectorAll("button[data-incoming-offers-view-target]"),
+  incomingOffersViewSelect: document.getElementById("incoming-offers-view-select"),
   incomingOffersWorkspaceTabButtons: document.querySelectorAll("button[data-incoming-offers-workspace-tab]"),
   incomingOffersWorkspacePanels: document.querySelectorAll("[data-incoming-offers-workspace-panel]"),
   incomingOfferCreateBtn: document.getElementById("incoming-offer-create-btn"),
+  incomingOfferBackBtn: document.getElementById("incoming-offer-back-btn"),
   incomingOfferForm: document.getElementById("incoming-offer-form"),
   incomingOfferId: document.getElementById("incoming-offer-id"),
   incomingOfferTitle: document.getElementById("incoming-offer-title"),
@@ -9993,6 +9995,9 @@ function bindEvents() {
       setIncomingOffersView(nextView);
     });
   });
+  els.incomingOffersViewSelect?.addEventListener("change", () => {
+    setIncomingOffersView(els.incomingOffersViewSelect.value);
+  });
   els.incomingOffersWorkspaceTabButtons?.forEach((button) => {
     button.addEventListener("click", () => {
       const nextTab = String(button.dataset.incomingOffersWorkspaceTab || "").trim();
@@ -10002,6 +10007,9 @@ function bindEvents() {
   els.incomingOfferCreateBtn?.addEventListener("click", () => {
     resetIncomingOfferForm();
     setIncomingOffersWorkspaceTab("entry");
+  });
+  els.incomingOfferBackBtn?.addEventListener("click", () => {
+    setIncomingOffersWorkspaceTab("overview");
   });
   els.incomingOfferForm?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -50378,6 +50386,9 @@ function getIncomingOfferPriorityCssClass(priority) {
 function setIncomingOffersView(nextView, options = {}) {
   incomingOffersView = normalizeIncomingOffersView(nextView);
   const activeView = incomingOffersView;
+  if (els.incomingOffersViewSelect && els.incomingOffersViewSelect.value !== activeView) {
+    els.incomingOffersViewSelect.value = activeView;
+  }
   els.incomingOffersViewButtons?.forEach((button) => {
     const target = normalizeIncomingOffersView(button.dataset.incomingOffersViewTarget || "");
     const isActive = target === activeView;
@@ -50573,17 +50584,15 @@ function renderIncomingOffersSection() {
   renderIncomingOffersKpis(rows);
 
   if (!rows.length) {
-    els.incomingOffersTableBody.innerHTML = '<p class="incoming-offers-empty">Keine Angebote im gewählten Filter.</p>';
+    els.incomingOffersTableBody.innerHTML = '<tr><td colspan="6" class="incoming-offers-table-empty">Keine Angebote im gewählten Filter.</td></tr>';
   } else {
     els.incomingOffersTableBody.innerHTML = rows
       .map((entry) => {
         const statusLabel = getIncomingOfferStatusLabel(entry.status);
         const statusClass = getIncomingOfferStatusCssClass(entry.status);
         const priorityLabel = getIncomingOfferPriorityLabel(entry.priority);
-        const priorityClass = getIncomingOfferPriorityCssClass(entry.priority);
         const file = getIncomingOfferFileForOffer(entry.id);
         const hasDocument = Boolean(String(file?.documentPath || "").trim() || String(file?.originalName || "").trim());
-        const expiredLabel = isIncomingOfferExpired(entry) ? " · abgelaufen" : "";
         const amountLabel =
           normalizeIncomingInvoiceAmount(entry.totalGross) > 0
             ? formatIncomingInvoiceMoney(entry.totalGross, entry.currency || "EUR")
@@ -50591,20 +50600,28 @@ function renderIncomingOffersSection() {
               ? `${entry.items.length} Preisstaffel${entry.items.length === 1 ? "" : "n"}`
               : "Betrag offen";
         return `
-          <button type="button" class="incoming-offer-card" data-incoming-offer-detail="${escapeHtml(entry.id)}">
-            <span class="incoming-offer-card-topline">
-              <span class="incoming-offer-card-number">${escapeHtml(entry.offerNumber || "–")}</span>
-              <span class="incoming-offer-card-status incoming-invoices-pill ${escapeHtml(statusClass)}">${escapeHtml(statusLabel)}</span>
-            </span>
-            <strong class="incoming-offer-card-title">${escapeHtml(entry.title || "Ohne Angebotstitel")}</strong>
-            <span class="incoming-offer-card-supplier">${escapeHtml(entry.supplierName || "Lieferant nicht hinterlegt")}</span>
-            <span class="incoming-offer-card-value">${escapeHtml(amountLabel)}</span>
-            <span class="incoming-offer-card-meta">
-              ${escapeHtml(entry.validUntilDate ? `Gültig bis ${formatTourDateLabel(entry.validUntilDate)}${expiredLabel}` : `Eingang ${formatTourDateLabel(entry.receivedDate)}`)}
-              ${hasDocument ? " · PDF hinterlegt" : ""}
-              ${priorityLabel === "Hoch" ? " · Hohe Priorität" : ""}
-            </span>
-          </button>
+          <tr>
+            <td>
+              <button type="button" class="entity-link-btn" data-incoming-offer-detail="${escapeHtml(entry.id)}">${escapeHtml(entry.offerNumber || "–")}</button>
+              <span class="incoming-offer-table-title">${escapeHtml(entry.title || "Ohne Angebotstitel")}</span>
+            </td>
+            <td>${escapeHtml(entry.supplierName || "–")}</td>
+            <td>
+              <strong>${escapeHtml(entry.validUntilDate ? formatTourDateLabel(entry.validUntilDate) : "Kein Ablaufdatum")}</strong>
+              <span class="incoming-offer-table-subtext">${escapeHtml(entry.receivedDate ? `Eingang: ${formatTourDateLabel(entry.receivedDate)}` : "Eingang nicht gesetzt")}</span>
+            </td>
+            <td><strong>${escapeHtml(amountLabel)}</strong></td>
+            <td>
+              <span class="incoming-invoices-pill ${escapeHtml(statusClass)}">${escapeHtml(statusLabel)}</span>
+              <span class="incoming-offer-table-subtext">${escapeHtml(priorityLabel === "Hoch" ? "Hohe Priorität" : "Normale Priorität")}</span>
+            </td>
+            <td>
+              <div class="incoming-invoices-actions-inline">
+                <button type="button" class="mini-btn" data-incoming-offer-detail="${escapeHtml(entry.id)}">Details</button>
+                ${hasDocument ? `<button type="button" class="mini-btn" data-incoming-offer-open-document="${escapeHtml(entry.id)}">Dokument</button>` : ""}
+              </div>
+            </td>
+          </tr>
         `;
       })
       .join("");

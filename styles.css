@@ -31448,3 +31448,472 @@ tr.provider-row-created:hover td {
   .incoming-offer-detail-decision-actions,
   .incoming-offer-detail-followup-actions { width: 100%; margin-left: 0; padding-left: 0; border-left: 0; }
 }
+
+/* Eingangsangebote: bewusst dieselbe kompakte CRM-Oberfläche wie Eingangsrechnungen. */
+#incoming-offers-section.finance-workspace-section {
+  border: 1px solid #d9e1ea;
+  border-radius: var(--card-radius);
+  background: #f5f7fa;
+  box-shadow: none;
+}
+
+#incoming-offers-section .section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0;
+  padding: 0 0 12px;
+  border: 0;
+  border-bottom: 1px solid #dce3eb;
+  border-radius: 0;
+  background: transparent;
+}
+
+#incoming-offers-section .section-header h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 1.18rem;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+#incoming-offers-section .section-header p,
+#incoming-offers-section .incoming-invoices-block-head p,
+#incoming-offers-section .incoming-invoice-group-head p {
+  margin: 4px 0 0;
+  color: #667085;
+  font-size: 0.78rem;
+  font-weight: 450;
+  line-height: normal;
+}
+
+#incoming-offers-section .finance-section-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+#incoming-offer-create-btn {
+  min-height: var(--btn-height);
+  padding: 7px 12px;
+  border-radius: var(--btn-radius);
+  white-space: normal;
+}
+
+#incoming-offers-section .incoming-invoices-block {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #dde5ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+
+#incoming-offers-section .incoming-invoices-block-head,
+#incoming-offers-section .incoming-invoice-group-head {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+#incoming-offers-section .incoming-invoices-entry-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#incoming-offers-section .incoming-invoices-block-head h3,
+#incoming-offers-section .incoming-invoice-group-head h4 {
+  margin: 0;
+  color: #182230;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+#incoming-offer-form.incoming-invoice-shell {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+#incoming-offer-form .incoming-invoice-group-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #dce4ed;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+#incoming-offer-form .incoming-invoices-create-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#incoming-offer-form .incoming-invoices-field {
+  gap: 4px;
+}
+
+#incoming-offer-form .incoming-invoices-field span {
+  color: #667085;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+#incoming-offer-form .incoming-invoices-field input,
+#incoming-offer-form .incoming-invoices-field select,
+#incoming-offer-form .incoming-invoices-field textarea {
+  min-height: 38px;
+  border-color: #cfd8e3;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #182230;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+#incoming-offer-form .incoming-invoices-field input:focus,
+#incoming-offer-form .incoming-invoices-field select:focus,
+#incoming-offer-form .incoming-invoices-field textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+#incoming-offer-form .incoming-invoices-field-wide {
+  grid-column: 1 / -1;
+}
+
+#incoming-offer-form .incoming-offer-items-card {
+  grid-column: 1 / -1;
+}
+
+#incoming-offer-form .incoming-offer-items {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#incoming-offer-form .incoming-offer-items-head {
+  align-items: center;
+}
+
+#incoming-offer-form .incoming-offer-items-head span,
+#incoming-offer-form .incoming-offer-item-row span {
+  color: #667085;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+#incoming-offer-form .incoming-offer-items-head p {
+  color: #667085;
+  font-size: 0.76rem;
+  font-weight: 450;
+}
+
+#incoming-offer-form .incoming-offer-items-head .btn,
+#incoming-offer-form .incoming-offer-item-row .mini-btn {
+  min-height: 36px;
+  border-radius: 7px;
+  font-size: 0.76rem;
+}
+
+#incoming-offer-form .incoming-offer-item-row {
+  padding: 10px;
+  border-color: #dce4ed;
+  border-radius: 8px;
+}
+
+#incoming-offer-form .incoming-invoices-actions {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
+
+#incoming-offer-form .incoming-invoices-actions .btn {
+  min-height: 38px;
+  padding: 7px 12px;
+  border-radius: var(--btn-radius);
+}
+
+#incoming-offers-section .incoming-invoices-filters {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.78fr) minmax(240px, 1.55fr) repeat(4, minmax(120px, 1fr));
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #dce4ed;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+#incoming-offers-section .incoming-invoices-field-view,
+#incoming-offers-section .incoming-invoices-field-search {
+  grid-column: auto;
+}
+
+#incoming-offers-section .incoming-invoices-field span {
+  color: #667085;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+#incoming-offers-section .incoming-invoices-filters input,
+#incoming-offers-section .incoming-invoices-filters select {
+  min-height: 38px;
+  border-color: #cfd8e3;
+  border-radius: 7px;
+  color: #182230;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+#incoming-offers-section .incoming-invoices-kpis {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+#incoming-offers-section .incoming-invoices-kpi {
+  min-height: 76px;
+  padding: 10px 11px 10px 14px;
+  border-color: #dce4ed;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+#incoming-offers-section .incoming-invoices-kpi span {
+  color: #667085;
+  font-size: 0.66rem;
+  font-weight: 550;
+  letter-spacing: 0.03em;
+}
+
+#incoming-offers-section .incoming-invoices-kpi strong {
+  color: #182230;
+  font-size: 1rem;
+  font-weight: 620;
+}
+
+#incoming-offers-section .incoming-invoices-kpi::before { width: 3px; background: #475467; }
+#incoming-offers-section .incoming-invoices-kpi:nth-child(2)::before { background: #dc6803; }
+#incoming-offers-section .incoming-invoices-kpi:nth-child(3)::before { background: #039855; }
+#incoming-offers-section .incoming-invoices-kpi:nth-child(4)::before { background: #b54708; }
+
+#incoming-offers-section .incoming-invoices-table-wrap {
+  margin-top: 10px;
+  border: 1px solid #dce4ed;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+#incoming-offers-section .incoming-invoices-table-wrap table { min-width: 920px; }
+
+#incoming-offers-section .incoming-invoices-table-wrap th,
+#incoming-offers-section .incoming-invoices-table-wrap td {
+  padding: 10px 11px;
+  border-bottom: 1px solid #edf1f5;
+  color: #344054;
+  font-size: 0.79rem;
+  font-weight: 450;
+  vertical-align: middle;
+}
+
+#incoming-offers-section .incoming-invoices-table-wrap th {
+  color: #667085;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+#incoming-offers-section .incoming-invoices-table-wrap tr:last-child td { border-bottom: 0; }
+
+#incoming-offers-section .incoming-offer-table-title,
+#incoming-offers-section .incoming-offer-table-subtext {
+  display: block;
+  margin-top: 3px;
+  color: #667085;
+  font-size: 0.72rem;
+  font-weight: 450;
+}
+
+#incoming-offers-section .incoming-invoices-actions-inline .mini-btn {
+  min-width: 74px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.incoming-offers-table-empty {
+  padding: 24px !important;
+  color: #667085 !important;
+  text-align: center;
+}
+
+/* Pop-ups folgen derselben sachlichen Rechnungs-Optik. */
+.incoming-offer-detail-modal,
+.incoming-offer-document-preview-modal {
+  padding: 18px;
+  background: rgba(10, 23, 39, 0.68);
+  backdrop-filter: none;
+}
+
+.incoming-offer-detail-dialog {
+  width: min(980px, calc(100% - 12px));
+  max-height: calc(100vh - 36px);
+  padding: 18px;
+  border: 0;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.incoming-offer-detail-head,
+.incoming-offer-document-preview-head {
+  align-items: flex-start;
+  margin: 0 0 10px;
+  padding: 2px 2px 10px;
+  border-bottom: 1px solid #dbe6f4;
+}
+
+.incoming-offer-detail-head p,
+.incoming-offer-document-preview-head p {
+  color: #667085;
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+}
+
+.incoming-offer-detail-head h3,
+.incoming-offer-document-preview-head h3 {
+  color: #1d2939;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.incoming-offer-detail-content { gap: 12px; padding: 2px 2px 4px; }
+
+.incoming-offer-detail-summary,
+.incoming-offer-detail-classification-grid {
+  border-color: #dce4ed;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.incoming-offer-detail-summary > div,
+.incoming-offer-detail-classification-grid > div {
+  min-height: 0;
+  padding: 10px 11px;
+  border-color: #edf1f5;
+}
+
+.incoming-offer-detail-summary span,
+.incoming-offer-detail-section > span,
+.incoming-offer-detail-section-head > div > span,
+.incoming-offer-detail-classification-grid span {
+  color: #667085;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.incoming-offer-detail-summary strong,
+.incoming-offer-detail-classification-grid strong { color: #182230; font-size: 0.8rem; font-weight: 600; }
+
+.incoming-offer-detail-section {
+  gap: 10px;
+  padding: 12px;
+  border-color: #dce4ed;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.incoming-offer-detail-section-head h4 { color: #182230; font-size: 0.86rem; font-weight: 600; }
+.incoming-offer-detail-classification { background: #ffffff; }
+.incoming-offer-detail-items { border-color: #dce4ed; border-radius: 8px; }
+.incoming-offer-detail-items > div { padding: 10px 11px; border-color: #edf1f5; background: #ffffff; color: #667085; font-size: 0.76rem; }
+.incoming-offer-detail-items > div:nth-child(odd) { background: #ffffff; }
+.incoming-offer-detail-items strong { color: #182230; font-weight: 600; }
+.incoming-offer-detail-note { color: #667085; font-size: 0.78rem; }
+
+.incoming-offer-detail-actions {
+  gap: 8px;
+  padding: 4px 0 0;
+  border-top: 0;
+}
+
+.incoming-offer-detail-action-group,
+.incoming-offer-detail-decision-actions,
+.incoming-offer-detail-followup-actions {
+  display: inline-flex;
+  width: auto;
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
+}
+
+.incoming-offer-detail-action-group > span { color: #667085; font-size: 0.7rem; font-weight: 600; }
+
+.incoming-offer-detail-actions .btn,
+.incoming-offer-detail-actions .mini-btn,
+.incoming-offer-document-preview-actions .btn {
+  min-height: 38px;
+  padding: 7px 12px;
+  border-radius: var(--btn-radius);
+  font-size: var(--btn-font-size);
+  font-weight: 600;
+}
+
+.incoming-offer-detail-actions .mini-btn,
+.incoming-offer-detail-actions .incoming-offer-detail-accept-btn {
+  border-color: var(--action-border);
+  background: linear-gradient(135deg, var(--action-grad-start) 0%, var(--action-grad-mid) 52%, var(--action-grad-end) 100%);
+  color: var(--action-text);
+}
+
+.incoming-offer-document-preview-dialog {
+  width: min(1180px, calc(100% - 12px));
+  height: min(900px, calc(100vh - 36px));
+  max-height: calc(100vh - 36px);
+  padding: 18px;
+  border: 0;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.incoming-offer-document-preview-content {
+  border-color: #d0d5dd;
+  border-radius: 10px;
+  background: #f2f4f7;
+}
+
+.incoming-offer-document-preview-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 560px;
+  aspect-ratio: auto;
+  box-shadow: none;
+}
+
+@media (max-width: 920px) {
+  #incoming-offers-section .incoming-invoices-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #incoming-offers-section .incoming-invoices-field-search { grid-column: span 2; }
+  #incoming-offer-form.incoming-invoice-shell { grid-template-columns: 1fr; }
+}
