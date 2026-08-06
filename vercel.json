@@ -3,7 +3,7 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/app-provider-workflow-v73",
+      "source": "/app-provider-workflow-v74",
       "destination": "/app.js"
     },
     {
@@ -538,7 +538,7 @@
       ]
     },
     {
-      "source": "/app-provider-workflow-v73",
+      "source": "/app-provider-workflow-v74",
       "headers": [
         {
           "key": "Cache-Control",
