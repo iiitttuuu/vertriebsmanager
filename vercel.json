@@ -3,6 +3,14 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/app-provider-workflow-v81",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v76",
+      "destination": "/styles.css"
+    },
+    {
       "source": "/app-provider-workflow-v80",
       "destination": "/app.js"
     },
@@ -574,6 +582,24 @@
         {
           "key": "Strict-Transport-Security",
           "value": "max-age=63072000; includeSubDomains; preload"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v81",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/styles-provider-workflow-v76",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
         }
       ]
     },
