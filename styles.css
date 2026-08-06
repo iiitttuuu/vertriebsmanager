@@ -6909,6 +6909,120 @@ button.invitation-request-live-btn {
   grid-column: span 2;
 }
 
+.incoming-offer-items {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #d8e3f0;
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.incoming-offer-items-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.incoming-offer-items-head > div {
+  display: grid;
+  gap: 3px;
+}
+
+.incoming-offer-items-head span,
+.incoming-offer-item-row span {
+  color: #344054;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.incoming-offer-items-head p,
+.incoming-offer-items-empty {
+  margin: 0;
+  color: #667085;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.incoming-offer-items-list {
+  display: grid;
+  gap: 8px;
+}
+
+.incoming-offer-item-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.55fr) minmax(84px, 0.65fr) minmax(82px, 0.6fr) minmax(130px, 0.9fr) minmax(120px, 0.85fr) auto;
+  align-items: end;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.incoming-offer-item-row label,
+.incoming-offer-item-total {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.incoming-offer-item-row input {
+  width: 100%;
+  min-height: 36px;
+  box-sizing: border-box;
+  border: 1px solid #c5d5eb;
+  border-radius: 8px;
+  padding: 0 9px;
+  color: #1c3a5f;
+  font: inherit;
+}
+
+.incoming-offer-item-total {
+  min-height: 36px;
+}
+
+.incoming-offer-item-total strong {
+  color: #1d4f8c;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.incoming-offer-item-row .mini-btn {
+  min-height: 36px;
+}
+
+.incoming-offer-table-items {
+  display: block;
+  margin-top: 4px;
+  color: #667085;
+  font-size: 0.69rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 1060px) {
+  .incoming-offer-item-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 660px) {
+  .incoming-offer-items-head,
+  .incoming-offer-item-row {
+    grid-template-columns: 1fr;
+  }
+
+  .incoming-offer-items-head {
+    display: grid;
+  }
+
+  .incoming-offer-items-head .mini-btn,
+  .incoming-offer-item-row .mini-btn {
+    width: 100%;
+  }
+}
+
 .incoming-invoices-actions {
   grid-column: 1 / -1;
   margin-top: 4px;

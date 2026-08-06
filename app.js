@@ -787,6 +787,7 @@ let incomingOffersSelectedId = "";
 let incomingOffersPendingFile = null;
 let incomingOffers = [];
 let incomingOfferFiles = [];
+let incomingOfferDraftItems = [];
 let incomingOffersWorkspaceTab = "overview";
 let contractManagerView = "due";
 let contractManagerWorkspaceTab = "overview";
@@ -2475,6 +2476,8 @@ const els = {
   incomingOfferTotalGross: document.getElementById("incoming-offer-total-gross"),
   incomingOfferTotalNet: document.getElementById("incoming-offer-total-net"),
   incomingOfferTotalTax: document.getElementById("incoming-offer-total-tax"),
+  incomingOfferItems: document.getElementById("incoming-offer-items"),
+  incomingOfferItemAddBtn: document.getElementById("incoming-offer-item-add-btn"),
   incomingOfferCategory: document.getElementById("incoming-offer-category"),
   incomingOfferCostCenter: document.getElementById("incoming-offer-cost-center"),
   incomingOfferStatus: document.getElementById("incoming-offer-status"),
@@ -9995,6 +9998,28 @@ function bindEvents() {
     if (!selectedFile && els.incomingOfferFileName && !incomingOffersSelectedId) {
       els.incomingOfferFileName.value = "";
     }
+  });
+  els.incomingOfferItemAddBtn?.addEventListener("click", () => {
+    incomingOfferDraftItems = incomingOfferDraftItems.concat(createIncomingOfferDraftItem());
+    renderIncomingOfferItems();
+  });
+  els.incomingOfferItems?.addEventListener("input", (event) => {
+    const input = event.target.closest("[data-incoming-offer-item-field]");
+    if (!input) {
+      return;
+    }
+    const itemId = input.dataset.incomingOfferItemId || "";
+    updateIncomingOfferDraftItem(itemId, input.dataset.incomingOfferItemField || "", input.value);
+    refreshIncomingOfferDraftItemTotal(itemId);
+  });
+  els.incomingOfferItems?.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("button[data-incoming-offer-item-remove]");
+    if (!removeButton) {
+      return;
+    }
+    const itemId = String(removeButton.dataset.incomingOfferItemRemove || "").trim();
+    incomingOfferDraftItems = incomingOfferDraftItems.filter((item) => item.id !== itemId);
+    renderIncomingOfferItems();
   });
   els.incomingOfferExportBtn?.addEventListener("click", () => {
     exportIncomingOffersCsv();
@@ -48567,14 +48592,14 @@ function renderIncomingInvoiceSupplierOptions(selectedCompanyId = "", fallbackSu
     if (!companyId || !name) {
       return;
     }
-    const locationLabel = [String(company?.postalCode || "").trim(), String(company?.city || "").trim(), String(company?.country || "").trim()]
-      .filter(Boolean)
-      .join(" ");
-    const label = locationLabel ? `${name} · ${locationLabel}` : name;
-    optionRows.push(`<option value="${escapeHtml(companyId)}">${escapeHtml(label)}</option>`);
+    optionRows.push(
+      `<option value="${escapeHtml(companyId)}" data-supplier-name="${escapeHtml(name)}">${escapeHtml(name)}</option>`
+    );
   });
   if (fallbackName && !companies.some((entry) => normalizeText(entry?.name || "") === normalizeText(fallbackName))) {
-    optionRows.push(`<option value="__legacy_supplier__">${escapeHtml(`${fallbackName} (Altbestand)`)}</option>`);
+    optionRows.push(
+      `<option value="__legacy_supplier__" data-supplier-name="${escapeHtml(fallbackName)}">${escapeHtml(`${fallbackName} (Altbestand)`)}</option>`
+    );
   }
   els.incomingInvoiceSupplier.innerHTML = optionRows.join("");
   els.incomingInvoiceSupplier.disabled = companies.length === 0;
@@ -49144,9 +49169,7 @@ function buildIncomingInvoicePayloadFromForm() {
   const selectedSupplierValue = String(els.incomingInvoiceSupplier?.value || "").trim();
   const selectedSupplierOption = els.incomingInvoiceSupplier?.selectedOptions?.[0] || null;
   const supplierCompanyId = selectedSupplierValue === "__legacy_supplier__" ? "" : normalizeIncomingInvoiceSupplierCompanyId(selectedSupplierValue);
-  const supplierNameRaw = selectedSupplierOption ? String(selectedSupplierOption.textContent || "").trim() : "";
-  const supplierName = supplierNameRaw
-    .replace(/\s·\s[^·]*$/, "")
+  const supplierName = String(selectedSupplierOption?.dataset?.supplierName || selectedSupplierOption?.textContent || "")
     .replace(/\s\(Altbestand\)\s*$/i, "")
     .trim();
   const totalGross = normalizeIncomingInvoiceAmount(els.incomingInvoiceTotalGross?.value || 0);
@@ -49280,9 +49303,17 @@ function getIncomingInvoiceBridgeErrorMessage(response, payload) {
 }
 
 async function uploadIncomingInvoiceDocument(invoiceId, fileBlob) {
-  const normalizedInvoiceId = String(invoiceId || "").trim();
+  return uploadIncomingDocument(invoiceId, fileBlob, "invoice");
+}
+
+async function uploadIncomingOfferDocument(offerId, fileBlob) {
+  return uploadIncomingDocument(offerId, fileBlob, "offer");
+}
+
+async function uploadIncomingDocument(recordId, fileBlob, documentType = "invoice") {
+  const normalizedRecordId = String(recordId || "").trim();
   const file = fileBlob instanceof File ? fileBlob : null;
-  if (!normalizedInvoiceId || !file) {
+  if (!normalizedRecordId || !file) {
     return null;
   }
   if (file.size > INCOMING_INVOICE_UPLOAD_MAX_BYTES) {
@@ -49291,7 +49322,8 @@ async function uploadIncomingInvoiceDocument(invoiceId, fileBlob) {
   const accessToken = await getAuthAccessToken();
   const formData = new FormData();
   formData.set("file", file, String(file.name || "beleg"));
-  formData.set("invoiceId", normalizedInvoiceId);
+  formData.set("invoiceId", normalizedRecordId);
+  formData.set("documentType", documentType === "offer" ? "offer" : "invoice");
   const response = await fetch(INCOMING_INVOICE_FILE_UPLOAD_ENDPOINT, {
     method: "POST",
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
@@ -49922,6 +49954,129 @@ function normalizeIncomingOfferPriorityFilter(value) {
   return normalizeIncomingOfferPriority(normalized);
 }
 
+function normalizeIncomingOfferItem(entry, index = 0) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+  const title = String(entry.title || entry.productName || entry.product_name || "").trim().slice(0, 240);
+  const quantity = Math.max(0, Number(entry.quantity || 0) || 0);
+  const unitPriceNet = Math.max(0, Number(entry.unitPriceNet ?? entry.unit_price_net ?? 0) || 0);
+  if (!title || quantity <= 0 || unitPriceNet <= 0) {
+    return null;
+  }
+  return {
+    id: String(entry.id || `offer_item_${index + 1}`).trim().slice(0, 180) || `offer_item_${index + 1}`,
+    title,
+    quantity,
+    unit: String(entry.unit || "Stück").trim().slice(0, 48) || "Stück",
+    unitPriceNet,
+  };
+}
+
+function normalizeIncomingOfferItems(rawList) {
+  if (!Array.isArray(rawList)) {
+    return [];
+  }
+  const seen = new Set();
+  return rawList
+    .map((entry, index) => normalizeIncomingOfferItem(entry, index))
+    .filter((entry) => {
+      if (!entry || seen.has(entry.id)) {
+        return false;
+      }
+      seen.add(entry.id);
+      return true;
+    });
+}
+
+function createIncomingOfferDraftItem(values = {}) {
+  return {
+    id: String(values.id || createId("offer_item")).trim(),
+    title: String(values.title || values.productName || "").trim().slice(0, 240),
+    quantity: String(values.quantity ?? ""),
+    unit: String(values.unit || "Stück").trim().slice(0, 48) || "Stück",
+    unitPriceNet: String(values.unitPriceNet ?? values.unit_price_net ?? ""),
+  };
+}
+
+function getIncomingOfferDraftItemTotal(item) {
+  const quantity = Math.max(0, Number(item?.quantity || 0) || 0);
+  const unitPriceNet = Math.max(0, Number(item?.unitPriceNet || 0) || 0);
+  return quantity * unitPriceNet;
+}
+
+function getIncomingOfferItemsSummary(items = []) {
+  return normalizeIncomingOfferItems(items)
+    .map(
+      (item) =>
+        `${item.title}: ${new Intl.NumberFormat("de-AT", { maximumFractionDigits: 2 }).format(item.quantity)} ${item.unit} × ${formatIncomingInvoiceMoney(item.unitPriceNet)}`
+    )
+    .join(" · ");
+}
+
+function updateIncomingOfferDraftItem(itemId, field, value) {
+  const normalizedId = String(itemId || "").trim();
+  const allowedFields = new Set(["title", "quantity", "unit", "unitPriceNet"]);
+  if (!normalizedId || !allowedFields.has(field)) {
+    return;
+  }
+  incomingOfferDraftItems = incomingOfferDraftItems.map((item) =>
+    item.id === normalizedId ? { ...item, [field]: String(value ?? "") } : item
+  );
+}
+
+function refreshIncomingOfferDraftItemTotal(itemId) {
+  const normalizedId = String(itemId || "").trim();
+  const item = incomingOfferDraftItems.find((entry) => entry.id === normalizedId);
+  if (!item || !els.incomingOfferItems) {
+    return;
+  }
+  els.incomingOfferItems.querySelectorAll("[data-incoming-offer-item-total]").forEach((element) => {
+    if (String(element.dataset.incomingOfferItemTotal || "").trim() === normalizedId) {
+      element.textContent = formatIncomingInvoiceMoney(getIncomingOfferDraftItemTotal(item));
+    }
+  });
+}
+
+function renderIncomingOfferItems() {
+  if (!els.incomingOfferItems) {
+    return;
+  }
+  if (!incomingOfferDraftItems.length) {
+    els.incomingOfferItems.innerHTML = '<p class="incoming-offer-items-empty">Noch keine Position erfasst. Nutze „Position hinzufügen“ für Produkte und Mengenstaffeln.</p>';
+    return;
+  }
+  els.incomingOfferItems.innerHTML = incomingOfferDraftItems
+    .map(
+      (item, index) => `
+        <div class="incoming-offer-item-row" data-incoming-offer-item-row="${escapeHtml(item.id)}">
+          <label>
+            <span>Produkt / Leistung</span>
+            <input type="text" value="${escapeHtml(item.title)}" data-incoming-offer-item-id="${escapeHtml(item.id)}" data-incoming-offer-item-field="title" placeholder="z. B. Flyer A5" />
+          </label>
+          <label>
+            <span>Stückzahl</span>
+            <input type="number" min="0" step="0.01" value="${escapeHtml(item.quantity)}" data-incoming-offer-item-id="${escapeHtml(item.id)}" data-incoming-offer-item-field="quantity" placeholder="z. B. 500" />
+          </label>
+          <label>
+            <span>Einheit</span>
+            <input type="text" value="${escapeHtml(item.unit)}" data-incoming-offer-item-id="${escapeHtml(item.id)}" data-incoming-offer-item-field="unit" placeholder="Stück" />
+          </label>
+          <label>
+            <span>Stückpreis netto (EUR)</span>
+            <input type="number" min="0" step="0.0001" value="${escapeHtml(item.unitPriceNet)}" data-incoming-offer-item-id="${escapeHtml(item.id)}" data-incoming-offer-item-field="unitPriceNet" placeholder="z. B. 0,12" />
+          </label>
+          <div class="incoming-offer-item-total">
+            <span>Positionswert netto</span>
+            <strong data-incoming-offer-item-total="${escapeHtml(item.id)}">${escapeHtml(formatIncomingInvoiceMoney(getIncomingOfferDraftItemTotal(item)))}</strong>
+          </div>
+          <button type="button" class="mini-btn danger" data-incoming-offer-item-remove="${escapeHtml(item.id)}" aria-label="Position ${index + 1} entfernen">Entfernen</button>
+        </div>
+      `
+    )
+    .join("");
+}
+
 function normalizeIncomingOfferRecord(entry, index = 0) {
   if (!entry || typeof entry !== "object") {
     return null;
@@ -49950,6 +50105,7 @@ function normalizeIncomingOfferRecord(entry, index = 0) {
     totalNet: normalizeIncomingInvoiceAmount(entry.totalNet || entry.total_net),
     totalTax: normalizeIncomingInvoiceAmount(entry.totalTax || entry.total_tax),
     totalGross: normalizeIncomingInvoiceAmount(entry.totalGross || entry.total_gross),
+    items: normalizeIncomingOfferItems(entry.items || entry.offerItems || entry.offer_items || []),
     category: String(entry.category || "").trim(),
     costCenter: String(entry.costCenter || entry.cost_center || "").trim(),
     notes: String(entry.notes || "").trim(),
@@ -50083,14 +50239,14 @@ function renderIncomingOfferSupplierOptions(selectedCompanyId = "", fallbackSupp
     if (!companyId || !name) {
       return;
     }
-    const locationLabel = [String(company?.postalCode || "").trim(), String(company?.city || "").trim(), String(company?.country || "").trim()]
-      .filter(Boolean)
-      .join(" ");
-    const label = locationLabel ? `${name} · ${locationLabel}` : name;
-    optionRows.push(`<option value="${escapeHtml(companyId)}">${escapeHtml(label)}</option>`);
+    optionRows.push(
+      `<option value="${escapeHtml(companyId)}" data-supplier-name="${escapeHtml(name)}">${escapeHtml(name)}</option>`
+    );
   });
   if (fallbackName && !companies.some((entry) => normalizeText(entry?.name || "") === normalizeText(fallbackName))) {
-    optionRows.push(`<option value="__legacy_supplier__">${escapeHtml(`${fallbackName} (Altbestand)`)}</option>`);
+    optionRows.push(
+      `<option value="__legacy_supplier__" data-supplier-name="${escapeHtml(fallbackName)}">${escapeHtml(`${fallbackName} (Altbestand)`)}</option>`
+    );
   }
   els.incomingOfferSupplier.innerHTML = optionRows.join("");
   els.incomingOfferSupplier.disabled = companies.length === 0;
@@ -50297,6 +50453,7 @@ function getFilteredIncomingOffers() {
           entry.category,
           entry.costCenter,
           entry.notes,
+          getIncomingOfferItemsSummary(entry.items),
           getIncomingOfferStatusLabel(status),
           getIncomingOfferPriorityLabel(priority),
         ]
@@ -50362,7 +50519,10 @@ function renderIncomingOffersSection() {
         const canDecide = ["offen", "in_pruefung"].includes(normalizeIncomingOfferStatus(entry.status));
         return `
           <tr>
-            <td>${escapeHtml(entry.offerNumber || "–")}</td>
+            <td>
+              <strong>${escapeHtml(entry.offerNumber || "–")}</strong>
+              ${entry.items?.length ? `<small class="incoming-offer-table-items">${escapeHtml(getIncomingOfferItemsSummary(entry.items))}</small>` : ""}
+            </td>
             <td>
               ${
                 entry.supplierName
@@ -50440,8 +50600,10 @@ function resetIncomingOfferForm() {
   }
   incomingOffersPendingFile = null;
   incomingOffersSelectedId = "";
+  incomingOfferDraftItems = [];
   renderIncomingOfferSupplierOptions();
   renderFinanceCategorySelect(els.incomingOfferCategory, "");
+  renderIncomingOfferItems();
   if (els.incomingOfferSaveBtn) {
     els.incomingOfferSaveBtn.textContent = "Angebot speichern";
   }
@@ -50453,6 +50615,7 @@ function fillIncomingOfferForm(offer) {
   }
   const file = getIncomingOfferFileForOffer(offer.id);
   incomingOffersSelectedId = String(offer.id || "").trim();
+  incomingOfferDraftItems = (Array.isArray(offer.items) ? offer.items : []).map((item) => createIncomingOfferDraftItem(item));
   if (els.incomingOfferId) {
     els.incomingOfferId.value = incomingOffersSelectedId;
   }
@@ -50507,6 +50670,7 @@ function fillIncomingOfferForm(offer) {
   if (els.incomingOfferSaveBtn) {
     els.incomingOfferSaveBtn.textContent = "Angebot aktualisieren";
   }
+  renderIncomingOfferItems();
 }
 
 function buildIncomingOfferPayloadFromForm() {
@@ -50515,12 +50679,12 @@ function buildIncomingOfferPayloadFromForm() {
   const selectedSupplierValue = String(els.incomingOfferSupplier?.value || "").trim();
   const selectedSupplierOption = els.incomingOfferSupplier?.selectedOptions?.[0] || null;
   const supplierCompanyId = selectedSupplierValue === "__legacy_supplier__" ? "" : normalizeIncomingInvoiceSupplierCompanyId(selectedSupplierValue);
-  const supplierNameRaw = selectedSupplierOption ? String(selectedSupplierOption.textContent || "").trim() : "";
-  const supplierName = supplierNameRaw
-    .replace(/\s·\s[^·]*$/, "")
+  const supplierName = String(selectedSupplierOption?.dataset?.supplierName || selectedSupplierOption?.textContent || "")
     .replace(/\s\(Altbestand\)\s*$/i, "")
     .trim();
   const totalGross = normalizeIncomingInvoiceAmount(els.incomingOfferTotalGross?.value || 0);
+  const items = normalizeIncomingOfferItems(incomingOfferDraftItems);
+  const hasIncompleteItems = incomingOfferDraftItems.length > 0 && items.length !== incomingOfferDraftItems.length;
   const status = normalizeIncomingOfferStatus(els.incomingOfferStatus?.value || "offen");
   if (!receivedDate) {
     showWarningFeedback("Eingangsdatum fehlt.");
@@ -50534,8 +50698,12 @@ function buildIncomingOfferPayloadFromForm() {
     showWarningFeedback("Bitte Lieferant aus Firmen auswählen.");
     return null;
   }
-  if (totalGross <= 0) {
-    showWarningFeedback("Bruttobetrag muss größer als 0 sein.");
+  if (hasIncompleteItems) {
+    showWarningFeedback("Bitte jede Angebotsposition mit Produkt, Stückzahl und Preis vollständig ausfüllen oder die unvollständige Position entfernen.");
+    return null;
+  }
+  if (totalGross <= 0 && !items.length) {
+    showWarningFeedback("Bitte Gesamtbetrag eintragen oder mindestens eine Angebotsposition erfassen.");
     return null;
   }
   const decidedAtDate = normalizeIncomingInvoiceDateInputValue(els.incomingOfferDecidedAt?.value || "");
@@ -50548,6 +50716,7 @@ function buildIncomingOfferPayloadFromForm() {
     totalGross,
     totalNet: normalizeIncomingInvoiceAmount(els.incomingOfferTotalNet?.value || 0),
     totalTax: normalizeIncomingInvoiceAmount(els.incomingOfferTotalTax?.value || 0),
+    items,
     category: String(els.incomingOfferCategory?.value || "").trim(),
     costCenter: String(els.incomingOfferCostCenter?.value || "").trim(),
     status,
@@ -50575,6 +50744,7 @@ function writeIncomingOfferLocalFallback(offerPayload, offerId = "") {
     total_gross: offerPayload.totalGross,
     total_net: offerPayload.totalNet,
     total_tax: offerPayload.totalTax,
+    offer_items: offerPayload.items,
     category: offerPayload.category,
     cost_center: offerPayload.costCenter,
     status: offerPayload.status,
@@ -50643,7 +50813,7 @@ async function handleIncomingOfferSave() {
   }
   if (selectedUploadFile) {
     try {
-      const uploaded = await uploadIncomingInvoiceDocument(savedId, selectedUploadFile);
+      const uploaded = await uploadIncomingOfferDocument(savedId, selectedUploadFile);
       if (uploaded) {
         savedId = writeIncomingOfferLocalFallback(
           {
@@ -50832,6 +51002,7 @@ function buildIncomingOffersCsvRows(rows) {
     "decided_at",
     "category",
     "cost_center",
+    "offer_items",
     "notes",
     "document_reference",
     "file_name",
@@ -50853,6 +51024,7 @@ function buildIncomingOffersCsvRows(rows) {
       entry.decidedAt || "",
       entry.category || "",
       entry.costCenter || "",
+      getIncomingOfferItemsSummary(entry.items),
       entry.notes || "",
       file?.documentPath || "",
       file?.originalName || "",

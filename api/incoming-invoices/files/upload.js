@@ -73,13 +73,14 @@ function getExtensionFromFileName(fileName = "") {
   return extension ? `.${extension}` : "";
 }
 
-function buildIncomingObjectPath(invoiceId = "", originalFileName = "") {
+function buildIncomingObjectPath(recordId = "", originalFileName = "", documentType = "invoice") {
   const now = Date.now();
-  const invoiceSegment = sanitizePathSegment(invoiceId || "invoice");
+  const recordSegment = sanitizePathSegment(recordId || "invoice");
   const extension = getExtensionFromFileName(originalFileName);
   const fileBase = sanitizeFileName(originalFileName).replace(/\.[^.]+$/, "") || "beleg";
   const monthSegment = formatMonthSegment(new Date());
-  return `incoming-invoices/${monthSegment}/${invoiceSegment}/${now}_${fileBase}${extension}`;
+  const directory = String(documentType || "").trim().toLowerCase() === "offer" ? "incoming-offers" : "incoming-invoices";
+  return `${directory}/${monthSegment}/${recordSegment}/${now}_${fileBase}${extension}`;
 }
 
 async function ensureStorageBucket(supabaseUrl, serviceRoleKey, bucket) {
@@ -208,6 +209,7 @@ export default async function handler(req, res) {
     const formData = await readRequestFormData(req);
     const fileValue = formData.get("file");
     const invoiceId = String(formData.get("invoiceId") || req.query?.invoiceId || "").trim();
+    const documentType = String(formData.get("documentType") || req.query?.documentType || "invoice").trim().toLowerCase();
     const file = fileValue && typeof fileValue === "object" && "arrayBuffer" in fileValue ? fileValue : null;
 
     if (!file) {
@@ -227,7 +229,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const objectPath = buildIncomingObjectPath(invoiceId, fileName);
+    const objectPath = buildIncomingObjectPath(invoiceId, fileName, documentType);
     const uploadResponse = await fetch(
       `${supabaseUrl}/storage/v1/object/${encodeURIComponent(bucket)}/${objectPath
         .split("/")

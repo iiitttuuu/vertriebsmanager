@@ -3,11 +3,11 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/app-provider-workflow-v68",
+      "source": "/app-provider-workflow-v69",
       "destination": "/app.js"
     },
     {
-      "source": "/styles-provider-workflow-v67",
+      "source": "/styles-provider-workflow-v68",
       "destination": "/styles.css"
     },
     {
@@ -538,7 +538,7 @@
       ]
     },
     {
-      "source": "/app-provider-workflow-v68",
+      "source": "/app-provider-workflow-v69",
       "headers": [
         {
           "key": "Cache-Control",
@@ -547,7 +547,7 @@
       ]
     },
     {
-      "source": "/styles-provider-workflow-v67",
+      "source": "/styles-provider-workflow-v68",
       "headers": [
         {
           "key": "Cache-Control",
