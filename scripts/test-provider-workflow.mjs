@@ -440,8 +440,8 @@ assert.match(
   /hasExplicitProviderTableSyncAction\(providersSync\)[\s\S]*providers_sync_failed/,
   "Explizite Anbieter-Änderungen fallen nicht still auf app_state zurück."
 );
-assert.match(indexSource, /app-provider-workflow-v71/, "Die Anbieter-Statuslogik wird ohne Browser-Cache geladen.");
-assert.match(indexSource, /styles-provider-workflow-v70/, "Die Anbieter-Statusleiste wird ohne Browser-Cache gestaltet.");
+assert.match(indexSource, /app-provider-workflow-v72/, "Die Anbieter-Statuslogik wird ohne Browser-Cache geladen.");
+assert.match(indexSource, /styles-provider-workflow-v71/, "Die Anbieter-Statusleiste wird ohne Browser-Cache gestaltet.");
 assert.match(
   indexSource,
   /data-target="provider-coverage-section"[\s\S]*Abdeckung/,

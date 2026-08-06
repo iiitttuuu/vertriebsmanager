@@ -3882,10 +3882,58 @@ async function handlePasswordRecoverySubmit() {
   }
 }
 
+function isCompactDeleteButton(button) {
+  if (!(button instanceof HTMLButtonElement) || !button.matches(".mini-btn, .table-btn")) {
+    return false;
+  }
+  const attributeNames = Array.from(button.attributes || []).map((attribute) => attribute.name);
+  const descriptor = [button.textContent, button.getAttribute("aria-label"), button.getAttribute("title"), ...attributeNames]
+    .filter(Boolean)
+    .join(" ");
+  return /(?:lösch|loesch|entfern|delete|remove)/i.test(descriptor);
+}
+
+function standardizeCompactDeleteButton(button) {
+  if (!isCompactDeleteButton(button) || button.dataset.deleteIconReady === "true") {
+    return;
+  }
+  const label = String(button.getAttribute("aria-label") || button.getAttribute("title") || button.textContent || "Löschen").trim();
+  button.dataset.deleteIconReady = "true";
+  button.classList.add("delete-icon-button");
+  button.setAttribute("aria-label", label || "Löschen");
+  button.setAttribute("title", label || "Löschen");
+  button.textContent = "×";
+}
+
+function standardizeCompactDeleteButtons(root = document) {
+  if (!(root instanceof Document || root instanceof Element)) {
+    return;
+  }
+  if (root instanceof HTMLButtonElement) {
+    standardizeCompactDeleteButton(root);
+  }
+  root.querySelectorAll?.("button.mini-btn, button.table-btn").forEach(standardizeCompactDeleteButton);
+}
+
+function initializeCompactDeleteButtons() {
+  standardizeCompactDeleteButtons();
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node instanceof Element) {
+          standardizeCompactDeleteButtons(node);
+        }
+      });
+    });
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
 async function initialize() {
   setAppLoadingState(true);
   setAuthMode("signin", { preserveMessage: true });
   bindEvents();
+  initializeCompactDeleteButtons();
   initializeRequiredFieldIndicators();
   window.addEventListener("pagehide", () => {
     if (localBackupQueuedHandle !== null) {
