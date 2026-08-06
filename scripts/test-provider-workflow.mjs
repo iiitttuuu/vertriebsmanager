@@ -440,8 +440,8 @@ assert.match(
   /hasExplicitProviderTableSyncAction\(providersSync\)[\s\S]*providers_sync_failed/,
   "Explizite Anbieter-Änderungen fallen nicht still auf app_state zurück."
 );
-assert.match(indexSource, /app-provider-workflow-v77/, "Die Anbieter-Statuslogik wird ohne Browser-Cache geladen.");
-assert.match(indexSource, /styles-provider-workflow-v74/, "Die Anbieter-Statusleiste wird ohne Browser-Cache gestaltet.");
+assert.match(indexSource, /app-provider-workflow-v78/, "Die Anbieter-Statuslogik wird ohne Browser-Cache geladen.");
+assert.match(indexSource, /styles-provider-workflow-v75/, "Die Anbieter-Statusleiste wird ohne Browser-Cache gestaltet.");
 assert.match(
   indexSource,
   /id="roles-rights-section" class="panel card superadmin-only-view"[\s\S]*automatisch erzeugt/,
@@ -464,9 +464,10 @@ assert.match(
 );
 assert.match(
   appSource,
-  /async function handleRolePagePermissionToggle\([\s\S]*set_role_permission_override[\s\S]*Berechtigung gespeichert und protokolliert/,
+  /async function handleRolePagePermissionToggle\([\s\S]*confirmAction[\s\S]*set_role_permission_override[\s\S]*Berechtigung gespeichert und protokolliert/,
   "Seitenrechte werden ausschließlich über die auditierbare Server-Funktion geändert."
 );
+assert.match(indexSource, /id="roles-rights-sync-btn"/, "Der Superadmin kann den Rechtekatalog sichtbar neu synchronisieren.");
 assert.match(
   indexSource,
   /data-target="provider-coverage-section"[\s\S]*Abdeckung/,

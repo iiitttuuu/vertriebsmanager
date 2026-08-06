@@ -1043,6 +1043,7 @@ let rolePagePermissionOverrides = new Map();
 let rolePagePermissionCatalog = new Map();
 let rolePagePermissionsLoaded = false;
 let rolePagePermissionsUnavailable = false;
+let rolePagePermissionsStatusMessage = "";
 let explicitSignOutInProgress = false;
 let overviewNavSubmenuOpen = false;
 let organizationNavSubmenuOpen = false;
@@ -1877,6 +1878,7 @@ const els = {
   rolesRightsBody: document.getElementById("roles-rights-body"),
   rolesRightsEmpty: document.getElementById("roles-rights-empty"),
   rolesRightsDiffOnly: document.getElementById("roles-rights-diff-only"),
+  rolesRightsSyncBtn: document.getElementById("roles-rights-sync-btn"),
   departmentsTabButtons: document.querySelectorAll("[data-departments-tab-target]"),
   departmentsTabPanels: document.querySelectorAll("[data-departments-tab-panel]"),
   departmentModal: document.getElementById("department-modal"),
@@ -4974,6 +4976,9 @@ function bindEvents() {
   els.rolesRightsDiffOnly?.addEventListener("change", () => {
     rolesRightsShowDifferencesOnly = Boolean(els.rolesRightsDiffOnly?.checked);
     renderRolesRightsSection();
+  });
+  els.rolesRightsSyncBtn?.addEventListener("click", () => {
+    void refreshRolePagePermissions();
   });
   els.rolesRightsBody?.addEventListener("click", (event) => {
     const permissionButton = event.target.closest("button[data-role-page-permission]");
@@ -17723,6 +17728,9 @@ async function hydrateRolePagePermissions() {
   ]);
   if (catalogResult.error || overridesResult.error) {
     rolePagePermissionsUnavailable = true;
+    rolePagePermissionsLoaded = false;
+    rolePagePermissionsStatusMessage = `Rechte-Editor nicht verfügbar: ${getSupabaseErrorSummary(catalogResult.error || overridesResult.error)}.`;
+    renderRolesRightsSection();
     return false;
   }
   rolePagePermissionCatalog = new Map(
@@ -17738,24 +17746,51 @@ async function hydrateRolePagePermissions() {
   );
   rolePagePermissionsLoaded = true;
   rolePagePermissionsUnavailable = false;
+  rolePagePermissionsStatusMessage = "Rechte-Editor aktiv";
   updateSidebarNavigationVisibilityForRole();
   renderRolesRightsSection();
   return true;
 }
 
 async function syncRolePagePermissionCatalog() {
-  if (!isSuperAdmin() || !rolePagePermissionsLoaded) {
-    return;
+  if (!isSuperAdmin()) {
+    return false;
+  }
+  if (!rolePagePermissionsLoaded && !(await hydrateRolePagePermissions())) {
+    return false;
   }
   const client = getSupabaseClient();
+  if (!client) {
+    rolePagePermissionsUnavailable = true;
+    rolePagePermissionsStatusMessage = "Rechte-Editor nicht verfügbar: keine Verbindung zu Supabase.";
+    renderRolesRightsSection();
+    return false;
+  }
   const entries = getRolesRightsCandidateSectionIds().map((sectionId) => ({
     permission_key: getRolePagePermissionKey(sectionId),
     section_id: sectionId,
     label: getRolesRightsSectionLabel(sectionId),
   }));
   const { error } = await client.rpc("register_page_permission_catalog", { entries });
-  if (!error) {
-    await hydrateRolePagePermissions();
+  if (error) {
+    rolePagePermissionsStatusMessage = `Rechtekatalog konnte nicht synchronisiert werden: ${getSupabaseErrorSummary(error)}.`;
+    renderRolesRightsSection();
+    return false;
+  }
+  return hydrateRolePagePermissions();
+}
+
+async function refreshRolePagePermissions() {
+  if (!isSuperAdmin()) {
+    return;
+  }
+  const syncButton = els.rolesRightsSyncBtn;
+  setActionButtonBusy(syncButton, true, "Synchronisiert …");
+  const loaded = await hydrateRolePagePermissions();
+  const synced = loaded && (await syncRolePagePermissionCatalog());
+  setActionButtonBusy(syncButton, false);
+  if (synced) {
+    showSuccessFeedback("Rechtekatalog aktualisiert.");
   }
 }
 
@@ -17768,7 +17803,12 @@ async function handleRolePagePermissionToggle(sectionId, roleLike) {
   }
   const currentAllowed = resolveAccessibleSectionForRole(sectionId, role) === sectionId;
   const nextEffect = currentAllowed ? "deny" : "allow";
-  if (!(await confirmDeleteAction(`${nextEffect === "allow" ? "Zugriff freigeben" : "Zugriff entziehen"}: ${getRoleLabel(role)} → ${getRolesRightsSectionLabel(sectionId)}?`))) {
+  const actionLabel = nextEffect === "allow" ? "Zugriff freigeben" : "Zugriff entziehen";
+  if (!(await confirmAction(`${actionLabel}: ${getRoleLabel(role)} → ${getRolesRightsSectionLabel(sectionId)}?`, {
+    title: "Berechtigung ändern",
+    confirmLabel: actionLabel,
+    danger: nextEffect === "deny",
+  }))) {
     return;
   }
   const client = getSupabaseClient();
@@ -17778,10 +17818,14 @@ async function handleRolePagePermissionToggle(sectionId, roleLike) {
     next_effect: nextEffect,
   });
   if (error) {
-    showWarningFeedback(`Berechtigung konnte nicht gespeichert werden (${String(error.message || "Unbekannter Fehler")}).`);
+    rolePagePermissionsStatusMessage = `Berechtigung konnte nicht gespeichert werden: ${getSupabaseErrorSummary(error)}.`;
+    renderRolesRightsSection();
+    showWarningFeedback(rolePagePermissionsStatusMessage);
     return;
   }
   await hydrateRolePagePermissions();
+  rolePagePermissionsStatusMessage = "Berechtigung gespeichert und protokolliert.";
+  renderRolesRightsSection();
   showSuccessFeedback("Berechtigung gespeichert und protokolliert.");
 }
 
@@ -18041,13 +18085,18 @@ function renderRolesRightsSection() {
   const filterInfo = rolesRightsShowDifferencesOnly
     ? ` · angezeigt: ${visibleRows.length}/${rows.length} (nur Unterschiede)`
     : "";
-  const permissionsInfo = rolePagePermissionsUnavailable
-    ? " · Rechte-Editor nicht verfügbar: sichere Standardregeln aktiv"
-    : rolePagePermissionsLoaded
-      ? " · Rechte-Editor aktiv"
-      : "";
+  const permissionsInfo = rolePagePermissionsStatusMessage
+    ? ` · ${rolePagePermissionsStatusMessage}`
+    : rolePagePermissionsUnavailable
+      ? " · Rechte-Editor nicht verfügbar: sichere Standardregeln aktiv"
+      : rolePagePermissionsLoaded
+        ? " · Rechte-Editor aktiv"
+        : " · Rechte-Editor wird geladen";
   els.rolesRightsMeta.textContent =
     `${rows.length} Bereiche${filterInfo}${permissionsInfo} · zuletzt aktualisiert: ${formatRolesRightsTimestamp(new Date())}`;
+  if (els.rolesRightsSyncBtn) {
+    els.rolesRightsSyncBtn.classList.toggle("hidden", !isSuperAdmin());
+  }
 }
 
 function queueRolesRightsRender() {

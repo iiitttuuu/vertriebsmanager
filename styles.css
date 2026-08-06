@@ -2352,6 +2352,14 @@ body::after {
 
 .roles-rights-controls {
   margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.roles-rights-sync-btn {
+  flex: 0 0 auto;
 }
 
 .roles-rights-toggle {
