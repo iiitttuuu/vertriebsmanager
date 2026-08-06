@@ -6,12 +6,12 @@
     <title>CRM | my-waycard</title>
     <link id="site-favicon" rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-    <link rel="stylesheet" href="/styles-provider-workflow-v68" />
+    <link rel="stylesheet" href="/styles-provider-workflow-v69" />
     <!-- Defer lädt die Abhängigkeiten bereits während das umfangreiche Dashboard-HTML
          geparst wird; die Reihenfolge bleibt garantiert erhalten. -->
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="config.js?v=20260729-supabase-publishable-key-v1"></script>
-    <script defer src="/app-provider-workflow-v69"></script>
+    <script defer src="/app-provider-workflow-v70"></script>
   </head>
   <body class="app-loading auth-locked">
     <div id="auth-gate" class="auth-gate hidden">
@@ -4179,17 +4179,17 @@
           <div class="finance-workspace-tabs finance-mode-tabs" role="tablist" aria-label="Angebotsthemen">
             <button
               type="button"
-              class="incoming-invoices-subnav-btn"
-              data-incoming-offers-workspace-tab="entry"
-            >
-              Erfassung
-            </button>
-            <button
-              type="button"
               class="incoming-invoices-subnav-btn is-active"
               data-incoming-offers-workspace-tab="overview"
             >
               Übersicht
+            </button>
+            <button
+              type="button"
+              class="incoming-invoices-subnav-btn"
+              data-incoming-offers-workspace-tab="entry"
+            >
+              Erfassung
             </button>
           </div>
 
@@ -4200,6 +4200,10 @@
             </div>
             <form id="incoming-offer-form" class="incoming-invoices-create-grid finance-input-grid">
               <input type="hidden" id="incoming-offer-id" />
+              <label class="incoming-invoices-field incoming-invoices-field-wide">
+                <span>Angebotstitel</span>
+                <input type="text" id="incoming-offer-title" maxlength="180" placeholder="z. B. Drucksorten Frühjahrskampagne" required />
+              </label>
               <label class="incoming-invoices-field">
                 <span>Angebotsnummer</span>
                 <input type="text" id="incoming-offer-number" required />
@@ -4333,23 +4337,7 @@
             </div>
 
             <div id="incoming-offers-kpis" class="incoming-invoices-kpis"></div>
-            <div class="table-wrap incoming-invoices-table-wrap finance-table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Angebot</th>
-                    <th>Lieferant</th>
-                    <th>Eingang</th>
-                    <th>Gültig bis</th>
-                    <th>Betrag</th>
-                    <th>Status</th>
-                    <th>Priorität</th>
-                    <th>Aktion</th>
-                  </tr>
-                </thead>
-                <tbody id="incoming-offers-table-body"></tbody>
-              </table>
-            </div>
+            <div id="incoming-offers-table-body" class="incoming-offers-overview-list" aria-live="polite"></div>
             <p id="incoming-offers-table-meta" class="incoming-invoices-table-meta"></p>
           </article>
         </section>
@@ -6074,6 +6062,35 @@
           <a id="incoming-invoice-document-preview-download" class="btn btn-primary" href="#" download>Herunterladen</a>
         </div>
       </div>
+    </div>
+
+    <div id="incoming-offer-detail-modal" class="modal-overlay-page incoming-offer-detail-modal hidden" role="dialog" aria-modal="true" aria-labelledby="incoming-offer-detail-title">
+      <section class="modal-dialog-panel incoming-offer-detail-dialog">
+        <div class="modal-dialog-head incoming-offer-detail-head">
+          <div>
+            <p>DETAILANSICHT</p>
+            <h3 id="incoming-offer-detail-title">Angebot</h3>
+          </div>
+          <button type="button" id="incoming-offer-detail-close-btn" class="mini-btn" aria-label="Angebotsdetails schließen">✕</button>
+        </div>
+        <div id="incoming-offer-detail-content" class="incoming-offer-detail-content"></div>
+      </section>
+    </div>
+
+    <div id="incoming-offer-document-preview-modal" class="modal-overlay-page incoming-offer-document-preview-modal hidden" role="dialog" aria-modal="true" aria-labelledby="incoming-offer-document-preview-title">
+      <section class="modal-dialog-panel incoming-offer-document-preview-dialog">
+        <div class="modal-dialog-head incoming-offer-document-preview-head">
+          <div>
+            <p>ANGEBOT · PDF-VORSCHAU</p>
+            <h3 id="incoming-offer-document-preview-title">Angebot</h3>
+          </div>
+          <button type="button" id="incoming-offer-document-preview-close-btn" class="mini-btn" aria-label="Angebotsvorschau schließen">✕</button>
+        </div>
+        <div id="incoming-offer-document-preview-content" class="incoming-offer-document-preview-content"></div>
+        <div class="incoming-offer-document-preview-actions">
+          <a id="incoming-offer-document-preview-download" class="btn btn-primary" href="#" download>Herunterladen</a>
+        </div>
+      </section>
     </div>
 
     <div id="action-feedback-status" class="action-feedback-status hidden" aria-live="polite"></div>

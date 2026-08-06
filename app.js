@@ -789,6 +789,7 @@ let incomingOffers = [];
 let incomingOfferFiles = [];
 let incomingOfferDraftItems = [];
 let incomingOffersWorkspaceTab = "overview";
+let incomingOfferDocumentPreviewUrl = "";
 let contractManagerView = "due";
 let contractManagerWorkspaceTab = "overview";
 let contractManagerSearchTerm = "";
@@ -2469,6 +2470,7 @@ const els = {
   incomingOffersWorkspacePanels: document.querySelectorAll("[data-incoming-offers-workspace-panel]"),
   incomingOfferForm: document.getElementById("incoming-offer-form"),
   incomingOfferId: document.getElementById("incoming-offer-id"),
+  incomingOfferTitle: document.getElementById("incoming-offer-title"),
   incomingOfferNumber: document.getElementById("incoming-offer-number"),
   incomingOfferSupplier: document.getElementById("incoming-offer-supplier"),
   incomingOfferReceivedDate: document.getElementById("incoming-offer-received-date"),
@@ -2498,6 +2500,15 @@ const els = {
   incomingOffersKpis: document.getElementById("incoming-offers-kpis"),
   incomingOffersTableBody: document.getElementById("incoming-offers-table-body"),
   incomingOffersTableMeta: document.getElementById("incoming-offers-table-meta"),
+  incomingOfferDetailModal: document.getElementById("incoming-offer-detail-modal"),
+  incomingOfferDetailTitle: document.getElementById("incoming-offer-detail-title"),
+  incomingOfferDetailContent: document.getElementById("incoming-offer-detail-content"),
+  incomingOfferDetailCloseBtn: document.getElementById("incoming-offer-detail-close-btn"),
+  incomingOfferDocumentPreviewModal: document.getElementById("incoming-offer-document-preview-modal"),
+  incomingOfferDocumentPreviewTitle: document.getElementById("incoming-offer-document-preview-title"),
+  incomingOfferDocumentPreviewContent: document.getElementById("incoming-offer-document-preview-content"),
+  incomingOfferDocumentPreviewDownload: document.getElementById("incoming-offer-document-preview-download"),
+  incomingOfferDocumentPreviewCloseBtn: document.getElementById("incoming-offer-document-preview-close-btn"),
   contractManagerViewButtons: document.querySelectorAll("button[data-contract-manager-view-target]"),
   contractManagerWorkspaceTabButtons: document.querySelectorAll("button[data-contract-manager-workspace-tab]"),
   contractManagerWorkspacePanels: document.querySelectorAll("[data-contract-manager-workspace-panel]"),
@@ -9847,6 +9858,12 @@ function bindEvents() {
   els.incomingInvoiceDocumentPreviewCloseBtn?.addEventListener("click", () => {
     closeIncomingInvoiceDocumentPreview();
   });
+  els.incomingOfferDetailCloseBtn?.addEventListener("click", () => {
+    closeIncomingOfferDetail();
+  });
+  els.incomingOfferDocumentPreviewCloseBtn?.addEventListener("click", () => {
+    closeIncomingOfferDocumentPreview();
+  });
   els.incomingInvoicePaymentAddBtn?.addEventListener("click", () => {
     handleIncomingInvoiceDraftPaymentSave();
   });
@@ -10045,6 +10062,11 @@ function bindEvents() {
     renderIncomingOffersSection();
   });
   els.incomingOffersTableBody?.addEventListener("click", (event) => {
+    const detailButton = event.target.closest("button[data-incoming-offer-detail]");
+    if (detailButton) {
+      openIncomingOfferDetail(detailButton.dataset.incomingOfferDetail || "");
+      return;
+    }
     const companyLinkButton = event.target.closest("button[data-incoming-offer-open-company]");
     if (companyLinkButton) {
       const companyId = String(companyLinkButton.dataset.incomingOfferOpenCompany || "").trim();
@@ -10118,6 +10140,41 @@ function bindEvents() {
         return;
       }
       void handleIncomingOfferOpenDocument(offerId);
+    }
+  });
+  els.incomingOfferDetailContent?.addEventListener("click", (event) => {
+    const editButton = event.target.closest("button[data-incoming-offer-detail-edit]");
+    if (editButton) {
+      const offer = getIncomingOfferById(editButton.dataset.incomingOfferDetailEdit || "");
+      if (offer) {
+        closeIncomingOfferDetail();
+        setIncomingOffersWorkspaceTab("entry", { render: false });
+        fillIncomingOfferForm(offer);
+      }
+      return;
+    }
+    const openDocumentButton = event.target.closest("button[data-incoming-offer-detail-document]");
+    if (openDocumentButton) {
+      void handleIncomingOfferOpenDocument(openDocumentButton.dataset.incomingOfferDetailDocument || "");
+      return;
+    }
+    const toInvoiceButton = event.target.closest("button[data-incoming-offer-detail-to-invoice]");
+    if (toInvoiceButton) {
+      const offerId = String(toInvoiceButton.dataset.incomingOfferDetailToInvoice || "").trim();
+      if (offerId) {
+        closeIncomingOfferDetail();
+        handleIncomingOfferConvertToInvoice(offerId);
+      }
+      return;
+    }
+    const statusButton = event.target.closest("button[data-incoming-offer-detail-status]");
+    if (statusButton) {
+      const offerId = String(statusButton.dataset.incomingOfferDetailStatus || "").trim();
+      const nextStatus = String(statusButton.dataset.incomingOfferDetailNextStatus || "").trim();
+      if (offerId && nextStatus) {
+        handleIncomingOfferSetStatus(offerId, nextStatus, `Angebot auf ${getIncomingOfferStatusLabel(nextStatus)} gesetzt.`);
+        openIncomingOfferDetail(offerId);
+      }
     }
   });
   els.contractManagerViewButtons?.forEach((button) => {
@@ -29333,6 +29390,9 @@ function syncBodyModalOpenState() {
   const companyNoteReadModalOpenNow = isCompanyNoteReadModalOpen();
   const incomingInvoicePaymentModalOpenNow = isIncomingInvoicePaymentModalOpen();
   const incomingInvoiceDocumentPreviewOpenNow = isIncomingInvoiceDocumentPreviewOpen();
+  const incomingOfferDetailOpenNow = !!els.incomingOfferDetailModal && !els.incomingOfferDetailModal.classList.contains("hidden");
+  const incomingOfferDocumentPreviewOpenNow =
+    !!els.incomingOfferDocumentPreviewModal && !els.incomingOfferDocumentPreviewModal.classList.contains("hidden");
   const departmentModalOpenNow = !!els.departmentModal && !els.departmentModal.classList.contains("hidden");
   const departmentMembersModalOpenNow =
     !!els.departmentMembersModal && !els.departmentMembersModal.classList.contains("hidden");
@@ -29371,6 +29431,8 @@ function syncBodyModalOpenState() {
       companyNoteReadModalOpenNow ||
       incomingInvoicePaymentModalOpenNow ||
       incomingInvoiceDocumentPreviewOpenNow ||
+      incomingOfferDetailOpenNow ||
+      incomingOfferDocumentPreviewOpenNow ||
       departmentModalOpenNow ||
       departmentMembersModalOpenNow ||
       orgChartEditModalOpenNow ||
@@ -50096,6 +50158,7 @@ function normalizeIncomingOfferRecord(entry, index = 0) {
   const updatedAt = Number.isNaN(new Date(updatedAtRaw).getTime()) ? createdAt : updatedAtRaw;
   return {
     id,
+    title: String(entry.title || entry.offerTitle || entry.offer_title || "").trim().slice(0, 180),
     offerNumber: String(entry.offerNumber || entry.offer_number || "").trim(),
     supplierCompanyId: normalizeIncomingInvoiceSupplierCompanyId(entry.supplierCompanyId || entry.supplier_company_id || ""),
     supplierName: String(entry.supplierName || entry.supplier_name || "").trim(),
@@ -50505,7 +50568,7 @@ function renderIncomingOffersSection() {
   renderIncomingOffersKpis(rows);
 
   if (!rows.length) {
-    els.incomingOffersTableBody.innerHTML = '<tr><td colspan="8" class="empty">Keine Angebote im gewählten Filter.</td></tr>';
+    els.incomingOffersTableBody.innerHTML = '<p class="incoming-offers-empty">Keine Angebote im gewählten Filter.</p>';
   } else {
     els.incomingOffersTableBody.innerHTML = rows
       .map((entry) => {
@@ -50516,54 +50579,27 @@ function renderIncomingOffersSection() {
         const file = getIncomingOfferFileForOffer(entry.id);
         const hasDocument = Boolean(String(file?.documentPath || "").trim() || String(file?.originalName || "").trim());
         const expiredLabel = isIncomingOfferExpired(entry) ? " · abgelaufen" : "";
-        const canDecide = ["offen", "in_pruefung"].includes(normalizeIncomingOfferStatus(entry.status));
+        const amountLabel =
+          normalizeIncomingInvoiceAmount(entry.totalGross) > 0
+            ? formatIncomingInvoiceMoney(entry.totalGross, entry.currency || "EUR")
+            : entry.items?.length
+              ? `${entry.items.length} Preisstaffel${entry.items.length === 1 ? "" : "n"}`
+              : "Betrag offen";
         return `
-          <tr>
-            <td>
-              <strong>${escapeHtml(entry.offerNumber || "–")}</strong>
-              ${entry.items?.length ? `<small class="incoming-offer-table-items">${escapeHtml(getIncomingOfferItemsSummary(entry.items))}</small>` : ""}
-            </td>
-            <td>
-              ${
-                entry.supplierName
-                  ? `<button
-                      type="button"
-                      class="entity-link-btn"
-                      data-incoming-offer-open-company="${escapeHtml(String(entry.supplierCompanyId || "").trim())}"
-                      data-incoming-offer-open-company-name="${escapeHtml(String(entry.supplierName || "").trim())}"
-                    >${escapeHtml(entry.supplierName)}</button>`
-                  : "–"
-              }
-            </td>
-            <td>${escapeHtml(entry.receivedDate ? formatTourDateLabel(entry.receivedDate) : "–")}</td>
-            <td>${escapeHtml(entry.validUntilDate ? `${formatTourDateLabel(entry.validUntilDate)}${expiredLabel}` : "–")}</td>
-            <td>${escapeHtml(formatIncomingInvoiceMoney(entry.totalGross, entry.currency || "EUR"))}</td>
-            <td><span class="incoming-invoices-pill ${escapeHtml(statusClass)}">${escapeHtml(statusLabel)}</span></td>
-            <td><span class="incoming-invoices-pill ${escapeHtml(priorityClass)}">${escapeHtml(priorityLabel)}</span></td>
-            <td>
-              <div class="incoming-invoices-actions-inline">
-                <button type="button" class="mini-btn" data-incoming-offer-edit="${escapeHtml(entry.id)}">Bearbeiten</button>
-                ${canDecide ? `<button type="button" class="mini-btn" data-incoming-offer-review="${escapeHtml(entry.id)}">In Prüfung</button>` : ""}
-                ${canDecide ? `<button type="button" class="mini-btn" data-incoming-offer-accept="${escapeHtml(entry.id)}">Annehmen</button>` : ""}
-                ${canDecide ? `<button type="button" class="mini-btn danger" data-incoming-offer-reject="${escapeHtml(entry.id)}">Ablehnen</button>` : ""}
-                ${
-                  normalizeIncomingOfferStatus(entry.status) === "angenommen"
-                    ? `<button type="button" class="mini-btn" data-incoming-offer-to-invoice="${escapeHtml(entry.id)}">Als Rechnung</button>`
-                    : ""
-                }
-                ${
-                  normalizeIncomingOfferStatus(entry.status) !== "abgelaufen"
-                    ? `<button type="button" class="mini-btn" data-incoming-offer-expired="${escapeHtml(entry.id)}">Abgelaufen</button>`
-                    : ""
-                }
-                ${
-                  hasDocument
-                    ? `<button type="button" class="mini-btn" data-incoming-offer-open-document="${escapeHtml(entry.id)}">Angebot öffnen</button>`
-                    : ""
-                }
-              </div>
-            </td>
-          </tr>
+          <button type="button" class="incoming-offer-card" data-incoming-offer-detail="${escapeHtml(entry.id)}">
+            <span class="incoming-offer-card-topline">
+              <span class="incoming-offer-card-number">${escapeHtml(entry.offerNumber || "–")}</span>
+              <span class="incoming-offer-card-status incoming-invoices-pill ${escapeHtml(statusClass)}">${escapeHtml(statusLabel)}</span>
+            </span>
+            <strong class="incoming-offer-card-title">${escapeHtml(entry.title || "Ohne Angebotstitel")}</strong>
+            <span class="incoming-offer-card-supplier">${escapeHtml(entry.supplierName || "Lieferant nicht hinterlegt")}</span>
+            <span class="incoming-offer-card-value">${escapeHtml(amountLabel)}</span>
+            <span class="incoming-offer-card-meta">
+              ${escapeHtml(entry.validUntilDate ? `Gültig bis ${formatTourDateLabel(entry.validUntilDate)}${expiredLabel}` : `Eingang ${formatTourDateLabel(entry.receivedDate)}`)}
+              ${hasDocument ? " · PDF hinterlegt" : ""}
+              ${priorityLabel === "Hoch" ? " · Hohe Priorität" : ""}
+            </span>
+          </button>
         `;
       })
       .join("");
@@ -50618,6 +50654,9 @@ function fillIncomingOfferForm(offer) {
   incomingOfferDraftItems = (Array.isArray(offer.items) ? offer.items : []).map((item) => createIncomingOfferDraftItem(item));
   if (els.incomingOfferId) {
     els.incomingOfferId.value = incomingOffersSelectedId;
+  }
+  if (els.incomingOfferTitle) {
+    els.incomingOfferTitle.value = offer.title || "";
   }
   if (els.incomingOfferNumber) {
     els.incomingOfferNumber.value = offer.offerNumber || "";
@@ -50675,6 +50714,7 @@ function fillIncomingOfferForm(offer) {
 
 function buildIncomingOfferPayloadFromForm() {
   const receivedDate = normalizeIncomingInvoiceDateInputValue(els.incomingOfferReceivedDate?.value || "");
+  const title = String(els.incomingOfferTitle?.value || "").trim();
   const offerNumber = String(els.incomingOfferNumber?.value || "").trim();
   const selectedSupplierValue = String(els.incomingOfferSupplier?.value || "").trim();
   const selectedSupplierOption = els.incomingOfferSupplier?.selectedOptions?.[0] || null;
@@ -50694,6 +50734,10 @@ function buildIncomingOfferPayloadFromForm() {
     showWarningFeedback("Angebotsnummer fehlt.");
     return null;
   }
+  if (!title) {
+    showWarningFeedback("Angebotstitel fehlt.");
+    return null;
+  }
   if (!supplierCompanyId || !supplierName) {
     showWarningFeedback("Bitte Lieferant aus Firmen auswählen.");
     return null;
@@ -50708,6 +50752,7 @@ function buildIncomingOfferPayloadFromForm() {
   }
   const decidedAtDate = normalizeIncomingInvoiceDateInputValue(els.incomingOfferDecidedAt?.value || "");
   return {
+    title,
     offerNumber,
     supplierCompanyId,
     supplierName,
@@ -50736,6 +50781,7 @@ function writeIncomingOfferLocalFallback(offerPayload, offerId = "") {
   const existing = currentRows.find((entry) => entry.id === normalizedId) || null;
   const nextRow = normalizeIncomingOfferRecord({
     id: normalizedId,
+    offer_title: offerPayload.title,
     offer_number: offerPayload.offerNumber,
     supplier_company_id: offerPayload.supplierCompanyId,
     supplier_name: offerPayload.supplierName,
@@ -50875,43 +50921,175 @@ function handleIncomingOfferSetStatus(offerId, status, successMessage) {
   }
 }
 
-async function handleIncomingOfferOpenDocument(offerId) {
+function closeIncomingOfferDetail() {
+  if (els.incomingOfferDetailModal) {
+    els.incomingOfferDetailModal.classList.add("hidden");
+  }
+  syncBodyModalOpenState();
+}
+
+function openIncomingOfferDetail(offerId) {
+  const offer = getIncomingOfferById(offerId);
+  if (!offer || !els.incomingOfferDetailModal || !els.incomingOfferDetailContent) {
+    return;
+  }
+  const file = getIncomingOfferFileForOffer(offer.id);
+  const hasDocument = Boolean(String(file?.documentPath || "").trim());
+  const items = normalizeIncomingOfferItems(offer.items || []);
+  const canDecide = ["offen", "in_pruefung"].includes(normalizeIncomingOfferStatus(offer.status));
+  if (els.incomingOfferDetailTitle) {
+    els.incomingOfferDetailTitle.textContent = offer.title || offer.offerNumber || "Angebot";
+  }
+  els.incomingOfferDetailContent.innerHTML = `
+    <section class="incoming-offer-detail-summary">
+      <div>
+        <span>Angebotsnummer</span>
+        <strong>${escapeHtml(offer.offerNumber || "–")}</strong>
+      </div>
+      <div>
+        <span>Lieferant</span>
+        <strong>${escapeHtml(offer.supplierName || "–")}</strong>
+      </div>
+      <div>
+        <span>Status</span>
+        <strong><span class="incoming-invoices-pill ${escapeHtml(getIncomingOfferStatusCssClass(offer.status))}">${escapeHtml(getIncomingOfferStatusLabel(offer.status))}</span></strong>
+      </div>
+      <div>
+        <span>Gesamtbetrag</span>
+        <strong>${escapeHtml(normalizeIncomingInvoiceAmount(offer.totalGross) > 0 ? formatIncomingInvoiceMoney(offer.totalGross, offer.currency || "EUR") : "Nicht gesetzt")}</strong>
+      </div>
+      <div>
+        <span>Eingang</span>
+        <strong>${escapeHtml(offer.receivedDate ? formatTourDateLabel(offer.receivedDate) : "–")}</strong>
+      </div>
+      <div>
+        <span>Gültig bis</span>
+        <strong>${escapeHtml(offer.validUntilDate ? formatTourDateLabel(offer.validUntilDate) : "–")}</strong>
+      </div>
+    </section>
+    <section class="incoming-offer-detail-section">
+      <div class="incoming-offer-detail-section-head">
+        <div>
+          <span>POSITIONEN & PREISSTAFFELN</span>
+          <h4>${items.length ? `${items.length} erfasste Position${items.length === 1 ? "" : "en"}` : "Keine Positionen erfasst"}</h4>
+        </div>
+      </div>
+      ${
+        items.length
+          ? `<div class="incoming-offer-detail-items">${items
+              .map(
+                (item) => `
+                  <div>
+                    <strong>${escapeHtml(item.title)}</strong>
+                    <span>${escapeHtml(`${new Intl.NumberFormat("de-AT", { maximumFractionDigits: 2 }).format(item.quantity)} ${item.unit}`)}</span>
+                    <span>${escapeHtml(formatIncomingInvoiceMoney(item.unitPriceNet))} / ${escapeHtml(item.unit)}</span>
+                    <strong>${escapeHtml(formatIncomingInvoiceMoney(item.quantity * item.unitPriceNet))}</strong>
+                  </div>
+                `
+              )
+              .join("")}</div>`
+          : '<p class="incoming-offer-detail-empty">Für dieses Angebot wurden keine Einzelpositionen hinterlegt.</p>'
+      }
+    </section>
+    ${
+      offer.notes
+        ? `<section class="incoming-offer-detail-section"><span>INTERNE NOTIZ</span><p class="incoming-offer-detail-note">${escapeHtml(offer.notes)}</p></section>`
+        : ""
+    }
+    <div class="incoming-offer-detail-actions">
+      <button type="button" class="btn btn-primary" data-incoming-offer-detail-edit="${escapeHtml(offer.id)}">Bearbeiten</button>
+      ${hasDocument ? `<button type="button" class="btn btn-success" data-incoming-offer-detail-document="${escapeHtml(offer.id)}">Angebot öffnen</button>` : ""}
+      ${canDecide ? `<button type="button" class="mini-btn" data-incoming-offer-detail-status="${escapeHtml(offer.id)}" data-incoming-offer-detail-next-status="in_pruefung">In Prüfung</button>` : ""}
+      ${canDecide ? `<button type="button" class="mini-btn" data-incoming-offer-detail-status="${escapeHtml(offer.id)}" data-incoming-offer-detail-next-status="angenommen">Annehmen</button>` : ""}
+      ${canDecide ? `<button type="button" class="mini-btn danger" data-incoming-offer-detail-status="${escapeHtml(offer.id)}" data-incoming-offer-detail-next-status="abgelehnt">Ablehnen</button>` : ""}
+      ${normalizeIncomingOfferStatus(offer.status) === "angenommen" ? `<button type="button" class="mini-btn" data-incoming-offer-detail-to-invoice="${escapeHtml(offer.id)}">Als Rechnung</button>` : ""}
+    </div>
+  `;
+  els.incomingOfferDetailModal.classList.remove("hidden");
+  syncBodyModalOpenState();
+  window.setTimeout(() => els.incomingOfferDetailCloseBtn?.focus({ preventScroll: true }), 0);
+}
+
+function closeIncomingOfferDocumentPreview() {
+  if (els.incomingOfferDocumentPreviewModal) {
+    els.incomingOfferDocumentPreviewModal.classList.add("hidden");
+  }
+  if (els.incomingOfferDocumentPreviewContent) {
+    els.incomingOfferDocumentPreviewContent.replaceChildren();
+  }
+  if (els.incomingOfferDocumentPreviewDownload) {
+    els.incomingOfferDocumentPreviewDownload.removeAttribute("href");
+    els.incomingOfferDocumentPreviewDownload.removeAttribute("download");
+  }
+  if (incomingOfferDocumentPreviewUrl) {
+    URL.revokeObjectURL(incomingOfferDocumentPreviewUrl);
+    incomingOfferDocumentPreviewUrl = "";
+  }
+  syncBodyModalOpenState();
+}
+
+async function fetchIncomingOfferDocument(offerId) {
   const normalizedOfferId = String(offerId || "").trim();
   if (!normalizedOfferId) {
-    return;
+    return null;
   }
   const file = getIncomingOfferFileForOffer(normalizedOfferId);
   const documentRef = String(file?.documentPath || "").trim();
   if (!documentRef) {
-    showInfoFeedback("Keine Datei für dieses Angebot gespeichert.");
-    return;
+    return null;
   }
+  const accessToken = await getAuthAccessToken();
+  const query = new URLSearchParams({ ref: documentRef, offerId: normalizedOfferId });
+  if (file?.originalName) {
+    query.set("name", String(file.originalName || "").trim());
+  }
+  const response = await fetch(`${INCOMING_INVOICE_FILE_DOWNLOAD_ENDPOINT}?${query.toString()}`, {
+    method: "GET",
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+  if (!response.ok) {
+    const payload = await readIncomingInvoiceBridgePayload(response);
+    throw new Error(getIncomingInvoiceBridgeErrorMessage(response, payload));
+  }
+  return { offerId: normalizedOfferId, file, blob: await response.blob() };
+}
+
+async function handleIncomingOfferOpenDocument(offerId) {
   try {
-    const accessToken = await getAuthAccessToken();
-    const query = new URLSearchParams({
-      ref: documentRef,
-      offerId: normalizedOfferId,
-    });
-    if (file?.originalName) {
-      query.set("name", String(file.originalName || "").trim());
+    const documentData = await fetchIncomingOfferDocument(offerId);
+    if (!documentData) {
+      showInfoFeedback("Keine Datei für dieses Angebot gespeichert.");
+      return;
     }
-    const response = await fetch(`${INCOMING_INVOICE_FILE_DOWNLOAD_ENDPOINT}?${query.toString()}`, {
-      method: "GET",
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-    });
-    if (!response.ok) {
-      const payload = await readIncomingInvoiceBridgePayload(response);
-      throw new Error(getIncomingInvoiceBridgeErrorMessage(response, payload));
+    if (!els.incomingOfferDocumentPreviewModal || !els.incomingOfferDocumentPreviewContent) {
+      throw new Error("Die Angebotsvorschau ist nicht verfügbar.");
     }
-    const blob = await response.blob();
-    const downloadUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = String(file?.originalName || `angebot_${normalizedOfferId}.pdf`).trim() || `angebot_${normalizedOfferId}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(downloadUrl);
+    closeIncomingOfferDocumentPreview();
+    const fileName = String(documentData.file?.originalName || `angebot_${documentData.offerId}.pdf`).trim() || "Angebot";
+    const mimeType = String(documentData.blob.type || documentData.file?.mimeType || "").toLowerCase();
+    incomingOfferDocumentPreviewUrl = URL.createObjectURL(documentData.blob);
+    if (els.incomingOfferDocumentPreviewTitle) {
+      els.incomingOfferDocumentPreviewTitle.textContent = fileName;
+    }
+    if (els.incomingOfferDocumentPreviewDownload) {
+      els.incomingOfferDocumentPreviewDownload.href = incomingOfferDocumentPreviewUrl;
+      els.incomingOfferDocumentPreviewDownload.download = fileName;
+    }
+    if (mimeType === "application/pdf" || /\.pdf$/i.test(fileName)) {
+      const frame = document.createElement("iframe");
+      frame.className = "incoming-offer-document-preview-frame";
+      frame.src = incomingOfferDocumentPreviewUrl;
+      frame.title = `Angebotsvorschau: ${fileName}`;
+      els.incomingOfferDocumentPreviewContent.appendChild(frame);
+    } else {
+      const note = document.createElement("p");
+      note.className = "incoming-offer-document-preview-unavailable";
+      note.textContent = "Diese Datei ist kein PDF und kann daher nicht im A4-Format angezeigt werden. Du kannst sie herunterladen.";
+      els.incomingOfferDocumentPreviewContent.appendChild(note);
+    }
+    els.incomingOfferDocumentPreviewModal.classList.remove("hidden");
+    syncBodyModalOpenState();
+    window.setTimeout(() => els.incomingOfferDocumentPreviewCloseBtn?.focus({ preventScroll: true }), 0);
   } catch (error) {
     const message = String(error?.message || "").trim();
     showWarningFeedback(message ? `Datei konnte nicht geladen werden (${message}).` : "Datei konnte nicht geladen werden.");
