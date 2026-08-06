@@ -17660,9 +17660,14 @@ function updateSidebarNavigationVisibilityForRole(user = getCurrentUser()) {
 
   navTargetButtons.forEach((button) => {
     const targetId = String(button.dataset.target || "").trim();
+    const explicitPageOverride = getRolePagePermissionOverride(normalizedRole, targetId);
     const roleAccessible = hasUser && resolveAccessibleSectionForRole(targetId, normalizedRole) === targetId;
-    const salesAccessible = !salesRepresentative || isAllowedSalesNavigationButton(button, normalizedRole);
-    const visible = hasUser && roleAccessible && salesAccessible && isRoleClassAllowed(button);
+    const salesAccessible = explicitPageOverride === "allow" || !salesRepresentative || isAllowedSalesNavigationButton(button, normalizedRole);
+    // Eine vom Superadmin explizit freigegebene Seite darf nicht anschließend von
+    // einer historischen CSS-Rollenklasse (z. B. role-admin-only) wieder verborgen werden.
+    // Entzug und alle nicht explizit freigegebenen Seiten bleiben unverändert restriktiv.
+    const roleClassAccessible = explicitPageOverride === "allow" || isRoleClassAllowed(button);
+    const visible = hasUser && roleAccessible && salesAccessible && roleClassAccessible;
     button.classList.toggle("hidden", !visible);
   });
 
@@ -17679,7 +17684,9 @@ function updateSidebarNavigationVisibilityForRole(user = getCurrentUser()) {
       return Boolean(childButton && !childButton.classList.contains("hidden"));
     });
     const forcedFlatSubmenuVisible = isSalesParent && useFlatSalesNavigation && hasUser && hasVisibleChild;
-    const parentVisible = !forcedFlatSubmenuVisible && hasUser && hasVisibleChild && isRoleClassAllowed(button);
+    // Elternmenüs folgen den tatsächlich sichtbaren Kindseiten. So wird ein Menü
+    // sichtbar, wenn darin eine Seite explizit für diese Rolle freigegeben wurde.
+    const parentVisible = !forcedFlatSubmenuVisible && hasUser && hasVisibleChild;
     button.classList.toggle("hidden", !parentVisible);
     const submenuId = String(button.getAttribute("aria-controls") || "").trim();
     const submenu = submenuId ? document.getElementById(submenuId) : null;
@@ -17698,6 +17705,28 @@ function updateSidebarNavigationVisibilityForRole(user = getCurrentUser()) {
   document.querySelectorAll(".sidebar .nav-group").forEach((group) => {
     const visibleButton = group.querySelector(".nav-btn:not(.hidden)");
     group.classList.toggle("hidden", !visibleButton);
+  });
+}
+
+function syncRolePagePanelVisibilityForRole(user = getCurrentUser()) {
+  const normalizedRole = normalizeUserRole(user?.role || "");
+  if (!normalizedRole) {
+    return;
+  }
+  els.panels.forEach((panel) => {
+    if (!panel?.id) {
+      return;
+    }
+    const hasLegacyPageRestriction =
+      panel.classList.contains("admin-only-view") ||
+      panel.classList.contains("role-admin-only-view") ||
+      panel.classList.contains("superadmin-only-view") ||
+      panel.classList.contains("sales-representative-only-view");
+    if (!hasLegacyPageRestriction) {
+      return;
+    }
+    const pageAllowed = resolveAccessibleSectionForRole(panel.id, normalizedRole) === panel.id;
+    panel.classList.toggle("hidden", !pageAllowed);
   });
 }
 
@@ -17748,6 +17777,7 @@ async function hydrateRolePagePermissions() {
   rolePagePermissionsUnavailable = false;
   rolePagePermissionsStatusMessage = "Rechte-Editor aktiv";
   updateSidebarNavigationVisibilityForRole();
+  syncRolePagePanelVisibilityForRole();
   renderRolesRightsSection();
   return true;
 }
@@ -18234,6 +18264,7 @@ function renderRoleState() {
   }
 
   updateSidebarNavigationVisibilityForRole(activeUser);
+  syncRolePagePanelVisibilityForRole(activeUser);
 
   if (els.userCreateBtn) {
     els.userCreateBtn.classList.toggle("hidden", !canUseAdminUi || usersViewMode === "form");

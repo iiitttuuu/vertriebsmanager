@@ -3,6 +3,10 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/app-provider-workflow-v79",
+      "destination": "/app.js"
+    },
+    {
       "source": "/app-provider-workflow-v78",
       "destination": "/app.js"
     },
@@ -566,6 +570,15 @@
         {
           "key": "Strict-Transport-Security",
           "value": "max-age=63072000; includeSubDomains; preload"
+        }
+      ]
+    },
+    {
+      "source": "/app-provider-workflow-v79",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
         }
       ]
     },
