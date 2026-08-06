@@ -30859,6 +30859,11 @@ tr.provider-row-created:hover td {
   gap: 13px;
   border-top-color: rgba(60, 60, 67, 0.11);
   padding-top: 14px;
+  cursor: pointer;
+}
+
+.ceo-secretary-commitment-item {
+  cursor: pointer;
 }
 
 .ceo-secretary-focus-item strong {

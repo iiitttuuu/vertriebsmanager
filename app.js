@@ -6013,9 +6013,9 @@ function bindEvents() {
       void handleCeoSecretaryToggleCompleted(toggleButton.dataset.ceoSecretaryToggle || "");
       return;
     }
-    const detailButton = event.target.closest("button[data-ceo-secretary-detail]");
-    if (detailButton) {
-      openCeoSecretaryDetailModal(detailButton.dataset.ceoSecretaryDetail || "");
+    const detailTarget = event.target.closest("[data-ceo-secretary-detail]");
+    if (detailTarget) {
+      openCeoSecretaryDetailModal(detailTarget.dataset.ceoSecretaryDetail || "");
     }
   });
   els.ceoSecretaryCommitmentList?.addEventListener("click", (event) => {
@@ -6027,9 +6027,9 @@ function bindEvents() {
       void handleCeoSecretaryToggleCompleted(toggleButton.dataset.ceoSecretaryToggle || "");
       return;
     }
-    const detailButton = event.target.closest("button[data-ceo-secretary-detail]");
-    if (detailButton) {
-      openCeoSecretaryDetailModal(detailButton.dataset.ceoSecretaryDetail || "");
+    const detailTarget = event.target.closest("[data-ceo-secretary-detail]");
+    if (detailTarget) {
+      openCeoSecretaryDetailModal(detailTarget.dataset.ceoSecretaryDetail || "");
     }
   });
 
@@ -36985,7 +36985,7 @@ function renderCeoSecretaryBriefing() {
     els.ceoSecretaryFocusList.innerHTML = '<p class="ceo-secretary-briefing-empty">Alles ruhig. Dein Sekretär meldet sich, sobald etwas Aufmerksamkeit braucht.</p>';
   } else {
     els.ceoSecretaryFocusList.innerHTML = focusEntries
-      .map((entry, index) => `<article class="ceo-secretary-focus-item ${isCeoSecretaryEntryOverdue(entry) ? "is-overdue" : ""}">
+      .map((entry, index) => `<article class="ceo-secretary-focus-item ${isCeoSecretaryEntryOverdue(entry) ? "is-overdue" : ""}" data-ceo-secretary-detail="${escapeHtml(entry.id)}">
         <span>${index + 1}</span>
         <button type="button" class="ceo-secretary-briefing-detail-trigger" data-ceo-secretary-detail="${escapeHtml(entry.id)}" aria-label="Details zu ${escapeHtml(entry.title)} öffnen">
           <strong>${escapeHtml(entry.title)}</strong>
@@ -37005,7 +37005,7 @@ function renderCeoSecretaryBriefing() {
   }
   if (els.ceoSecretaryCommitmentList) {
     els.ceoSecretaryCommitmentList.innerHTML = commitmentEntries.length
-      ? commitmentEntries.slice(0, 4).map((entry) => `<article class="ceo-secretary-commitment-item ${isCeoSecretaryEntryOverdue(entry) ? "is-overdue" : ""}">
+      ? commitmentEntries.slice(0, 4).map((entry) => `<article class="ceo-secretary-commitment-item ${isCeoSecretaryEntryOverdue(entry) ? "is-overdue" : ""}" data-ceo-secretary-detail="${escapeHtml(entry.id)}">
           <button type="button" class="ceo-secretary-briefing-detail-trigger" data-ceo-secretary-detail="${escapeHtml(entry.id)}" aria-label="Details zu ${escapeHtml(entry.title)} öffnen">
             <strong>${escapeHtml(entry.title)}</strong>
             <small>${escapeHtml(entry.context || getCeoSecretaryDueLabel(entry) || "Offene Zusage")}</small>

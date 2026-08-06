@@ -660,7 +660,8 @@ assert.match(indexSource, /ceo-secretary-commitment-radar/, "Das CEO-Briefing en
 assert.match(appSource, /function getCeoSecretaryCommitmentEntries/, "Offene Zusagen werden für das CEO-Briefing gezielt priorisiert.");
 assert.match(indexSource, /id="ceo-secretary-detail-modal"/, "Ein Briefing-Eintrag kann in einer eigenen Detailansicht geöffnet werden.");
 assert.match(appSource, /function openCeoSecretaryDetailModal/, "Das Briefing öffnet Details zum ausgewählten CEO-Office-Eintrag.");
-assert.match(appSource, /data-ceo-secretary-detail/, "Fokus- und Zusagenkarten führen per Klick in die Detailansicht.");
+assert.match(appSource, /ceo-secretary-focus-item[^`]*data-ceo-secretary-detail/, "Die gesamte Fokuskarte führt per Klick in die Detailansicht.");
+assert.match(appSource, /ceo-secretary-commitment-item[^`]*data-ceo-secretary-detail/, "Die gesamte Zusagenkarte führt per Klick in die Detailansicht.");
 assert.match(appSource, /Verknüpfte Datensätze/, "Die Detailansicht zeigt vorhandene CRM-Verknüpfungen eines Eintrags.");
 assert.match(appSource, /function scheduleCeoSecretaryDailyReminder/, "Der Sekretär erstellt täglich eine proaktive Erinnerung.");
 assert.match(appSource, /ceo-secretary-message-sources/, "Sekretär-Antworten zeigen ihre verwendeten Quellen an.");
