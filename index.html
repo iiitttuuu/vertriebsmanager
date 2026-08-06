@@ -4156,8 +4156,12 @@
 
         <section id="incoming-offers-section" class="panel card role-admin-only-view finance-workspace-section finance-workspace-section-offers">
           <div class="section-header">
-            <h2>Eingangsangebote</h2>
-            <p>Angebote von Lieferanten zentral erfassen, bewerten und Entscheidungen transparent nachverfolgen.</p>
+            <div>
+              <p class="incoming-offers-eyebrow">EINKAUF &amp; ENTSCHEIDUNGEN</p>
+              <h2>Eingangsangebote</h2>
+              <p>Angebote von Lieferanten zentral erfassen, bewerten und Entscheidungen transparent nachverfolgen.</p>
+            </div>
+            <button type="button" id="incoming-offer-create-btn" class="btn btn-primary">+ Neues Angebot</button>
           </div>
 
           <div class="incoming-invoices-subnav finance-segmented-tabs" role="tablist" aria-label="Angebotsansichten">
@@ -4193,45 +4197,70 @@
             </button>
           </div>
 
-          <article class="incoming-invoices-block finance-panel-card hidden" data-incoming-offers-workspace-panel="entry">
+          <article class="incoming-invoices-block finance-panel-card incoming-offer-entry-panel hidden" data-incoming-offers-workspace-panel="entry">
             <div class="incoming-invoices-block-head">
-              <h3>Angebot erfassen / bearbeiten</h3>
-              <p>Mit zentraler Dokumentablage, Priorität und Entscheidungsstatus.</p>
+              <div>
+                <span class="incoming-offers-panel-kicker">ERFASSUNG</span>
+                <h3>Angebot erfassen oder bearbeiten</h3>
+                <p>Stammdaten, Konditionen und Dokumente bleiben in klar getrennten Bereichen.</p>
+              </div>
             </div>
             <form id="incoming-offer-form" class="incoming-invoices-create-grid finance-input-grid">
               <input type="hidden" id="incoming-offer-id" />
-              <label class="incoming-invoices-field incoming-invoices-field-wide">
-                <span>Angebotstitel</span>
-                <input type="text" id="incoming-offer-title" maxlength="180" placeholder="z. B. Drucksorten Frühjahrskampagne" required />
-              </label>
-              <label class="incoming-invoices-field">
-                <span>Angebotsnummer</span>
-                <input type="text" id="incoming-offer-number" required />
-              </label>
-              <label class="incoming-invoices-field">
-                <span>Lieferant</span>
-                <select id="incoming-offer-supplier" required></select>
-              </label>
-              <label class="incoming-invoices-field">
-                <span>Eingangsdatum</span>
-                <input type="date" id="incoming-offer-received-date" required />
-              </label>
-              <label class="incoming-invoices-field">
-                <span>Gültig bis</span>
-                <input type="date" id="incoming-offer-valid-until-date" />
-              </label>
-              <label class="incoming-invoices-field">
-                <span>Gesamtbetrag brutto (EUR)</span>
-                <input type="number" id="incoming-offer-total-gross" min="0" step="0.01" />
-              </label>
-              <label class="incoming-invoices-field">
-                <span>Betrag netto (EUR)</span>
-                <input type="number" id="incoming-offer-total-net" min="0" step="0.01" />
-              </label>
-              <label class="incoming-invoices-field">
-                <span>Steuer (EUR)</span>
-                <input type="number" id="incoming-offer-total-tax" min="0" step="0.01" />
-              </label>
+              <section class="incoming-offer-form-group incoming-offer-form-group-main" aria-labelledby="incoming-offer-basic-title">
+                <div class="incoming-offer-form-group-head">
+                  <span>01</span>
+                  <div>
+                    <h4 id="incoming-offer-basic-title">Grunddaten</h4>
+                    <p>Zuordnung und Laufzeit des Lieferantenangebots.</p>
+                  </div>
+                </div>
+                <div class="incoming-offer-form-fields">
+                  <label class="incoming-invoices-field incoming-invoices-field-wide">
+                    <span>Angebotstitel</span>
+                    <input type="text" id="incoming-offer-title" maxlength="180" placeholder="z. B. Drucksorten Frühjahrskampagne" required />
+                  </label>
+                  <label class="incoming-invoices-field">
+                    <span>Angebotsnummer</span>
+                    <input type="text" id="incoming-offer-number" required />
+                  </label>
+                  <label class="incoming-invoices-field">
+                    <span>Lieferant</span>
+                    <select id="incoming-offer-supplier" required></select>
+                  </label>
+                  <label class="incoming-invoices-field">
+                    <span>Eingangsdatum</span>
+                    <input type="date" id="incoming-offer-received-date" required />
+                  </label>
+                  <label class="incoming-invoices-field">
+                    <span>Gültig bis</span>
+                    <input type="date" id="incoming-offer-valid-until-date" />
+                  </label>
+                </div>
+              </section>
+              <section class="incoming-offer-form-group incoming-offer-form-group-amounts" aria-labelledby="incoming-offer-amounts-title">
+                <div class="incoming-offer-form-group-head">
+                  <span>02</span>
+                  <div>
+                    <h4 id="incoming-offer-amounts-title">Konditionen</h4>
+                    <p>Gesamtsumme und steuerliche Aufteilung.</p>
+                  </div>
+                </div>
+                <div class="incoming-offer-form-fields incoming-offer-amount-fields">
+                  <label class="incoming-invoices-field incoming-offer-total-gross-field">
+                    <span>Gesamtbetrag brutto (EUR)</span>
+                    <input type="number" id="incoming-offer-total-gross" min="0" step="0.01" />
+                  </label>
+                  <label class="incoming-invoices-field">
+                    <span>Betrag netto (EUR)</span>
+                    <input type="number" id="incoming-offer-total-net" min="0" step="0.01" />
+                  </label>
+                  <label class="incoming-invoices-field">
+                    <span>Steuer (EUR)</span>
+                    <input type="number" id="incoming-offer-total-tax" min="0" step="0.01" />
+                  </label>
+                </div>
+              </section>
               <section class="incoming-offer-items incoming-invoices-field-wide" aria-labelledby="incoming-offer-items-title">
                 <div class="incoming-offer-items-head">
                   <div>
@@ -4242,45 +4271,67 @@
                 </div>
                 <div id="incoming-offer-items" class="incoming-offer-items-list"></div>
               </section>
-              <label class="incoming-invoices-field">
-                <span>Kategorie</span>
-                <select id="incoming-offer-category"></select>
-              </label>
-              <label class="incoming-invoices-field">
-                <span>Kostenstelle</span>
-                <input type="text" id="incoming-offer-cost-center" />
-              </label>
-              <label class="incoming-invoices-field">
-                <span>Status</span>
-                <select id="incoming-offer-status">
-                  <option value="offen">Offen</option>
-                  <option value="in_pruefung">In Prüfung</option>
-                  <option value="angenommen">Angenommen</option>
-                  <option value="abgelehnt">Abgelehnt</option>
-                  <option value="abgelaufen">Abgelaufen</option>
-                </select>
-              </label>
-              <label class="incoming-invoices-field">
-                <span>Priorität</span>
-                <select id="incoming-offer-priority">
-                  <option value="normal">Normal</option>
-                  <option value="hoch">Hoch</option>
-                </select>
-              </label>
-              <label class="incoming-invoices-field">
-                <span>Entscheidungsdatum</span>
-                <input type="date" id="incoming-offer-decided-at" />
-              </label>
-              <label class="incoming-invoices-field">
-                <span>Dateiname</span>
-                <input type="text" id="incoming-offer-file-name" placeholder="wird automatisch gesetzt" readonly />
-              </label>
-              <label class="incoming-invoices-field">
-                <span>Angebotsdatei</span>
-                <input type="file" id="incoming-offer-file-upload" accept=".pdf,.png,.jpg,.jpeg,.heic,.webp,.xml,.doc,.docx,.xls,.xlsx,.zip" />
-              </label>
+              <section class="incoming-offer-form-group incoming-offer-form-group-decision" aria-labelledby="incoming-offer-decision-title">
+                <div class="incoming-offer-form-group-head">
+                  <span>03</span>
+                  <div>
+                    <h4 id="incoming-offer-decision-title">Einordnung &amp; Entscheidung</h4>
+                    <p>Interne Zuordnung, Priorität und aktueller Bearbeitungsstand.</p>
+                  </div>
+                </div>
+                <div class="incoming-offer-form-fields">
+                  <label class="incoming-invoices-field">
+                    <span>Kategorie</span>
+                    <select id="incoming-offer-category"></select>
+                  </label>
+                  <label class="incoming-invoices-field">
+                    <span>Kostenstelle</span>
+                    <input type="text" id="incoming-offer-cost-center" />
+                  </label>
+                  <label class="incoming-invoices-field">
+                    <span>Status</span>
+                    <select id="incoming-offer-status">
+                      <option value="offen">Offen</option>
+                      <option value="in_pruefung">In Prüfung</option>
+                      <option value="angenommen">Angenommen</option>
+                      <option value="abgelehnt">Abgelehnt</option>
+                      <option value="abgelaufen">Abgelaufen</option>
+                    </select>
+                  </label>
+                  <label class="incoming-invoices-field">
+                    <span>Priorität</span>
+                    <select id="incoming-offer-priority">
+                      <option value="normal">Normal</option>
+                      <option value="hoch">Hoch</option>
+                    </select>
+                  </label>
+                  <label class="incoming-invoices-field incoming-invoices-field-wide">
+                    <span>Entscheidungsdatum</span>
+                    <input type="date" id="incoming-offer-decided-at" />
+                  </label>
+                </div>
+              </section>
+              <section class="incoming-offer-form-group incoming-offer-form-group-document" aria-labelledby="incoming-offer-document-title">
+                <div class="incoming-offer-form-group-head">
+                  <span>04</span>
+                  <div>
+                    <h4 id="incoming-offer-document-title">Dokumente &amp; Notiz</h4>
+                    <p>Originalangebot hinterlegen und internen Kontext ergänzen.</p>
+                  </div>
+                </div>
+                <div class="incoming-offer-form-fields">
+                  <label class="incoming-invoices-field incoming-invoices-field-wide">
+                    <span>Dateiname</span>
+                    <input type="text" id="incoming-offer-file-name" placeholder="wird automatisch gesetzt" readonly />
+                  </label>
+                  <label class="incoming-invoices-field incoming-invoices-field-wide">
+                    <span>Angebotsdatei</span>
+                    <input type="file" id="incoming-offer-file-upload" accept=".pdf,.png,.jpg,.jpeg,.heic,.webp,.xml,.doc,.docx,.xls,.xlsx,.zip" />
+                  </label>
+                </div>
+              </section>
               <input type="hidden" id="incoming-offer-document-path" />
-              <label class="incoming-invoices-field incoming-invoices-field-wide">
+              <label class="incoming-invoices-field incoming-invoices-field-wide incoming-offer-note-field">
                 <span>Notiz</span>
                 <textarea id="incoming-offer-notes" rows="2" placeholder="Interne Notiz"></textarea>
               </label>
@@ -4292,12 +4343,21 @@
             </form>
           </article>
 
-          <article class="incoming-invoices-block finance-panel-card" data-incoming-offers-workspace-panel="overview">
+          <article class="incoming-invoices-block finance-panel-card incoming-offer-overview-panel" data-incoming-offers-workspace-panel="overview">
             <div class="incoming-invoices-block-head">
-              <h3>Übersicht</h3>
-              <p>Offene Angebote, Entscheidungen und ablaufende Fristen mit Filtern.</p>
+              <div>
+                <span class="incoming-offers-panel-kicker">ARBEITSBEREICH</span>
+                <h3>Übersicht &amp; Prioritäten</h3>
+                <p>Offene Angebote, Entscheidungen und ablaufende Fristen auf einen Blick.</p>
+              </div>
             </div>
-            <div class="incoming-invoices-filters finance-filter-grid">
+            <div class="incoming-offer-filter-head">
+              <div>
+                <strong>Filtern &amp; finden</strong>
+                <span>Suche, Status, Priorität oder Eingangszeitraum eingrenzen.</span>
+              </div>
+            </div>
+            <div class="incoming-invoices-filters finance-filter-grid incoming-offer-filter-grid">
               <label class="incoming-invoices-field incoming-invoices-field-search">
                 <span>Suche</span>
                 <input

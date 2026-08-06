@@ -2468,6 +2468,7 @@ const els = {
   incomingOffersViewButtons: document.querySelectorAll("button[data-incoming-offers-view-target]"),
   incomingOffersWorkspaceTabButtons: document.querySelectorAll("button[data-incoming-offers-workspace-tab]"),
   incomingOffersWorkspacePanels: document.querySelectorAll("[data-incoming-offers-workspace-panel]"),
+  incomingOfferCreateBtn: document.getElementById("incoming-offer-create-btn"),
   incomingOfferForm: document.getElementById("incoming-offer-form"),
   incomingOfferId: document.getElementById("incoming-offer-id"),
   incomingOfferTitle: document.getElementById("incoming-offer-title"),
@@ -9997,6 +9998,10 @@ function bindEvents() {
       const nextTab = String(button.dataset.incomingOffersWorkspaceTab || "").trim();
       setIncomingOffersWorkspaceTab(nextTab);
     });
+  });
+  els.incomingOfferCreateBtn?.addEventListener("click", () => {
+    resetIncomingOfferForm();
+    setIncomingOffersWorkspaceTab("entry");
   });
   els.incomingOfferForm?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -50967,6 +50972,32 @@ function openIncomingOfferDetail(offerId) {
         <strong>${escapeHtml(offer.validUntilDate ? formatTourDateLabel(offer.validUntilDate) : "–")}</strong>
       </div>
     </section>
+    <section class="incoming-offer-detail-section incoming-offer-detail-classification">
+      <div class="incoming-offer-detail-section-head">
+        <div>
+          <span>EINORDNUNG</span>
+          <h4>Interne Zuordnung</h4>
+        </div>
+      </div>
+      <div class="incoming-offer-detail-classification-grid">
+        <div>
+          <span>Kategorie</span>
+          <strong>${escapeHtml(offer.category || "Nicht zugeordnet")}</strong>
+        </div>
+        <div>
+          <span>Kostenstelle</span>
+          <strong>${escapeHtml(offer.costCenter || "Nicht gesetzt")}</strong>
+        </div>
+        <div>
+          <span>Priorität</span>
+          <strong>${escapeHtml(getIncomingOfferPriorityLabel(offer.priority))}</strong>
+        </div>
+        <div>
+          <span>Entscheidung</span>
+          <strong>${escapeHtml(offer.decidedAt ? formatTourDateLabel(offer.decidedAt) : "Ausstehend")}</strong>
+        </div>
+      </div>
+    </section>
     <section class="incoming-offer-detail-section">
       <div class="incoming-offer-detail-section-head">
         <div>
@@ -50997,12 +51028,25 @@ function openIncomingOfferDetail(offerId) {
         : ""
     }
     <div class="incoming-offer-detail-actions">
-      <button type="button" class="btn btn-primary" data-incoming-offer-detail-edit="${escapeHtml(offer.id)}">Bearbeiten</button>
-      ${hasDocument ? `<button type="button" class="btn btn-success" data-incoming-offer-detail-document="${escapeHtml(offer.id)}">Angebot öffnen</button>` : ""}
-      ${canDecide ? `<button type="button" class="mini-btn" data-incoming-offer-detail-status="${escapeHtml(offer.id)}" data-incoming-offer-detail-next-status="in_pruefung">In Prüfung</button>` : ""}
-      ${canDecide ? `<button type="button" class="mini-btn" data-incoming-offer-detail-status="${escapeHtml(offer.id)}" data-incoming-offer-detail-next-status="angenommen">Annehmen</button>` : ""}
-      ${canDecide ? `<button type="button" class="mini-btn danger" data-incoming-offer-detail-status="${escapeHtml(offer.id)}" data-incoming-offer-detail-next-status="abgelehnt">Ablehnen</button>` : ""}
-      ${normalizeIncomingOfferStatus(offer.status) === "angenommen" ? `<button type="button" class="mini-btn" data-incoming-offer-detail-to-invoice="${escapeHtml(offer.id)}">Als Rechnung</button>` : ""}
+      <div class="incoming-offer-detail-action-group">
+        <button type="button" class="btn btn-primary" data-incoming-offer-detail-edit="${escapeHtml(offer.id)}">Bearbeiten</button>
+        ${hasDocument ? `<button type="button" class="btn btn-success" data-incoming-offer-detail-document="${escapeHtml(offer.id)}">Angebot öffnen</button>` : ""}
+      </div>
+      ${
+        canDecide
+          ? `<div class="incoming-offer-detail-action-group incoming-offer-detail-decision-actions">
+              <span>Entscheidung</span>
+              <button type="button" class="mini-btn" data-incoming-offer-detail-status="${escapeHtml(offer.id)}" data-incoming-offer-detail-next-status="in_pruefung">In Prüfung</button>
+              <button type="button" class="mini-btn incoming-offer-detail-accept-btn" data-incoming-offer-detail-status="${escapeHtml(offer.id)}" data-incoming-offer-detail-next-status="angenommen">Annehmen</button>
+              <button type="button" class="mini-btn danger" data-incoming-offer-detail-status="${escapeHtml(offer.id)}" data-incoming-offer-detail-next-status="abgelehnt">Ablehnen</button>
+            </div>`
+          : ""
+      }
+      ${
+        normalizeIncomingOfferStatus(offer.status) === "angenommen"
+          ? `<div class="incoming-offer-detail-action-group incoming-offer-detail-followup-actions"><span>Weiterverarbeiten</span><button type="button" class="mini-btn" data-incoming-offer-detail-to-invoice="${escapeHtml(offer.id)}">Als Rechnung übernehmen</button></div>`
+          : ""
+      }
     </div>
   `;
   els.incomingOfferDetailModal.classList.remove("hidden");
