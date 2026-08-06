@@ -26,6 +26,7 @@
 \i supabase/patch_firms_admin_access.sql
 \i supabase/patch_conversation_notes_admin_write.sql
 \i supabase/patch_incoming_invoices.sql
+\i supabase/patch_incoming_invoice_offer_links.sql
 \i supabase/patch_vertriebsmitarbeiter_role.sql
 \i supabase/patch_supaadmin_role.sql
 \i supabase/patch_partner_requests_notifications.sql

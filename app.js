@@ -451,7 +451,7 @@ const SALES_PHONE_LEGACY_STATUS_ALIASES = {
 const INCOMING_INVOICE_APPROVAL_STATUSES = new Set(["freigabe_offen", "freigegeben", "abgelehnt", "nicht_noetig"]);
 const INCOMING_INVOICE_PAYMENT_STATUSES = new Set(["offen", "teilbezahlt", "bezahlt"]);
 const INCOMING_INVOICE_PAYMENT_METHODS = new Set(["", "ueberweisung", "lastschrift", "kreditkarte", "bar", "sonstiges"]);
-const INCOMING_OFFER_STATUSES = new Set(["offen", "in_pruefung", "angenommen", "abgelehnt", "abgelaufen"]);
+const INCOMING_OFFER_STATUSES = new Set(["offen", "in_pruefung", "angenommen", "in_rechnung_uebernommen", "abgelehnt", "abgelaufen"]);
 const INCOMING_OFFER_PRIORITIES = new Set(["normal", "hoch"]);
 const CONTRACT_MANAGER_STATUSES = new Set(["aktiv", "entwurf", "gekundigt", "beendet"]);
 const CONTRACT_MANAGER_TYPES = new Set(["dienstleistung", "software", "leasing", "miete", "telekom", "sonstiges"]);
@@ -774,6 +774,7 @@ let incomingInvoiceDraftPayments = [];
 let incomingInvoiceEditingPaymentId = "";
 let incomingInvoiceTaxCalculationSource = "gross";
 let incomingInvoiceDocumentPreviewUrl = "";
+let incomingInvoiceOfferConversion = null;
 let giftCardActiveTab = "coverage";
 let giftCardManualCostOverrides = {};
 let giftCardManualCostValues = {};
@@ -10301,6 +10302,11 @@ function bindEvents() {
         closeIncomingOfferDetail();
         handleIncomingOfferConvertToInvoice(offerId);
       }
+      return;
+    }
+    const openInvoiceButton = event.target.closest("button[data-incoming-offer-detail-open-invoice]");
+    if (openInvoiceButton) {
+      openIncomingOfferLinkedInvoice(openInvoiceButton.dataset.incomingOfferDetailOpenInvoice || "");
       return;
     }
     const statusButton = event.target.closest("button[data-incoming-offer-detail-status]");
@@ -48508,6 +48514,9 @@ function normalizeIncomingInvoiceRecord(entry, index = 0) {
     paidAt,
     paymentMethod: normalizeIncomingInvoicePaymentMethod(entry.paymentMethod || entry.payment_method || ""),
     externalBookingRef: String(entry.externalBookingRef || entry.external_booking_ref || "").trim(),
+    sourceOfferId: String(entry.sourceOfferId || entry.source_offer_id || "").trim(),
+    sourceOfferNumber: String(entry.sourceOfferNumber || entry.source_offer_number || "").trim(),
+    sourceOfferPriceTierId: String(entry.sourceOfferPriceTierId || entry.source_offer_price_tier_id || "").trim(),
     createdAt,
     updatedAt,
     createdByUserId: normalizeUserId(entry.createdByUserId || entry.created_by_user_id || ""),
@@ -49357,7 +49366,7 @@ function renderIncomingInvoicesSection() {
             <td>
               <div class="incoming-invoice-table-primary">
                 <strong>${escapeHtml(entry.invoiceNumber || "–")}</strong>
-                <span>${escapeHtml(entry.category || "Ohne Kategorie")} · ${escapeHtml(entry.costCenter || "Ohne Kostenstelle")}</span>
+                <span>${escapeHtml(entry.category || "Ohne Kategorie")} · ${escapeHtml(entry.costCenter || "Ohne Kostenstelle")}${entry.sourceOfferNumber ? ` · ${escapeHtml(`Aus Angebot ${entry.sourceOfferNumber}`)}` : ""}</span>
               </div>
             </td>
             <td>
@@ -49431,7 +49440,7 @@ function renderIncomingInvoicesSection() {
   }
 }
 
-function resetIncomingInvoiceForm() {
+function resetIncomingInvoiceForm(options = {}) {
   if (els.incomingInvoiceForm) {
     els.incomingInvoiceForm.reset();
   }
@@ -49458,6 +49467,9 @@ function resetIncomingInvoiceForm() {
     els.incomingInvoiceDocumentOpenBtn.classList.add("hidden");
   }
   incomingInvoicesPendingFile = null;
+  if (options.keepOfferConversion !== true) {
+    incomingInvoiceOfferConversion = null;
+  }
   renderIncomingInvoiceSupplierOptions();
   renderFinanceCategorySelect(els.incomingInvoiceCategory, "");
   startIncomingInvoiceDraftPayments([]);
@@ -49473,6 +49485,13 @@ function fillIncomingInvoiceForm(invoice) {
     return;
   }
   const file = getIncomingInvoiceFileForInvoice(invoice.id);
+  incomingInvoiceOfferConversion = invoice.sourceOfferId
+    ? {
+        offerId: invoice.sourceOfferId,
+        offerNumber: invoice.sourceOfferNumber,
+        priceTierId: invoice.sourceOfferPriceTierId,
+      }
+    : null;
   let draftPayments = getIncomingInvoicePartialPayments(invoice.id);
   if (!draftPayments.length && normalizeIncomingInvoicePaymentStatus(invoice.paymentStatus) === "bezahlt") {
     draftPayments = normalizeIncomingInvoicePartialPayments([
@@ -49589,6 +49608,7 @@ function buildIncomingInvoicePayloadFromForm() {
     showWarningFeedback("Bezahlt ist erst nach Freigabe möglich.");
     return null;
   }
+  const sourceOfferId = String(incomingInvoiceOfferConversion?.offerId || "").trim();
   return {
     invoiceNumber,
     supplierCompanyId,
@@ -49608,6 +49628,9 @@ function buildIncomingInvoicePayloadFromForm() {
     notes: String(els.incomingInvoiceNotes?.value || "").trim(),
     fileName: String(els.incomingInvoiceFileName?.value || "").trim(),
     nasPath: String(els.incomingInvoiceNasPath?.value || "").trim(),
+    sourceOfferId,
+    sourceOfferNumber: sourceOfferId ? String(incomingInvoiceOfferConversion?.offerNumber || "").trim() : "",
+    sourceOfferPriceTierId: sourceOfferId ? String(incomingInvoiceOfferConversion?.priceTierId || "").trim() : "",
   };
 }
 
@@ -49908,6 +49931,9 @@ function writeIncomingInvoiceLocalFallback(invoicePayload, invoiceId = "") {
     payment_status: invoicePayload.paymentStatus,
     paid_at: invoicePayload.paidAt || null,
     payment_method: invoicePayload.paymentMethod,
+    source_offer_id: invoicePayload.sourceOfferId,
+    source_offer_number: invoicePayload.sourceOfferNumber,
+    source_offer_price_tier_id: invoicePayload.sourceOfferPriceTierId,
     notes: invoicePayload.notes,
     updated_at: nowIso,
     updated_by_user_id: actor.userId || null,
@@ -49989,6 +50015,7 @@ async function handleIncomingInvoiceSave() {
       }
     }
     setIncomingInvoicePartialPayments(savedId, payload.partialPayments || [], { persist: true });
+    markIncomingOfferConverted(payload, savedId);
     incomingInvoicesSelectedId = savedId;
     resetIncomingInvoiceForm();
     setIncomingInvoicesWorkspaceTab("overview", { render: false });
@@ -50013,6 +50040,13 @@ async function handleIncomingInvoiceSave() {
     payment_status: payload.paymentStatus,
     paid_at: payload.paidAt || null,
     payment_method: payload.paymentMethod || "",
+    ...(payload.sourceOfferId
+      ? {
+          source_offer_id: payload.sourceOfferId,
+          source_offer_number: payload.sourceOfferNumber || "",
+          source_offer_price_tier_id: payload.sourceOfferPriceTierId || "",
+        }
+      : {}),
     notes: payload.notes || "",
     updated_by_user_id: actorUserId,
   };
@@ -50067,6 +50101,7 @@ async function handleIncomingInvoiceSave() {
         );
       }
       setIncomingInvoicePartialPayments(savedInvoiceId, payload.partialPayments || [], { persist: true });
+      markIncomingOfferConverted(payload, savedInvoiceId);
     }
     await hydrateIncomingInvoicesFromSupabase({ force: true });
     resetIncomingInvoiceForm();
@@ -50502,6 +50537,10 @@ function normalizeIncomingOfferRecord(entry, index = 0) {
     status: normalizeIncomingOfferStatus(entry.status),
     priority: normalizeIncomingOfferPriority(entry.priority),
     decidedAt,
+    convertedInvoiceId: String(entry.convertedInvoiceId || entry.converted_invoice_id || "").trim(),
+    convertedInvoiceNumber: String(entry.convertedInvoiceNumber || entry.converted_invoice_number || "").trim(),
+    convertedPriceTierId: String(entry.convertedPriceTierId || entry.converted_price_tier_id || "").trim(),
+    convertedAt: String(entry.convertedAt || entry.converted_at || "").trim(),
     createdAt,
     updatedAt,
     createdByUserId: normalizeUserId(entry.createdByUserId || entry.created_by_user_id || ""),
@@ -50614,6 +50653,50 @@ function getIncomingOfferFileForOffer(offerId) {
   );
 }
 
+function markIncomingOfferConverted(invoicePayload, invoiceId) {
+  const offerId = String(invoicePayload?.sourceOfferId || "").trim();
+  const normalizedInvoiceId = String(invoiceId || "").trim();
+  if (!offerId || !normalizedInvoiceId) {
+    return false;
+  }
+  const currentOffer = getIncomingOfferById(offerId);
+  if (!currentOffer) {
+    return false;
+  }
+  const nowIso = new Date().toISOString();
+  const nextOffers = getIncomingOffers().map((entry) => {
+    if (entry.id !== offerId) {
+      return entry;
+    }
+    return normalizeIncomingOfferRecord({
+      ...entry,
+      status: "in_rechnung_uebernommen",
+      decided_at: entry.decidedAt || nowIso,
+      converted_invoice_id: normalizedInvoiceId,
+      converted_invoice_number: String(invoicePayload?.invoiceNumber || entry.convertedInvoiceNumber || "").trim(),
+      converted_price_tier_id: String(invoicePayload?.sourceOfferPriceTierId || entry.convertedPriceTierId || "").trim(),
+      converted_at: entry.convertedAt || nowIso,
+      updated_at: nowIso,
+      updated_by_user_id: getAuthUid() || "",
+    });
+  });
+  applyIncomingOffersCache(nextOffers, incomingOfferFiles || [], { persistBackup: true });
+  saveState({ showFeedback: false });
+  return true;
+}
+
+function openIncomingOfferLinkedInvoice(invoiceId) {
+  const invoice = getIncomingInvoiceById(invoiceId);
+  if (!invoice) {
+    showInfoFeedback("Die verknüpfte Rechnung ist in der aktuellen Ansicht nicht verfügbar.");
+    return;
+  }
+  closeIncomingOfferDetail();
+  setActiveSection("incoming-invoices-section");
+  setIncomingInvoicesWorkspaceTab("entry", { render: false });
+  fillIncomingInvoiceForm(invoice);
+}
+
 function renderIncomingOfferSupplierOptions(selectedCompanyId = "", fallbackSupplierName = "") {
   if (!els.incomingOfferSupplier) {
     return "";
@@ -50663,6 +50746,9 @@ function getIncomingOfferStatusLabel(status) {
   if (normalized === "angenommen") {
     return "Angenommen";
   }
+  if (normalized === "in_rechnung_uebernommen") {
+    return "In Rechnung übernommen";
+  }
   if (normalized === "abgelehnt") {
     return "Abgelehnt";
   }
@@ -50680,6 +50766,9 @@ function getIncomingOfferStatusCssClass(status) {
   const normalized = normalizeIncomingOfferStatus(status);
   if (normalized === "angenommen") {
     return "is-approved";
+  }
+  if (normalized === "in_rechnung_uebernommen") {
+    return "is-paid";
   }
   if (normalized === "abgelehnt") {
     return "is-approval-open";
@@ -50738,7 +50827,7 @@ function isIncomingOfferExpired(offer) {
   if (!offer) {
     return false;
   }
-  if (["angenommen", "abgelehnt", "abgelaufen"].includes(normalizeIncomingOfferStatus(offer.status))) {
+  if (["angenommen", "in_rechnung_uebernommen", "abgelehnt", "abgelaufen"].includes(normalizeIncomingOfferStatus(offer.status))) {
     return false;
   }
   const validUntil = parseDateInputStart(normalizeIncomingInvoiceDateInputValue(offer.validUntilDate || ""));
@@ -50767,7 +50856,7 @@ function renderIncomingOffersKpis(rows) {
     if (status === "offen" || status === "in_pruefung") {
       stats.openAmount += gross;
     }
-    if (status === "angenommen") {
+    if (["angenommen", "in_rechnung_uebernommen"].includes(status)) {
       stats.acceptedAmount += gross;
     }
     if (isIncomingOfferExpired(entry) || status === "abgelaufen") {
@@ -50822,7 +50911,7 @@ function getFilteredIncomingOffers() {
   return getIncomingOffers().filter((entry) => {
     const status = normalizeIncomingOfferStatus(entry?.status);
     const priority = normalizeIncomingOfferPriority(entry?.priority);
-    const isDecided = ["angenommen", "abgelehnt", "abgelaufen"].includes(status);
+    const isDecided = ["angenommen", "in_rechnung_uebernommen", "abgelehnt", "abgelaufen"].includes(status);
     if (incomingOffersView === "open" && isDecided) {
       return false;
     }
@@ -51132,6 +51221,10 @@ function writeIncomingOfferLocalFallback(offerPayload, offerId = "") {
     status: offerPayload.status,
     priority: offerPayload.priority,
     decided_at: offerPayload.decidedAt || null,
+    converted_invoice_id: offerPayload.convertedInvoiceId ?? existing?.convertedInvoiceId ?? "",
+    converted_invoice_number: offerPayload.convertedInvoiceNumber ?? existing?.convertedInvoiceNumber ?? "",
+    converted_price_tier_id: offerPayload.convertedPriceTierId ?? existing?.convertedPriceTierId ?? "",
+    converted_at: offerPayload.convertedAt ?? existing?.convertedAt ?? "",
     notes: offerPayload.notes,
     updated_at: nowIso,
     updated_by_user_id: actor.userId || null,
@@ -51328,6 +51421,12 @@ function openIncomingOfferDetail(offerId) {
   const file = getIncomingOfferFileForOffer(offer.id);
   const hasDocument = Boolean(String(file?.documentPath || "").trim());
   const items = normalizeIncomingOfferItems(offer.items || []);
+  const isConverted = normalizeIncomingOfferStatus(offer.status) === "in_rechnung_uebernommen";
+  const linkedInvoice = offer.convertedInvoiceId ? getIncomingInvoiceById(offer.convertedInvoiceId) : null;
+  const linkedInvoiceNumber = linkedInvoice?.invoiceNumber || offer.convertedInvoiceNumber || "Verknüpfte Rechnung";
+  const convertedTier = offer.convertedPriceTierId
+    ? items.find((item) => item.id === offer.convertedPriceTierId) || null
+    : null;
   const canDecide = ["offen", "in_pruefung"].includes(normalizeIncomingOfferStatus(offer.status));
   if (els.incomingOfferDetailTitle) {
     els.incomingOfferDetailTitle.textContent = offer.title || offer.offerNumber || "Angebot";
@@ -51385,6 +51484,19 @@ function openIncomingOfferDetail(offerId) {
         </div>
       </div>
     </section>
+    ${
+      isConverted
+        ? `<section class="incoming-offer-detail-section">
+            <span>RECHNUNGSÜBERNAHME</span>
+            <p class="incoming-offer-detail-note">${escapeHtml(
+              `In Rechnung übernommen${offer.convertedAt ? ` am ${formatTourDateLabel(offer.convertedAt)}` : ""}.`
+            )}</p>
+            <p class="incoming-offer-detail-note">${escapeHtml(
+              convertedTier ? `Übernommene Preisstaffel: ${getIncomingOfferPriceTierLabel(convertedTier, offer.currency || "EUR")}` : "Die Angebotspositionen bleiben unverändert als Original erhalten."
+            )}</p>
+          </section>`
+        : ""
+    }
     <section class="incoming-offer-detail-section">
       <div class="incoming-offer-detail-section-head">
         <div>
@@ -51432,6 +51544,11 @@ function openIncomingOfferDetail(offerId) {
       ${
         normalizeIncomingOfferStatus(offer.status) === "angenommen"
           ? `<div class="incoming-offer-detail-action-group incoming-offer-detail-followup-actions"><span>Weiterverarbeiten</span><button type="button" class="mini-btn" data-incoming-offer-detail-to-invoice="${escapeHtml(offer.id)}">Als Rechnung übernehmen</button></div>`
+          : ""
+      }
+      ${
+        isConverted && offer.convertedInvoiceId
+          ? `<div class="incoming-offer-detail-action-group incoming-offer-detail-followup-actions"><span>Verknüpfte Rechnung</span><button type="button" class="mini-btn" data-incoming-offer-detail-open-invoice="${escapeHtml(offer.convertedInvoiceId)}">${escapeHtml(linkedInvoiceNumber)} öffnen</button></div>`
           : ""
       }
     </div>
@@ -51557,6 +51674,11 @@ function handleIncomingOfferConvertToInvoice(offerId, selectedPriceTierId = "") 
 
   setActiveSection("incoming-invoices-section");
   resetIncomingInvoiceForm();
+  incomingInvoiceOfferConversion = {
+    offerId: normalizedOfferId,
+    offerNumber: String(offer.offerNumber || "").trim(),
+    priceTierId: selectedPriceTier?.id || (priceTiers.length === 1 ? String(priceTiers[0]?.id || "").trim() : ""),
+  };
   setIncomingInvoicesWorkspaceTab("entry", { render: false });
   incomingInvoicesSelectedId = "";
   if (els.incomingInvoiceId) {

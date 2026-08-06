@@ -37,6 +37,7 @@ Kernfelder:
 - `supplier_company_id` (Verknüpfung zur Firma aus dem Firmenmodul)
 - `approval_status`, `payment_status`, `paid_at`, `payment_method`
 - `external_booking_ref`, `notes`
+- `source_offer_id`, `source_offer_number`, `source_offer_price_tier_id` (optionale Herkunft aus einem Eingangsangebot)
 - Audit-Spalten: `created_at`, `updated_at`, `created_by_user_id`, `updated_by_user_id`
 - Freigabe-Spalten: `approved_at`, `approved_by_user_id`, `rejected_at`, `rejected_by_user_id`, `rejected_reason`
 
@@ -103,6 +104,9 @@ Request JSON:
   "category": "Marketing",
   "cost_center": "HQ",
   "project_code": "PR-24",
+  "source_offer_id": "offer_123",
+  "source_offer_number": "AN-2026-0042",
+  "source_offer_price_tier_id": "offer_item_2",
   "notes": "April Kampagne"
 }
 ```
@@ -284,4 +288,5 @@ CSV-Minimumspalten:
 ## 7) Umsetzung in eurem Repo
 
 - SQL-Migration: `supabase/patch_incoming_invoices.sql`
+- Angebotsverknuepfung: anschliessend `supabase/patch_incoming_invoice_offer_links.sql`
 - Dieses Vertragsdokument: `docs/incoming-invoices-api-contract.md`
