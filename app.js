@@ -2507,6 +2507,12 @@ const els = {
   incomingOfferDetailTitle: document.getElementById("incoming-offer-detail-title"),
   incomingOfferDetailContent: document.getElementById("incoming-offer-detail-content"),
   incomingOfferDetailCloseBtn: document.getElementById("incoming-offer-detail-close-btn"),
+  incomingOfferInvoiceTierModal: document.getElementById("incoming-offer-invoice-tier-modal"),
+  incomingOfferInvoiceTierForm: document.getElementById("incoming-offer-invoice-tier-form"),
+  incomingOfferInvoiceTierMeta: document.getElementById("incoming-offer-invoice-tier-meta"),
+  incomingOfferInvoiceTierSelect: document.getElementById("incoming-offer-invoice-tier-select"),
+  incomingOfferInvoiceTierCloseBtn: document.getElementById("incoming-offer-invoice-tier-close-btn"),
+  incomingOfferInvoiceTierCancelBtn: document.getElementById("incoming-offer-invoice-tier-cancel-btn"),
   incomingOfferDocumentPreviewModal: document.getElementById("incoming-offer-document-preview-modal"),
   incomingOfferDocumentPreviewTitle: document.getElementById("incoming-offer-document-preview-title"),
   incomingOfferDocumentPreviewContent: document.getElementById("incoming-offer-document-preview-content"),
@@ -4695,6 +4701,9 @@ function bindEvents() {
     }
     if (event.key === "Escape" && isIncomingInvoiceDocumentPreviewOpen()) {
       closeIncomingInvoiceDocumentPreview();
+    }
+    if (event.key === "Escape" && isIncomingOfferInvoiceTierModalOpen()) {
+      closeIncomingOfferInvoiceTierModal();
     }
   });
   document.addEventListener("click", (event) => {
@@ -9911,6 +9920,24 @@ function bindEvents() {
   });
   els.incomingOfferDetailCloseBtn?.addEventListener("click", () => {
     closeIncomingOfferDetail();
+  });
+  els.incomingOfferInvoiceTierCloseBtn?.addEventListener("click", () => {
+    closeIncomingOfferInvoiceTierModal();
+  });
+  els.incomingOfferInvoiceTierCancelBtn?.addEventListener("click", () => {
+    closeIncomingOfferInvoiceTierModal();
+  });
+  els.incomingOfferInvoiceTierForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const offerId = String(els.incomingOfferInvoiceTierForm?.dataset.offerId || "").trim();
+    const priceTierId = String(els.incomingOfferInvoiceTierSelect?.value || "").trim();
+    if (!priceTierId) {
+      showWarningFeedback("Bitte eine Preisstaffel auswählen.");
+      els.incomingOfferInvoiceTierSelect?.focus();
+      return;
+    }
+    closeIncomingOfferInvoiceTierModal();
+    handleIncomingOfferConvertToInvoice(offerId, priceTierId);
   });
   els.incomingOfferDocumentPreviewCloseBtn?.addEventListener("click", () => {
     closeIncomingOfferDocumentPreview();
@@ -29452,6 +29479,8 @@ function syncBodyModalOpenState() {
   const incomingInvoicePaymentModalOpenNow = isIncomingInvoicePaymentModalOpen();
   const incomingInvoiceDocumentPreviewOpenNow = isIncomingInvoiceDocumentPreviewOpen();
   const incomingOfferDetailOpenNow = !!els.incomingOfferDetailModal && !els.incomingOfferDetailModal.classList.contains("hidden");
+  const incomingOfferInvoiceTierOpenNow =
+    !!els.incomingOfferInvoiceTierModal && !els.incomingOfferInvoiceTierModal.classList.contains("hidden");
   const incomingOfferDocumentPreviewOpenNow =
     !!els.incomingOfferDocumentPreviewModal && !els.incomingOfferDocumentPreviewModal.classList.contains("hidden");
   const departmentModalOpenNow = !!els.departmentModal && !els.departmentModal.classList.contains("hidden");
@@ -29493,6 +29522,7 @@ function syncBodyModalOpenState() {
       incomingInvoicePaymentModalOpenNow ||
       incomingInvoiceDocumentPreviewOpenNow ||
       incomingOfferDetailOpenNow ||
+      incomingOfferInvoiceTierOpenNow ||
       incomingOfferDocumentPreviewOpenNow ||
       departmentModalOpenNow ||
       departmentMembersModalOpenNow ||
@@ -50998,6 +51028,62 @@ function closeIncomingOfferDetail() {
   syncBodyModalOpenState();
 }
 
+function getIncomingOfferPriceTiers(offer) {
+  return normalizeIncomingOfferItems(offer?.items || []);
+}
+
+function getIncomingOfferPriceTierLabel(item, currency = "EUR") {
+  const quantity = new Intl.NumberFormat("de-AT", { maximumFractionDigits: 2 }).format(item.quantity);
+  const netTotal = normalizeIncomingInvoiceAmount(item.quantity * item.unitPriceNet);
+  return `${item.title} · ${quantity} ${item.unit} · ${formatIncomingInvoiceMoney(item.unitPriceNet, currency)} / ${item.unit} · netto ${formatIncomingInvoiceMoney(netTotal, currency)}`;
+}
+
+function isIncomingOfferInvoiceTierModalOpen() {
+  return Boolean(els.incomingOfferInvoiceTierModal && !els.incomingOfferInvoiceTierModal.classList.contains("hidden"));
+}
+
+function closeIncomingOfferInvoiceTierModal() {
+  if (els.incomingOfferInvoiceTierModal) {
+    els.incomingOfferInvoiceTierModal.classList.add("hidden");
+  }
+  if (els.incomingOfferInvoiceTierForm) {
+    delete els.incomingOfferInvoiceTierForm.dataset.offerId;
+  }
+  if (els.incomingOfferInvoiceTierSelect) {
+    els.incomingOfferInvoiceTierSelect.replaceChildren();
+  }
+  syncBodyModalOpenState();
+}
+
+function openIncomingOfferInvoiceTierModal(offer) {
+  const priceTiers = getIncomingOfferPriceTiers(offer);
+  if (!offer || priceTiers.length < 2) {
+    return false;
+  }
+  if (
+    !els.incomingOfferInvoiceTierModal ||
+    !els.incomingOfferInvoiceTierForm ||
+    !els.incomingOfferInvoiceTierSelect
+  ) {
+    return false;
+  }
+  els.incomingOfferInvoiceTierForm.dataset.offerId = offer.id;
+  els.incomingOfferInvoiceTierSelect.innerHTML = [
+    '<option value="">Preisstaffel wählen...</option>',
+    ...priceTiers.map(
+      (item) =>
+        `<option value="${escapeHtml(item.id)}">${escapeHtml(getIncomingOfferPriceTierLabel(item, offer.currency || "EUR"))}</option>`
+    ),
+  ].join("");
+  if (els.incomingOfferInvoiceTierMeta) {
+    els.incomingOfferInvoiceTierMeta.textContent = `Für „${offer.title || offer.offerNumber || "dieses Angebot"}“ sind mehrere Preisstaffeln hinterlegt. Welche soll in die Rechnung übernommen werden?`;
+  }
+  els.incomingOfferInvoiceTierModal.classList.remove("hidden");
+  syncBodyModalOpenState();
+  window.setTimeout(() => els.incomingOfferInvoiceTierSelect?.focus({ preventScroll: true }), 0);
+  return true;
+}
+
 function openIncomingOfferDetail(offerId) {
   const offer = getIncomingOfferById(offerId);
   if (!offer || !els.incomingOfferDetailModal || !els.incomingOfferDetailContent) {
@@ -51205,7 +51291,7 @@ async function handleIncomingOfferOpenDocument(offerId) {
   }
 }
 
-function handleIncomingOfferConvertToInvoice(offerId) {
+function handleIncomingOfferConvertToInvoice(offerId, selectedPriceTierId = "") {
   const normalizedOfferId = String(offerId || "").trim();
   if (!normalizedOfferId) {
     return;
@@ -51213,6 +51299,19 @@ function handleIncomingOfferConvertToInvoice(offerId) {
   const offer = getIncomingOfferById(normalizedOfferId);
   if (!offer) {
     showWarningFeedback("Angebot wurde nicht gefunden.");
+    return;
+  }
+  const priceTiers = getIncomingOfferPriceTiers(offer);
+  const normalizedPriceTierId = String(selectedPriceTierId || "").trim();
+  if (priceTiers.length > 1 && !normalizedPriceTierId) {
+    openIncomingOfferInvoiceTierModal(offer);
+    return;
+  }
+  const selectedPriceTier = normalizedPriceTierId
+    ? priceTiers.find((item) => item.id === normalizedPriceTierId) || null
+    : null;
+  if (normalizedPriceTierId && !selectedPriceTier) {
+    showWarningFeedback("Die gewählte Preisstaffel wurde nicht gefunden.");
     return;
   }
   const file = getIncomingOfferFileForOffer(normalizedOfferId);
@@ -51239,15 +51338,29 @@ function handleIncomingOfferConvertToInvoice(offerId) {
   if (els.incomingInvoiceDueDate) {
     els.incomingInvoiceDueDate.value = normalizeIncomingInvoiceDateInputValue(offer.validUntilDate || "");
   }
+  const taxRate = inferIncomingInvoiceTaxRate(offer.totalNet, offer.totalTax, offer.totalGross);
+  const selectedNet = selectedPriceTier
+    ? normalizeIncomingInvoiceAmount(selectedPriceTier.quantity * selectedPriceTier.unitPriceNet)
+    : normalizeIncomingInvoiceAmount(offer.totalNet);
+  const selectedGross = selectedPriceTier
+    ? normalizeIncomingInvoiceAmount(selectedNet * (1 + taxRate / 100))
+    : normalizeIncomingInvoiceAmount(offer.totalGross);
+  const selectedTax = selectedPriceTier
+    ? normalizeIncomingInvoiceAmount(selectedGross - selectedNet)
+    : normalizeIncomingInvoiceAmount(offer.totalTax);
   if (els.incomingInvoiceTotalGross) {
-    els.incomingInvoiceTotalGross.value = String(normalizeIncomingInvoiceAmount(offer.totalGross));
+    els.incomingInvoiceTotalGross.value = String(selectedGross);
   }
   if (els.incomingInvoiceTotalNet) {
-    els.incomingInvoiceTotalNet.value = String(normalizeIncomingInvoiceAmount(offer.totalNet));
+    els.incomingInvoiceTotalNet.value = String(selectedNet);
+  }
+  if (els.incomingInvoiceTaxRate) {
+    els.incomingInvoiceTaxRate.value = formatIncomingInvoiceTaxRateInputValue(taxRate);
   }
   if (els.incomingInvoiceTotalTax) {
-    els.incomingInvoiceTotalTax.value = String(normalizeIncomingInvoiceAmount(offer.totalTax));
+    els.incomingInvoiceTotalTax.value = String(selectedTax);
   }
+  incomingInvoiceTaxCalculationSource = "net";
   renderFinanceCategorySelect(els.incomingInvoiceCategory, offer.category || "Übernahme Angebot");
   if (els.incomingInvoiceCostCenter) {
     els.incomingInvoiceCostCenter.value = offer.costCenter || "";
@@ -51265,7 +51378,8 @@ function handleIncomingOfferConvertToInvoice(offerId) {
   if (els.incomingInvoiceNotes) {
     const baseNotes = String(offer.notes || "").trim();
     const hint = `Übernommen aus Angebot ${offer.offerNumber || normalizedOfferId}`;
-    els.incomingInvoiceNotes.value = baseNotes ? `${hint}\n${baseNotes}` : hint;
+    const priceTierHint = selectedPriceTier ? `Gewählte Preisstaffel: ${getIncomingOfferPriceTierLabel(selectedPriceTier, offer.currency || "EUR")}` : "";
+    els.incomingInvoiceNotes.value = [hint, priceTierHint, baseNotes].filter(Boolean).join("\n");
   }
   if (els.incomingInvoiceSaveBtn) {
     els.incomingInvoiceSaveBtn.textContent = "Rechnung speichern";

@@ -6028,6 +6028,27 @@
       </section>
     </div>
 
+    <div id="incoming-offer-invoice-tier-modal" class="modal-overlay-page incoming-offer-invoice-tier-modal hidden" role="dialog" aria-modal="true" aria-labelledby="incoming-offer-invoice-tier-title">
+      <form id="incoming-offer-invoice-tier-form" class="modal-dialog-panel incoming-offer-invoice-tier-dialog">
+        <div class="modal-dialog-head incoming-offer-invoice-tier-head">
+          <div>
+            <p>RECHNUNG VORBEREITEN</p>
+            <h3 id="incoming-offer-invoice-tier-title">Preisstaffel auswählen</h3>
+          </div>
+          <button type="button" id="incoming-offer-invoice-tier-close-btn" class="mini-btn" aria-label="Preisstaffel-Auswahl schließen">✕</button>
+        </div>
+        <p id="incoming-offer-invoice-tier-meta" class="incoming-offer-invoice-tier-meta"></p>
+        <label class="incoming-invoices-field incoming-offer-invoice-tier-field">
+          <span>Preisstaffel</span>
+          <select id="incoming-offer-invoice-tier-select" required></select>
+        </label>
+        <div class="form-actions split incoming-invoices-actions incoming-offer-invoice-tier-actions">
+          <button type="submit" class="btn btn-success">Als Rechnung übernehmen</button>
+          <button type="button" id="incoming-offer-invoice-tier-cancel-btn" class="btn btn-primary">Abbrechen</button>
+        </div>
+      </form>
+    </div>
+
     <div id="incoming-offer-document-preview-modal" class="modal-overlay-page incoming-offer-document-preview-modal hidden" role="dialog" aria-modal="true" aria-labelledby="incoming-offer-document-preview-title">
       <section class="modal-dialog-panel incoming-offer-document-preview-dialog">
         <div class="modal-dialog-head incoming-offer-document-preview-head">
