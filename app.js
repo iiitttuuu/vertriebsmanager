@@ -2440,6 +2440,7 @@ const els = {
   incomingInvoiceDocumentPreviewContent: document.getElementById("incoming-invoice-document-preview-content"),
   incomingInvoiceDocumentPreviewDownload: document.getElementById("incoming-invoice-document-preview-download"),
   incomingInvoiceDocumentPreviewCloseBtn: document.getElementById("incoming-invoice-document-preview-close-btn"),
+  incomingInvoiceDocumentOpenBtn: document.getElementById("incoming-invoice-document-open-btn"),
   incomingInvoicePaymentModalTitle: document.getElementById("incoming-invoice-payment-modal-title"),
   incomingInvoicePaymentModalMeta: document.getElementById("incoming-invoice-payment-modal-meta"),
   incomingInvoicePartialAmount: document.getElementById("incoming-invoice-partial-amount"),
@@ -9918,6 +9919,14 @@ function bindEvents() {
   els.incomingInvoiceDocumentPreviewCloseBtn?.addEventListener("click", () => {
     closeIncomingInvoiceDocumentPreview();
   });
+  els.incomingInvoiceDocumentOpenBtn?.addEventListener("click", () => {
+    const invoiceId = String(els.incomingInvoiceId?.value || incomingInvoicesSelectedId || "").trim();
+    if (!invoiceId) {
+      showInfoFeedback("Bitte speichere die Rechnung zuerst, um den Beleg zu öffnen.");
+      return;
+    }
+    void handleIncomingInvoicePreviewDocument(invoiceId);
+  });
   els.incomingOfferDetailCloseBtn?.addEventListener("click", () => {
     closeIncomingOfferDetail();
   });
@@ -10061,7 +10070,7 @@ function bindEvents() {
       if (!invoiceId) {
         return;
       }
-      void handleIncomingInvoiceOpenDocument(invoiceId);
+      void handleIncomingInvoicePreviewDocument(invoiceId);
     }
   });
   els.incomingOffersViewButtons?.forEach((button) => {
@@ -49225,6 +49234,9 @@ function resetIncomingInvoiceForm() {
   if (els.incomingInvoiceFileUpload) {
     els.incomingInvoiceFileUpload.value = "";
   }
+  if (els.incomingInvoiceDocumentOpenBtn) {
+    els.incomingInvoiceDocumentOpenBtn.classList.add("hidden");
+  }
   incomingInvoicesPendingFile = null;
   renderIncomingInvoiceSupplierOptions();
   renderFinanceCategorySelect(els.incomingInvoiceCategory, "");
@@ -49299,6 +49311,10 @@ function fillIncomingInvoiceForm(invoice) {
   closeIncomingInvoicePaymentModal();
   if (els.incomingInvoiceFileName) {
     els.incomingInvoiceFileName.value = file?.originalName || "";
+  }
+  if (els.incomingInvoiceDocumentOpenBtn) {
+    const hasDocument = Boolean(String(file?.nasPath || "").trim());
+    els.incomingInvoiceDocumentOpenBtn.classList.toggle("hidden", !hasDocument);
   }
   if (els.incomingInvoiceFileUpload) {
     els.incomingInvoiceFileUpload.value = "";
