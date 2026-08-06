@@ -4,6 +4,7 @@ import vm from "node:vm";
 
 const appSource = readFileSync(new URL("../app.js", import.meta.url), "utf8");
 const indexSource = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const pwaSource = readFileSync(new URL("../vertrieb-pwa.js", import.meta.url), "utf8");
 const stylesSource = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 const apiSecretarySource = readFileSync(new URL("../api/ceo-secretary/process.js", import.meta.url), "utf8");
 const providerDeletionPolicySource = readFileSync(
@@ -440,7 +441,7 @@ assert.match(
   /hasExplicitProviderTableSyncAction\(providersSync\)[\s\S]*providers_sync_failed/,
   "Explizite Anbieter-Änderungen fallen nicht still auf app_state zurück."
 );
-assert.match(indexSource, /app-provider-workflow-v79/, "Die Anbieter-Statuslogik wird ohne Browser-Cache geladen.");
+assert.match(indexSource, /app-provider-workflow-v80/, "Die Anbieter-Statuslogik wird ohne Browser-Cache geladen.");
 assert.match(indexSource, /styles-provider-workflow-v75/, "Die Anbieter-Statusleiste wird ohne Browser-Cache gestaltet.");
 assert.match(
   indexSource,
@@ -454,8 +455,13 @@ assert.match(
 );
 assert.match(
   appSource,
-  /async function enforceSuperadminMfa\([\s\S]*mfa\.enroll\([\s\S]*factorType: "totp"[\s\S]*getAuthenticatorAssuranceLevel/,
-  "Superadmins werden verpflichtend durch die TOTP-Authenticator-Einrichtung und AAL2-Prüfung geführt."
+  /async function enforcePrivilegedMfa\([\s\S]*requiresPrivilegedMfa\([\s\S]*mfa\.enroll\([\s\S]*factorType: "totp"[\s\S]*getAuthenticatorAssuranceLevel/,
+  "Admins und Superadmins werden verpflichtend durch die TOTP-Authenticator-Einrichtung und AAL2-Prüfung geführt."
+);
+assert.match(
+  pwaSource,
+  /async function enforcePrivilegedMfa\([\s\S]*requiresPrivilegedMfa\([\s\S]*mfa\.enroll\([\s\S]*factorType: "totp"[\s\S]*async function verifyPrivilegedMfa\([\s\S]*getAuthenticatorAssuranceLevel/,
+  "Auch die Vertriebs-PWA erzwingt für Admins und Superadmins eine AAL2-Authenticator-Sitzung."
 );
 assert.match(
   indexSource,

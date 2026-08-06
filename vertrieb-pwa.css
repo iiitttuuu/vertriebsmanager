@@ -30,6 +30,9 @@ button { cursor: pointer; }
 .pwa-brand img { width: 44px; }
 .pwa-auth h1 { margin: 28px 0 8px; font-size: 1.9rem; }
 .pwa-auth p { color: var(--pwa-muted); line-height: 1.5; }
+.pwa-mfa-kicker { margin: 28px 0 0; color: var(--pwa-blue) !important; font-size: .72rem; font-weight: 800; letter-spacing: .08em; }
+.pwa-mfa-qr { display: block; width: min(100%, 230px); margin: 20px auto 12px; padding: 10px; border: 1px solid var(--pwa-line); border-radius: 18px; background: #fff; }
+.pwa-mfa-signout { margin-top: 10px; background: transparent; color: var(--pwa-muted); box-shadow: none; }
 .pwa-field { display: grid; min-width: 0; gap: 7px; margin: 17px 0; font-weight: 700; font-size: .92rem; }
 .pwa-field small { color: var(--pwa-muted); font-weight: 600; line-height: 1.35; }
 .pwa-field input, .pwa-field select, .pwa-field textarea, .pwa-search { width: 100%; min-height: 52px; border: 1px solid var(--pwa-line); border-radius: 14px; background: #fff; padding: 14px 15px; color: var(--pwa-ink); }

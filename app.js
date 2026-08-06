@@ -67654,8 +67654,12 @@ async function handleSignOut() {
   showAuthGate("Bitte melde dich an.");
 }
 
-function requiresSuperadminMfa() {
-  return normalizeUserRole(authProfile?.role || "") === ROLE_SUPERADMIN;
+function requiresPrivilegedMfa() {
+  return isPrivilegedRole(authProfile?.role || "");
+}
+
+function getMfaProtectedRoleLabel() {
+  return normalizeUserRole(authProfile?.role || "") === ROLE_SUPERADMIN ? "Superadmins" : "Admins";
 }
 
 function getVerifiedTotpFactor(factors) {
@@ -67718,8 +67722,8 @@ function closeSuperadminMfaModal() {
   syncBodyModalOpenState();
 }
 
-async function enforceSuperadminMfa(flowId = 0) {
-  if (!requiresSuperadminMfa()) {
+async function enforcePrivilegedMfa(flowId = 0) {
+  if (!requiresPrivilegedMfa()) {
     closeSuperadminMfaModal();
     return true;
   }
@@ -67755,14 +67759,14 @@ async function enforceSuperadminMfa(flowId = 0) {
     superadminMfaEnrollmentActive = !superadminMfaFactorId;
     if (superadminMfaFactorId) {
       showSuperadminMfaModal({
-        description: "Für Superadmins ist bei jeder Anmeldung ein Code aus der Authenticator-App erforderlich.",
+        description: `Für ${getMfaProtectedRoleLabel()} ist bei jeder Anmeldung ein Code aus der Authenticator-App erforderlich.`,
       });
       return false;
     }
 
     const { data: enrollment, error: enrollmentError } = await client.auth.mfa.enroll({
       factorType: "totp",
-      friendlyName: "CRM Superadmin",
+      friendlyName: "CRM Admin-Zugang",
     });
     if (enrollmentError || !enrollment?.id || !enrollment?.totp?.qr_code) {
       throw enrollmentError || new Error("Authenticator-QR-Code konnte nicht erzeugt werden.");
@@ -67771,11 +67775,11 @@ async function enforceSuperadminMfa(flowId = 0) {
     showSuperadminMfaModal({
       enrollment: true,
       qrCode: enrollment.totp.qr_code,
-      description: "Richte jetzt deinen Authenticator ein. Ohne die erfolgreiche Bestätigung ist kein Zugriff als Superadmin möglich.",
+      description: `Richte jetzt deinen Authenticator ein. Ohne die erfolgreiche Bestätigung ist kein Zugriff als ${getMfaProtectedRoleLabel().slice(0, -1)} möglich.`,
     });
     return false;
   } catch (error) {
-    console.error("Superadmin-MFA konnte nicht vorbereitet werden.", error);
+    console.error("Admin-MFA konnte nicht vorbereitet werden.", error);
     showSuperadminMfaModal({
       description: "Die Authenticator-Prüfung konnte nicht gestartet werden. Bitte abmelden und erneut versuchen.",
       disableVerification: true,
@@ -67882,7 +67886,7 @@ async function activateSignedInSession(session, flowId = 0) {
     return;
   }
 
-  if (!(await enforceSuperadminMfa(flowId))) {
+  if (!(await enforcePrivilegedMfa(flowId))) {
     setAppLoadingState(false);
     return;
   }

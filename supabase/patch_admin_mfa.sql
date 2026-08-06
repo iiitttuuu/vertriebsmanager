@@ -1,6 +1,6 @@
--- Verpflichtende TOTP-MFA für Admins und Superadmins.
--- Nach allen bestehenden Rollen-/RLS-Patches im Supabase SQL Editor ausführen.
--- Die Weboberfläche leitet Superadmins per QR-Code durch die Einrichtung.
+-- Erweiterung der verpflichtenden TOTP-MFA auf Admins.
+-- Im Supabase SQL Editor ausfuehren, nachdem patch_superadmin_mfa.sql bereits aktiv ist.
+-- Idempotent: kann gefahrlos erneut ausgefuehrt werden.
 
 begin;
 
@@ -14,8 +14,6 @@ as $$
   select coalesce((auth.jwt() ->> 'aal') = 'aal2', false);
 $$;
 
--- Alle privilegierten Rollen erhalten ihre erweiterten Rechte nur mit einer
--- AAL2-Session (Authenticator-App erfolgreich bestätigt).
 create or replace function public.is_superadmin()
 returns boolean
 language sql

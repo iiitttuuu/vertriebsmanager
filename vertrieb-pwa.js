@@ -58,6 +58,7 @@
     helpTopicId: "",
     notificationMenuOpen: false,
     push: { available: false, enabled: false, publicKey: "", hint: "" },
+    privilegedMfa: { factorId: "", enrollment: false },
   };
   let toastTimer = 0;
   let googlePlacesReady = false;
@@ -140,6 +141,9 @@
   // Entspricht canCurrentUserSetProviderDashboardCreated im Desktop-CRM.
   function canSetDashboardCreated() { return isAdmin() || normalize(state.profile?.role) === "vertriebsmitarbeiter"; }
   function userId() { return String(state.profile?.user_id || "").trim(); }
+  function requiresPrivilegedMfa() { return isAdmin(); }
+  function getVerifiedTotpFactor(factors) { return (Array.isArray(factors?.totp) ? factors.totp : []).find((factor) => normalize(factor?.status) === "verified") || null; }
+  function mfaQrImageSource(qrCode = "") { const value = String(qrCode || "").trim(); return value.startsWith("data:") || value.startsWith("https://") ? value : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(value)}`; }
   function displayName() { return String(state.profile?.full_name || state.profile?.email || "Mitarbeiter").trim(); }
   function initials() { return displayName().split(/\s+/).map((part) => part[0] || "").join("").slice(0, 2).toUpperCase(); }
   function nowIso() { return new Date().toISOString(); }
@@ -1094,6 +1098,51 @@
   function renderAuth(message = "") {
     ROOT.innerHTML = `<section class="pwa-auth"><div class="pwa-auth-card"><div class="pwa-brand"><img src="/assets/pwa-vertrieb-icon.svg" alt="" />my-waycard CRM</div><h1>Willkommen</h1><p>Dein schneller Arbeitsbereich für Anbieter.</p><form id="pwa-login-form"><label class="pwa-field">E-Mail<input name="email" type="email" autocomplete="email" required /></label><label class="pwa-field">Passwort<input name="password" type="password" autocomplete="current-password" required /></label><button class="pwa-btn pwa-btn-primary pwa-btn-wide" type="submit">Anmelden</button></form>${message ? `<p id="pwa-login-message">${escapeHtml(message)}</p>` : ""}</div></section>`;
     document.getElementById("pwa-login-form").addEventListener("submit", signIn);
+  }
+  function renderPrivilegedMfa(message = "", options = {}) {
+    const enrollment = Boolean(options.enrollment);
+    const qrCode = enrollment ? `<img class="pwa-mfa-qr" src="${escapeHtml(mfaQrImageSource(options.qrCode))}" alt="QR-Code für die Authenticator-App" /><p>Scanne den QR-Code mit Microsoft Authenticator, Google Authenticator oder einer vergleichbaren App.</p>` : "";
+    ROOT.innerHTML = `<section class="pwa-auth"><div class="pwa-auth-card"><div class="pwa-brand"><img src="/assets/pwa-vertrieb-icon.svg" alt="" />my-waycard CRM</div><p class="pwa-mfa-kicker">ADMIN &amp; SUPERADMIN · SICHERHEIT</p><h1>Authenticator bestätigen</h1><p>${escapeHtml(message || "Für diesen Zugang ist ein Code aus der Authenticator-App erforderlich.")}</p>${qrCode}<form id="pwa-mfa-form"><label class="pwa-field">Code aus der Authenticator-App<input name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="123456" required autofocus /></label><button class="pwa-btn pwa-btn-primary pwa-btn-wide" type="submit">Bestätigen</button></form><button id="pwa-mfa-signout" class="pwa-btn pwa-btn-wide pwa-mfa-signout" type="button">Abmelden</button></div></section>`;
+    document.getElementById("pwa-mfa-form")?.addEventListener("submit", verifyPrivilegedMfa);
+    document.getElementById("pwa-mfa-signout")?.addEventListener("click", signOut);
+  }
+  async function enforcePrivilegedMfa() {
+    if (!requiresPrivilegedMfa()) return true;
+    if (!state.client?.auth?.mfa) { renderPrivilegedMfa("Die verpflichtende Authenticator-Prüfung ist nicht verfügbar. Bitte erneut anmelden."); return false; }
+    try {
+      const [{ data: assurance, error: assuranceError }, { data: factors, error: factorsError }] = await Promise.all([state.client.auth.mfa.getAuthenticatorAssuranceLevel(), state.client.auth.mfa.listFactors()]);
+      if (assuranceError || factorsError) throw assuranceError || factorsError;
+      const verifiedFactor = getVerifiedTotpFactor(factors);
+      if (verifiedFactor && normalize(assurance?.currentLevel) === "aal2") return true;
+      state.privilegedMfa.factorId = String(verifiedFactor?.id || "").trim();
+      state.privilegedMfa.enrollment = !state.privilegedMfa.factorId;
+      if (state.privilegedMfa.factorId) { renderPrivilegedMfa("Für Admins und Superadmins ist bei jeder Anmeldung ein Code aus der Authenticator-App erforderlich."); return false; }
+      const { data: enrollment, error: enrollmentError } = await state.client.auth.mfa.enroll({ factorType: "totp", friendlyName: "CRM Admin-Zugang" });
+      if (enrollmentError || !enrollment?.id || !enrollment?.totp?.qr_code) throw enrollmentError || new Error("Authenticator-QR-Code konnte nicht erzeugt werden.");
+      state.privilegedMfa.factorId = String(enrollment.id || "").trim();
+      state.privilegedMfa.enrollment = true;
+      renderPrivilegedMfa("Richte jetzt deinen Authenticator ein. Ohne erfolgreiche Bestätigung ist kein privilegierter Zugriff möglich.", { enrollment: true, qrCode: enrollment.totp.qr_code });
+      return false;
+    } catch (error) { renderPrivilegedMfa(String(error?.message || "Authenticator-Prüfung konnte nicht gestartet werden.")); return false; }
+  }
+  async function verifyPrivilegedMfa(event) {
+    event.preventDefault();
+    const code = String(new FormData(event.currentTarget).get("code") || "").replace(/\s/g, "");
+    const button = event.currentTarget.querySelector("button[type=submit]");
+    if (!/^\d{6}$/.test(code) || !state.privilegedMfa.factorId) { return renderPrivilegedMfa("Bitte gib einen gültigen sechsstelligen Code ein.", { enrollment: state.privilegedMfa.enrollment }); }
+    setBusy(button, true, "Prüft …");
+    try {
+      const { data: challenge, error: challengeError } = await state.client.auth.mfa.challenge({ factorId: state.privilegedMfa.factorId });
+      if (challengeError || !challenge?.id) throw challengeError || new Error("Authenticator-Code konnte nicht geprüft werden.");
+      const { error: verifyError } = await state.client.auth.mfa.verify({ factorId: state.privilegedMfa.factorId, challengeId: challenge.id, code });
+      if (verifyError) throw verifyError;
+      const { data: refreshed, error: refreshError } = await state.client.auth.refreshSession();
+      if (refreshError || !refreshed?.session) throw refreshError || new Error("Sichere Sitzung konnte nicht aktualisiert werden.");
+      const { data: assurance, error: assuranceError } = await state.client.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (assuranceError || normalize(assurance?.currentLevel) !== "aal2") throw assuranceError || new Error("Authenticator-Prüfung wurde nicht bestätigt.");
+      await bootstrap(refreshed.session, { mfaVerified: true });
+    } catch (error) { renderPrivilegedMfa(String(error?.message || "Der Code ist ungültig oder abgelaufen."), { enrollment: state.privilegedMfa.enrollment }); }
+    finally { setBusy(button, false); }
   }
   function topicRequestNotificationId(request) { return `topic_request_resolution_${String(request?.id || "").trim()}`; }
   function topicNotificationDismissStorageKey() { return `${TOPIC_NOTIFICATION_DISMISS_STORAGE_PREFIX}:${userId()}`; }
@@ -2080,7 +2129,7 @@
     } catch (error) { showToast(`Passwort konnte nicht geändert werden: ${String(error?.message || "Bitte erneut versuchen.")}`, "error"); }
     finally { setBusy(button, false); }
   }
-  async function signOut() { await state.client.auth.signOut(); state.profile = null; state.providers = []; renderAuth(); }
+  async function signOut() { await state.client.auth.signOut(); state.profile = null; state.providers = []; state.privilegedMfa = { factorId: "", enrollment: false }; renderAuth(); }
   function syncAppViewportHeight() {
     const visibleHeight = Math.round(window.visualViewport?.height || window.innerHeight || 0);
     if (visibleHeight > 0) document.documentElement.style.setProperty("--pwa-viewport-height", `${visibleHeight}px`);
@@ -2091,12 +2140,13 @@
     document.body.scrollTop = 0;
     window.scrollTo(0, 0);
   }
-  async function bootstrap(session) {
+  async function bootstrap(session, options = {}) {
     if (!session?.user) return renderAuth();
     try {
       const { data: profile, error } = await state.client.from("profiles").select("user_id,full_name,email,role,status").eq("user_id", session.user.id).maybeSingle();
       if (error || !profile || normalize(profile.status) !== "active") throw new Error("Dein Konto ist noch nicht aktiv.");
       state.profile = profile;
+      if (!options.mfaVerified && !(await enforcePrivilegedMfa())) return;
       loadCountryPreference();
       await Promise.all([loadProviders(), loadTopics(), loadEmployeeMessageReadReceipts()]);
       const routeReturnId = takeRouteReturn();

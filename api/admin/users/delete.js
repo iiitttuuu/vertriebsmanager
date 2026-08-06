@@ -104,8 +104,8 @@ function getJwtAssuranceLevel(accessToken = "") {
   }
 }
 
-function superadminMfaSatisfied(role = "", assuranceLevel = "") {
-  return !["superadmin", "supaadmin"].includes(String(role || "").trim().toLowerCase()) || assuranceLevel === "aal2";
+function privilegedMfaSatisfied(role = "", assuranceLevel = "") {
+  return !isPrivilegedRole(role) || assuranceLevel === "aal2";
 }
 
 async function removeUserFromConversationParticipants(supabaseUrl, serviceRoleKey, targetUserId) {
@@ -204,7 +204,7 @@ export default async function handler(req, res) {
     const callerProfile = Array.isArray(callerResult.payload) ? callerResult.payload[0] : null;
     const callerRole = String(callerProfile?.role || "").trim().toLowerCase();
     const callerStatus = String(callerProfile?.status || "").trim().toLowerCase();
-    if (!callerProfile || callerStatus !== "active" || !isPrivilegedRole(callerRole) || !superadminMfaSatisfied(callerRole, authResult.assuranceLevel)) {
+    if (!callerProfile || callerStatus !== "active" || !isPrivilegedRole(callerRole) || !privilegedMfaSatisfied(callerRole, authResult.assuranceLevel)) {
       res.status(403).json({ error: "Nur aktive Admins mit bestätigtem Authenticator dürfen Benutzer löschen." });
       return;
     }

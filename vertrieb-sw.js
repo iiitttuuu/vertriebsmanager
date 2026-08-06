@@ -1,8 +1,8 @@
-const CACHE_NAME = "mwc-vertrieb-pwa-v74";
+const CACHE_NAME = "mwc-vertrieb-pwa-v75";
 const APP_SHELL = [
   "/vertrieb",
-  "/vertrieb-pwa.css?v=20260801-v74",
-  "/vertrieb-pwa.js?v=20260801-v74",
+  "/vertrieb-pwa.css?v=20260806-v75",
+  "/vertrieb-pwa.js?v=20260806-v75",
   "/assets/pwa-vertrieb-icon.svg"
 ];
 

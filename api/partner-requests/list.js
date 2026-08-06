@@ -42,8 +42,8 @@ function getJwtAssuranceLevel(accessToken = "") {
   }
 }
 
-function superadminMfaSatisfied(role = "", assuranceLevel = "") {
-  return !["superadmin", "supaadmin"].includes(String(role || "").trim().toLowerCase()) || assuranceLevel === "aal2";
+function privilegedMfaSatisfied(role = "", assuranceLevel = "") {
+  return !isPrivilegedRole(role) || assuranceLevel === "aal2";
 }
 
 function normalizeText(value = "") {
@@ -280,7 +280,7 @@ async function authorizeActiveUser(req, supabaseUrl, serviceRoleKey) {
     ok: true,
     userId: authResult.userId,
     role: callerRole,
-    privileged: isPrivilegedRole(callerRole) && superadminMfaSatisfied(callerRole, authResult.assuranceLevel),
+    privileged: isPrivilegedRole(callerRole) && privilegedMfaSatisfied(callerRole, authResult.assuranceLevel),
   };
 }
 

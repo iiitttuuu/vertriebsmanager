@@ -19,12 +19,14 @@ Es gilt **default deny**: Ohne explizite serverseitig abgesicherte Regel darf ei
 Rolle weder Daten lesen noch schreiben. Das Ausblenden eines Menuepunkts oder einer
 Seite ist nur Bedienoberflaeche und nie eine Sicherheitskontrolle.
 
-## Superadmin und MFA
+## Admin, Superadmin und MFA
 
-Superadmins muessen eine TOTP-Authenticator-App mit QR-Code einrichten und eine
-AAL2-Session besitzen. Die Datenbankfunktion `public.is_superadmin()` muss die Rolle
-und `public.superadmin_mfa_verified()` pruefen. Der zugehoerige Patch ist
-`supabase/patch_superadmin_mfa.sql`.
+Admins und Superadmins muessen eine TOTP-Authenticator-App mit QR-Code einrichten und
+eine AAL2-Session besitzen. Die Datenbankfunktionen `public.is_admin()` und
+`public.is_superadmin()` muessen Rolle und `public.superadmin_mfa_verified()` pruefen.
+Der zugehoerige Patch ist `supabase/patch_superadmin_mfa.sql`; bei einer bereits
+eingerichteten Datenbank ist anschliessend auch `supabase/patch_admin_mfa.sql`
+auszufuehren.
 
 Eine bestehende AAL2-Sitzung darf einen Browser-Refresh ueberstehen. Das ist
 beabsichtigt; der Code wird bei neuer Anmeldung, abgelaufener Sitzung oder auf einem
@@ -85,8 +87,8 @@ Vor jedem Release mit Rollen-/Rechtebezug:
 1. Beide Varianten pruefen: Desktop/Web und PWA.
 2. Neue oder entfernte UI-Sektionen muessen im Rechtekatalog erscheinen und erhalten
    ohne Regel keine weitergehende Datenfreigabe.
-3. Den Editor nur als AAL2-Superadmin testen; bei AAL1 muss eine Rechteaenderung
-   serverseitig scheitern.
+3. Privilegierte Funktionen mit AAL2-Admin und AAL2-Superadmin testen; bei AAL1 muss
+   jede privilegierte Aktion serverseitig scheitern.
 4. Eine Freigabe und einen Entzug mit einem getrennten Testkonto der Zielrolle testen:
    Navigation und Seite muessen nach erneuter Sitzung/Seitenaktualisierung korrekt
    erscheinen bzw. verschwinden.

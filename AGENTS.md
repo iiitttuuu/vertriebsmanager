@@ -25,9 +25,9 @@ Vor jeder Aenderung an Rollen, Navigation, Datenzugriff, APIs oder Supabase-RLS 
 - Rechteaenderungen laufen ausschliesslich ueber
   `public.set_role_permission_override(...)`, nie per direktem Client-Write. Der
   Audit-Log ist Pflicht.
-- Superadmin-Aktionen, insbesondere Rechteaenderungen, erfordern eine AAL2-/TOTP-
-  Session. Keinen MFA-Bypass, kein lokales Flag und keine Abschwaechung ohne explizite
-  Sicherheitsfreigabe einbauen.
+- Admin- und Superadmin-Aktionen, insbesondere Rechteaenderungen, erfordern eine
+  AAL2-/TOTP-Session. Keinen MFA-Bypass, kein lokales Flag und keine Abschwaechung
+  ohne explizite Sicherheitsfreigabe einbauen.
 - Eine Seitenfreigabe erweitert **nicht** automatisch Lese-/Schreibrechte auf Daten.
   Dafuer ist ein separater, getesteter RLS-/API-Patch mit getrennten Testkonten Pflicht.
 - Vor einem Release sind mindestens Codepruefung, automatisierte Tests und ein

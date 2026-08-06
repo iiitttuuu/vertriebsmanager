@@ -174,8 +174,8 @@ async function readAuthorizedProfile(userId, supabaseUrl, serviceRoleKey, assura
   const profile = Array.isArray(rows) ? rows[0] || null : null;
   const status = String(profile?.status || "").trim().toLowerCase();
   const role = String(profile?.role || "").trim().toLowerCase();
-  const superadminMfaMissing = ["superadmin", "supaadmin"].includes(role) && assuranceLevel !== "aal2";
-  if (!profile || status !== "active" || !isPrivilegedRole(role) || superadminMfaMissing) {
+  const privilegedMfaMissing = isPrivilegedRole(role) && assuranceLevel !== "aal2";
+  if (!profile || status !== "active" || !isPrivilegedRole(role) || privilegedMfaMissing) {
     return { ok: false, status: 403, error: "Dokument-Upload ist nur für aktive Admins freigegeben." };
   }
   return { ok: true, profile };
