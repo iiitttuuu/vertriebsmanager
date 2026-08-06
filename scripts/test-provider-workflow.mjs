@@ -440,8 +440,28 @@ assert.match(
   /hasExplicitProviderTableSyncAction\(providersSync\)[\s\S]*providers_sync_failed/,
   "Explizite Anbieter-Änderungen fallen nicht still auf app_state zurück."
 );
-assert.match(indexSource, /app-provider-workflow-v75/, "Die Anbieter-Statuslogik wird ohne Browser-Cache geladen.");
-assert.match(indexSource, /styles-provider-workflow-v72/, "Die Anbieter-Statusleiste wird ohne Browser-Cache gestaltet.");
+assert.match(indexSource, /app-provider-workflow-v76/, "Die Anbieter-Statuslogik wird ohne Browser-Cache geladen.");
+assert.match(indexSource, /styles-provider-workflow-v73/, "Die Anbieter-Statusleiste wird ohne Browser-Cache gestaltet.");
+assert.match(
+  indexSource,
+  /id="roles-rights-section" class="panel card superadmin-only-view"[\s\S]*automatisch erzeugt/,
+  "Die Live-Matrix für Rollen und Rechte ist ausschließlich für Superadmins sichtbar."
+);
+assert.match(
+  appSource,
+  /function getRolesRightsCandidateSectionIds\(\)[\s\S]*Array\.from\(els\.panels \|\| \[\]\)/,
+  "Die Rechte-Matrix leitet ihre Bereiche aus den vorhandenen Seiten ab."
+);
+assert.match(
+  appSource,
+  /async function enforceSuperadminMfa\([\s\S]*mfa\.enroll\([\s\S]*factorType: "totp"[\s\S]*getAuthenticatorAssuranceLevel/,
+  "Superadmins werden verpflichtend durch die TOTP-Authenticator-Einrichtung und AAL2-Prüfung geführt."
+);
+assert.match(
+  indexSource,
+  /id="superadmin-mfa-qr"[\s\S]*id="superadmin-mfa-code"/,
+  "Die MFA-Oberfläche zeigt einen QR-Code und fragt den Authenticator-Code ab."
+);
 assert.match(
   indexSource,
   /data-target="provider-coverage-section"[\s\S]*Abdeckung/,

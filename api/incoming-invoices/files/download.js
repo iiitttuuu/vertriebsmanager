@@ -25,6 +25,15 @@ function isPrivilegedRole(role = "") {
   return normalized === "admin" || normalized === "superadmin" || normalized === "supaadmin";
 }
 
+function getJwtAssuranceLevel(accessToken = "") {
+  try {
+    const payload = String(accessToken || "").split(".")[1] || "";
+    return String(JSON.parse(Buffer.from(payload, "base64url").toString("utf8"))?.aal || "aal1").toLowerCase();
+  } catch (_error) {
+    return "aal1";
+  }
+}
+
 function sanitizeDownloadName(fileName = "") {
   const normalized = String(fileName || "beleg").trim();
   const withoutControls = normalized.replace(/[\r\n"]/g, "_");
@@ -58,10 +67,10 @@ async function authenticateUserWithSupabase(userAuthorizationHeader, supabaseUrl
   if (!isUuid(userId)) {
     return { ok: false, status: 401, error: "Ungültiger Benutzerkontext." };
   }
-  return { ok: true, userId };
+  return { ok: true, userId, assuranceLevel: getJwtAssuranceLevel(accessToken) };
 }
 
-async function readAuthorizedProfile(userId, supabaseUrl, serviceRoleKey) {
+async function readAuthorizedProfile(userId, supabaseUrl, serviceRoleKey, assuranceLevel = "aal1") {
   const response = await fetch(
     `${supabaseUrl}/rest/v1/profiles?select=user_id,role,status&user_id=eq.${encodeURIComponent(userId)}&limit=1`,
     {
@@ -81,7 +90,8 @@ async function readAuthorizedProfile(userId, supabaseUrl, serviceRoleKey) {
   const profile = Array.isArray(rows) ? rows[0] || null : null;
   const status = String(profile?.status || "").trim().toLowerCase();
   const role = String(profile?.role || "").trim().toLowerCase();
-  if (!profile || status !== "active" || !isPrivilegedRole(role)) {
+  const superadminMfaMissing = ["superadmin", "supaadmin"].includes(role) && assuranceLevel !== "aal2";
+  if (!profile || status !== "active" || !isPrivilegedRole(role) || superadminMfaMissing) {
     return { ok: false, status: 403, error: "Dokument-Download ist nur für aktive Admins freigegeben." };
   }
   return { ok: true, profile };
@@ -124,7 +134,7 @@ export default async function handler(req, res) {
       res.status(authResult.status).json({ error: authResult.error });
       return;
     }
-    const profileResult = await readAuthorizedProfile(authResult.userId, supabaseUrl, serviceRoleKey);
+    const profileResult = await readAuthorizedProfile(authResult.userId, supabaseUrl, serviceRoleKey, authResult.assuranceLevel);
     if (!profileResult.ok) {
       res.status(profileResult.status).json({ error: profileResult.error });
       return;

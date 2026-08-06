@@ -63,7 +63,7 @@ async function authenticateUserWithSupabase(userAuthorizationHeader, supabaseUrl
   if (!isUuid(userId)) {
     return { ok: false, status: 401, error: "Ungültiger Benutzerkontext." };
   }
-  return { ok: true, userId };
+  return { ok: true, userId, assuranceLevel: getJwtAssuranceLevel(accessToken) };
 }
 
 async function callSupabaseRest(supabaseUrl, serviceRoleKey, path, options = {}) {
@@ -93,6 +93,19 @@ async function callSupabaseRest(supabaseUrl, serviceRoleKey, path, options = {})
 function isPrivilegedRole(role = "") {
   const normalized = String(role || "").trim().toLowerCase();
   return normalized === "admin" || normalized === "superadmin" || normalized === "supaadmin";
+}
+
+function getJwtAssuranceLevel(accessToken = "") {
+  try {
+    const payload = String(accessToken || "").split(".")[1] || "";
+    return String(JSON.parse(Buffer.from(payload, "base64url").toString("utf8"))?.aal || "aal1").toLowerCase();
+  } catch (_error) {
+    return "aal1";
+  }
+}
+
+function superadminMfaSatisfied(role = "", assuranceLevel = "") {
+  return !["superadmin", "supaadmin"].includes(String(role || "").trim().toLowerCase()) || assuranceLevel === "aal2";
 }
 
 async function removeUserFromConversationParticipants(supabaseUrl, serviceRoleKey, targetUserId) {
@@ -191,8 +204,8 @@ export default async function handler(req, res) {
     const callerProfile = Array.isArray(callerResult.payload) ? callerResult.payload[0] : null;
     const callerRole = String(callerProfile?.role || "").trim().toLowerCase();
     const callerStatus = String(callerProfile?.status || "").trim().toLowerCase();
-    if (!callerProfile || callerStatus !== "active" || !isPrivilegedRole(callerRole)) {
-      res.status(403).json({ error: "Nur aktive Admins dürfen Benutzer löschen." });
+    if (!callerProfile || callerStatus !== "active" || !isPrivilegedRole(callerRole) || !superadminMfaSatisfied(callerRole, authResult.assuranceLevel)) {
+      res.status(403).json({ error: "Nur aktive Admins mit bestätigtem Authenticator dürfen Benutzer löschen." });
       return;
     }
 

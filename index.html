@@ -6,12 +6,12 @@
     <title>CRM | my-waycard</title>
     <link id="site-favicon" rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-    <link rel="stylesheet" href="/styles-provider-workflow-v72" />
+    <link rel="stylesheet" href="/styles-provider-workflow-v73" />
     <!-- Defer lädt die Abhängigkeiten bereits während das umfangreiche Dashboard-HTML
          geparst wird; die Reihenfolge bleibt garantiert erhalten. -->
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="config.js?v=20260729-supabase-publishable-key-v1"></script>
-    <script defer src="/app-provider-workflow-v75"></script>
+    <script defer src="/app-provider-workflow-v76"></script>
   </head>
   <body class="app-loading auth-locked">
     <div id="auth-gate" class="auth-gate hidden">
@@ -99,6 +99,32 @@
         </form>
         <p id="auth-message" class="auth-message"></p>
       </div>
+    </div>
+    <div id="superadmin-mfa-modal" class="modal-overlay-page superadmin-mfa-modal hidden" role="dialog" aria-modal="true" aria-labelledby="superadmin-mfa-title">
+      <section class="modal-dialog-panel superadmin-mfa-dialog">
+        <div class="modal-dialog-head">
+          <div>
+            <p>SUPERADMIN · VERPFLICHTENDE SICHERHEIT</p>
+            <h3 id="superadmin-mfa-title">Authenticator bestätigen</h3>
+          </div>
+        </div>
+        <p id="superadmin-mfa-description" class="superadmin-mfa-description"></p>
+        <div id="superadmin-mfa-enrollment" class="superadmin-mfa-enrollment hidden">
+          <img id="superadmin-mfa-qr" class="superadmin-mfa-qr" alt="QR-Code für die Authenticator-App" />
+          <p>Öffne Microsoft Authenticator, Google Authenticator oder eine vergleichbare App und scanne diesen QR-Code.</p>
+        </div>
+        <form id="superadmin-mfa-form" class="superadmin-mfa-form">
+          <label>
+            Code aus der Authenticator-App
+            <input id="superadmin-mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="123456" required />
+          </label>
+          <div class="form-actions superadmin-mfa-actions">
+            <button type="submit" id="superadmin-mfa-submit" class="btn btn-success">Bestätigen</button>
+            <button type="button" id="superadmin-mfa-signout" class="btn btn-primary">Abmelden</button>
+          </div>
+        </form>
+        <p id="superadmin-mfa-feedback" class="superadmin-mfa-feedback" role="status" aria-live="polite"></p>
+      </section>
     </div>
     <div class="background-shape"></div>
     <div class="app-shell">
@@ -209,7 +235,7 @@
             <button type="button" class="nav-btn nav-sub-btn role-admin-only" data-target="departments-section">
               Abteilungen
             </button>
-            <button type="button" class="nav-btn nav-sub-btn role-admin-only" data-target="roles-rights-section">
+            <button type="button" class="nav-btn nav-sub-btn superadmin-only" data-target="roles-rights-section">
               Rollen &amp; Rechte
             </button>
           </div>
@@ -1521,12 +1547,12 @@
           </div>
         </section>
 
-        <section id="roles-rights-section" class="panel card role-admin-only-view">
+        <section id="roles-rights-section" class="panel card superadmin-only-view">
           <div class="section-header">
             <h2>Rollen &amp; Rechte</h2>
             <p>
-              Live-Matrix für Seitenzugriffe pro Rolle. Die Übersicht wird aus der aktuellen Rollenlogik und den aktiven
-              UI-Sektionen automatisch erzeugt.
+              Live-Matrix für Seitenzugriffe pro Rolle. Sie wird aus der aktuellen Rollenlogik und allen aktiven
+              UI-Sektionen automatisch erzeugt – neue oder entfernte Bereiche erscheinen ohne manuelle Pflege.
             </p>
           </div>
           <p id="roles-rights-meta" class="matrix-info"></p>

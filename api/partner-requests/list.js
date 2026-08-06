@@ -33,6 +33,19 @@ function isPrivilegedRole(role = "") {
   return normalized === "admin" || normalized === "superadmin" || normalized === "supaadmin";
 }
 
+function getJwtAssuranceLevel(accessToken = "") {
+  try {
+    const payload = String(accessToken || "").split(".")[1] || "";
+    return String(JSON.parse(Buffer.from(payload, "base64url").toString("utf8"))?.aal || "aal1").toLowerCase();
+  } catch (_error) {
+    return "aal1";
+  }
+}
+
+function superadminMfaSatisfied(role = "", assuranceLevel = "") {
+  return !["superadmin", "supaadmin"].includes(String(role || "").trim().toLowerCase()) || assuranceLevel === "aal2";
+}
+
 function normalizeText(value = "") {
   return String(value || "")
     .normalize("NFD")
@@ -135,7 +148,7 @@ async function authenticateUserWithSupabase(userAuthorizationHeader, supabaseUrl
   if (!isUuid(userId)) {
     return { ok: false, status: 401, error: "Ungültiger Benutzerkontext." };
   }
-  return { ok: true, userId };
+  return { ok: true, userId, assuranceLevel: getJwtAssuranceLevel(accessToken) };
 }
 
 async function callSupabaseRest(supabaseUrl, serviceRoleKey, path, options = {}) {
@@ -263,7 +276,12 @@ async function authorizeActiveUser(req, supabaseUrl, serviceRoleKey) {
   if (!callerProfile || callerStatus !== "active") {
     return { ok: false, status: 403, error: "Nur aktive Benutzer dürfen Partner-Anfragen öffnen." };
   }
-  return { ok: true, userId: authResult.userId, role: callerRole, privileged: isPrivilegedRole(callerRole) };
+  return {
+    ok: true,
+    userId: authResult.userId,
+    role: callerRole,
+    privileged: isPrivilegedRole(callerRole) && superadminMfaSatisfied(callerRole, authResult.assuranceLevel),
+  };
 }
 
 async function loadAppStateProviders(supabaseUrl, serviceRoleKey) {

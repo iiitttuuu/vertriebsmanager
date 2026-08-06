@@ -1031,6 +1031,9 @@ let appStatePermissionWarned = false;
 let authSession = null;
 let authProfile = null;
 let authFlowVersion = 0;
+let superadminMfaFactorId = "";
+let superadminMfaFlowId = 0;
+let superadminMfaEnrollmentActive = false;
 let boundEvents = false;
 let suppressNextSignedOutAuthMessage = false;
 let rolesRightsObserver = null;
@@ -1774,6 +1777,15 @@ const els = {
   authPasswordRecoveryCancel: document.getElementById("auth-password-recovery-cancel"),
   authSubmitBtn: document.getElementById("auth-submit-btn"),
   authMessage: document.getElementById("auth-message"),
+  superadminMfaModal: document.getElementById("superadmin-mfa-modal"),
+  superadminMfaDescription: document.getElementById("superadmin-mfa-description"),
+  superadminMfaEnrollment: document.getElementById("superadmin-mfa-enrollment"),
+  superadminMfaQr: document.getElementById("superadmin-mfa-qr"),
+  superadminMfaForm: document.getElementById("superadmin-mfa-form"),
+  superadminMfaCode: document.getElementById("superadmin-mfa-code"),
+  superadminMfaSubmit: document.getElementById("superadmin-mfa-submit"),
+  superadminMfaSignout: document.getElementById("superadmin-mfa-signout"),
+  superadminMfaFeedback: document.getElementById("superadmin-mfa-feedback"),
   currentUserLabel: document.getElementById("current-user-label"),
   signOutBtn: document.getElementById("sign-out-btn"),
   myAccountName: document.getElementById("my-account-name"),
@@ -3993,7 +4005,7 @@ async function restoreStartupSessionInBackground() {
     }
     showAuthGate("Sitzung gefunden. Dashboard wird geladen...");
     await withAsyncTimeout(
-      finishBootstrapAfterLogin(flowId),
+      activateSignedInSession(authSession, flowId),
       APP_STARTUP_TIMEOUT_MS,
       "Dashboard-Start hat zu lange gedauert."
     );
@@ -4744,6 +4756,13 @@ function bindEvents() {
   els.authPasswordRecoveryConfirm?.addEventListener("input", refreshPasswordRecoveryRules);
   els.authPasswordRecoveryCancel?.addEventListener("click", () => {
     void leavePasswordRecoveryMode();
+  });
+  els.superadminMfaForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void handleSuperadminMfaVerification();
+  });
+  els.superadminMfaSignout?.addEventListener("click", () => {
+    void handleSuperadminMfaSignOut();
   });
   els.signOutBtn.addEventListener("click", handleSignOut);
   els.myAccountPasswordForm?.addEventListener("submit", (event) => {
@@ -17722,7 +17741,7 @@ function resolveAccessibleSectionForRole(targetId, roleLike) {
   if (sectionId === "team-meeting-protocol-section" && !roleAdmin) {
     sectionId = fallbackSectionId;
   }
-  if (sectionId === "roles-rights-section" && !roleAdmin) {
+  if (sectionId === "roles-rights-section" && !roleSuperAdmin) {
     sectionId = fallbackSectionId;
   }
   if (sectionId === "partner-requests-section" && !getCurrentUser()) {
@@ -17804,7 +17823,7 @@ function getRolesRightsRuleSource(sectionId, panel, allowedByRole) {
     sources.push("UI: admin-only-view");
   }
   if (sectionId === "roles-rights-section") {
-    sources.push("Logik: resolveAccessibleSectionForRole");
+    sources.push("Logik: nur Superadmin");
   }
   if (!sources.length) {
     sources.push(`Logik: ${describeRolesRightsPattern(allowedByRole)}`);
@@ -67406,6 +67425,10 @@ async function handleSignOut() {
   if (!client) {
     return;
   }
+  superadminMfaFactorId = "";
+  superadminMfaFlowId = 0;
+  superadminMfaEnrollmentActive = false;
+  closeSuperadminMfaModal();
   clearProviderEditorResume();
   stopRemoteStateSync();
   stopPartnerRequestSync();
@@ -67427,6 +67450,192 @@ async function handleSignOut() {
   resetMarketingRuntime();
   setAuthMode("signin", { preserveMessage: true });
   showAuthGate("Bitte melde dich an.");
+}
+
+function requiresSuperadminMfa() {
+  return normalizeUserRole(authProfile?.role || "") === ROLE_SUPERADMIN;
+}
+
+function getVerifiedTotpFactor(factors) {
+  const totpFactors = Array.isArray(factors?.totp) ? factors.totp : [];
+  return totpFactors.find((factor) => String(factor?.status || "").toLowerCase() === "verified") || null;
+}
+
+function getMfaQrImageSource(qrCode = "") {
+  const value = String(qrCode || "").trim();
+  if (!value) {
+    return "";
+  }
+  if (value.startsWith("data:") || value.startsWith("https://")) {
+    return value;
+  }
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(value)}`;
+}
+
+function setSuperadminMfaFeedback(message = "", tone = "") {
+  if (!els.superadminMfaFeedback) {
+    return;
+  }
+  els.superadminMfaFeedback.textContent = String(message || "").trim();
+  els.superadminMfaFeedback.classList.toggle("is-error", tone === "error");
+  els.superadminMfaFeedback.classList.toggle("is-success", tone === "success");
+}
+
+function showSuperadminMfaModal(options = {}) {
+  if (!els.superadminMfaModal) {
+    return;
+  }
+  const enrollment = Boolean(options.enrollment);
+  if (els.superadminMfaDescription) {
+    els.superadminMfaDescription.textContent = String(options.description || "").trim();
+  }
+  if (els.superadminMfaEnrollment) {
+    els.superadminMfaEnrollment.classList.toggle("hidden", !enrollment);
+  }
+  if (els.superadminMfaQr) {
+    els.superadminMfaQr.src = enrollment ? getMfaQrImageSource(options.qrCode) : "";
+  }
+  if (els.superadminMfaForm) {
+    els.superadminMfaForm.classList.toggle("hidden", Boolean(options.disableVerification));
+  }
+  els.superadminMfaModal.classList.remove("hidden");
+  window.setTimeout(() => els.superadminMfaCode?.focus({ preventScroll: true }), 0);
+}
+
+function closeSuperadminMfaModal() {
+  if (els.superadminMfaModal) {
+    els.superadminMfaModal.classList.add("hidden");
+  }
+  if (els.superadminMfaCode) {
+    els.superadminMfaCode.value = "";
+  }
+  if (els.superadminMfaQr) {
+    els.superadminMfaQr.removeAttribute("src");
+  }
+  setSuperadminMfaFeedback();
+  syncBodyModalOpenState();
+}
+
+async function enforceSuperadminMfa(flowId = 0) {
+  if (!requiresSuperadminMfa()) {
+    closeSuperadminMfaModal();
+    return true;
+  }
+  const client = getSupabaseClient();
+  if (!client?.auth?.mfa) {
+    showSuperadminMfaModal({
+      description: "Die verpflichtende Authenticator-Prüfung ist in dieser Sitzung nicht verfügbar. Bitte erneut anmelden.",
+      disableVerification: true,
+    });
+    return false;
+  }
+
+  try {
+    const [{ data: assurance, error: assuranceError }, { data: factors, error: factorsError }] = await Promise.all([
+      client.auth.mfa.getAuthenticatorAssuranceLevel(),
+      client.auth.mfa.listFactors(),
+    ]);
+    if (assuranceError) {
+      throw assuranceError;
+    }
+    if (factorsError) {
+      throw factorsError;
+    }
+    const verifiedFactor = getVerifiedTotpFactor(factors);
+    const currentLevel = String(assurance?.currentLevel || "").toLowerCase();
+    if (verifiedFactor && currentLevel === "aal2") {
+      closeSuperadminMfaModal();
+      return true;
+    }
+
+    superadminMfaFlowId = flowId;
+    superadminMfaFactorId = String(verifiedFactor?.id || "").trim();
+    superadminMfaEnrollmentActive = !superadminMfaFactorId;
+    if (superadminMfaFactorId) {
+      showSuperadminMfaModal({
+        description: "Für Superadmins ist bei jeder Anmeldung ein Code aus der Authenticator-App erforderlich.",
+      });
+      return false;
+    }
+
+    const { data: enrollment, error: enrollmentError } = await client.auth.mfa.enroll({
+      factorType: "totp",
+      friendlyName: "CRM Superadmin",
+    });
+    if (enrollmentError || !enrollment?.id || !enrollment?.totp?.qr_code) {
+      throw enrollmentError || new Error("Authenticator-QR-Code konnte nicht erzeugt werden.");
+    }
+    superadminMfaFactorId = String(enrollment.id || "").trim();
+    showSuperadminMfaModal({
+      enrollment: true,
+      qrCode: enrollment.totp.qr_code,
+      description: "Richte jetzt deinen Authenticator ein. Ohne die erfolgreiche Bestätigung ist kein Zugriff als Superadmin möglich.",
+    });
+    return false;
+  } catch (error) {
+    console.error("Superadmin-MFA konnte nicht vorbereitet werden.", error);
+    showSuperadminMfaModal({
+      description: "Die Authenticator-Prüfung konnte nicht gestartet werden. Bitte abmelden und erneut versuchen.",
+      disableVerification: true,
+    });
+    return false;
+  }
+}
+
+async function handleSuperadminMfaVerification() {
+  const client = getSupabaseClient();
+  const code = String(els.superadminMfaCode?.value || "").replace(/\s/g, "");
+  if (!client?.auth?.mfa || !superadminMfaFactorId) {
+    setSuperadminMfaFeedback("Authenticator-Prüfung ist nicht bereit. Bitte erneut anmelden.", "error");
+    return;
+  }
+  if (!/^\d{6}$/.test(code)) {
+    setSuperadminMfaFeedback("Bitte gib den sechsstelligen Code aus der Authenticator-App ein.", "error");
+    els.superadminMfaCode?.focus();
+    return;
+  }
+
+  setActionButtonBusy(els.superadminMfaSubmit, true, "Prüft...");
+  setSuperadminMfaFeedback();
+  try {
+    const { data: challenge, error: challengeError } = await client.auth.mfa.challenge({ factorId: superadminMfaFactorId });
+    if (challengeError || !challenge?.id) {
+      throw challengeError || new Error("Authenticator-Code konnte nicht geprüft werden.");
+    }
+    const { error: verifyError } = await client.auth.mfa.verify({
+      factorId: superadminMfaFactorId,
+      challengeId: challenge.id,
+      code,
+    });
+    if (verifyError) {
+      throw verifyError;
+    }
+    const { data: refreshed, error: refreshError } = await client.auth.refreshSession();
+    if (refreshError || !refreshed?.session) {
+      throw refreshError || new Error("Sichere Sitzung konnte nicht aktualisiert werden.");
+    }
+    authSession = refreshed.session;
+    const { data: assurance, error: assuranceError } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (assuranceError || String(assurance?.currentLevel || "").toLowerCase() !== "aal2") {
+      throw assuranceError || new Error("Authenticator-Prüfung wurde nicht bestätigt.");
+    }
+    setSuperadminMfaFeedback("Authenticator erfolgreich bestätigt.", "success");
+    closeSuperadminMfaModal();
+    await finishBootstrapAfterLogin(superadminMfaFlowId);
+  } catch (error) {
+    const message = String(error?.message || "").trim();
+    setSuperadminMfaFeedback(message || "Der Code ist ungültig oder abgelaufen. Bitte erneut versuchen.", "error");
+  } finally {
+    setActionButtonBusy(els.superadminMfaSubmit, false);
+  }
+}
+
+async function handleSuperadminMfaSignOut() {
+  superadminMfaFactorId = "";
+  superadminMfaFlowId = 0;
+  superadminMfaEnrollmentActive = false;
+  closeSuperadminMfaModal();
+  await handleSignOut();
 }
 
 async function activateSignedInSession(session, flowId = 0) {
@@ -67468,6 +67677,11 @@ async function activateSignedInSession(session, flowId = 0) {
 
   if (!isUserStatusActive(authProfile.status)) {
     showAuthGate("Dein Zugang ist deaktiviert. Bitte Admin kontaktieren.");
+    return;
+  }
+
+  if (!(await enforceSuperadminMfa(flowId))) {
+    setAppLoadingState(false);
     return;
   }
 
