@@ -2059,6 +2059,7 @@ const els = {
   ceoSecretaryTeamMessageSend: document.getElementById("ceo-secretary-team-message-send"),
   ceoSecretaryBriefingHeading: document.getElementById("ceo-secretary-briefing-heading"),
   ceoSecretaryBriefingSummary: document.getElementById("ceo-secretary-briefing-summary"),
+  ceoSecretaryFollowupPrompt: document.getElementById("ceo-secretary-followup-prompt"),
   ceoSecretaryFocusList: document.getElementById("ceo-secretary-focus-list"),
   ceoSecretaryCommitmentCount: document.getElementById("ceo-secretary-commitment-count"),
   ceoSecretaryCommitmentSummary: document.getElementById("ceo-secretary-commitment-summary"),
@@ -4879,6 +4880,7 @@ function bindEvents() {
     const notificationId = String(notificationButton.dataset.adminNotificationId || "").trim();
     const notificationKind = String(notificationButton.dataset.adminNotificationKind || "").trim();
     const targetSection = String(notificationButton.dataset.adminNotificationTarget || "").trim();
+    const targetView = String(notificationButton.dataset.adminNotificationTargetView || "").trim();
     const providerId = String(notificationButton.dataset.adminNotificationProviderId || "").trim();
     const requestId = String(notificationButton.dataset.adminNotificationRequestId || "").trim();
     const noteId = String(notificationButton.dataset.adminNotificationNoteId || "").trim();
@@ -4917,6 +4919,9 @@ function bindEvents() {
     }
     renderAdminNotifications();
     openNotificationTarget({ targetSection, providerId, requestId });
+    if (targetSection === "ceo-secretary-section" && targetView === "briefing") {
+      setCeoSecretaryActiveView("briefing");
+    }
     if (notificationKind === "partner_request") {
       renderPartnerRequestBoard();
     }
@@ -12367,6 +12372,7 @@ function appendAdminSystemNotification(message, tone = "info", options = {}) {
     createdByRole: normalizeUserRole(actor?.role || ""),
     persistent: false,
     targetSection: String(options?.targetSection || "").trim(),
+    targetView: String(options?.targetView || "").trim(),
   });
   if (adminSystemNotifications.length > ADMIN_NOTIFICATION_MAX_SYSTEM_ITEMS) {
     adminSystemNotifications = adminSystemNotifications.slice(0, ADMIN_NOTIFICATION_MAX_SYSTEM_ITEMS);
@@ -14985,6 +14991,7 @@ function renderAdminNotifications() {
             data-admin-notification-id="${escapeHtml(entry.id)}"
             data-admin-notification-kind="${escapeHtml(entry.kind)}"
             data-admin-notification-target="${escapeHtml(entry.targetSection || "")}"
+            data-admin-notification-target-view="${escapeHtml(entry.targetView || "")}"
             data-admin-notification-provider-id="${escapeHtml(entry.providerId || "")}"
             data-admin-notification-request-id="${escapeHtml(entry.requestId || "")}"
             data-admin-notification-note-id="${escapeHtml(entry.noteId || "")}"
@@ -35812,21 +35819,23 @@ async function deliverCeoSecretaryDailyReminder() {
   }
   const userId = getAuthUid();
   if (!userId || hasSeenCeoSecretaryDailyReminder(userId)) return;
+  const focusEntries = getCeoSecretaryFocusEntries();
   const commitments = getCeoSecretaryCommitmentEntries();
-  if (!commitments.length) {
+  if (!focusEntries.length) {
     markCeoSecretaryDailyReminderSeen(userId);
     return;
   }
-  const text = `Zusagen-Radar: ${getCeoSecretaryCommitmentReminderText(commitments)} Öffne dein Briefing für die nächsten Schritte.`;
+  const briefing = getCeoSecretaryMorningBriefing(focusEntries, commitments);
   markCeoSecretaryDailyReminderSeen(userId);
-  appendAdminSystemNotification(text, commitments.some((entry) => isCeoSecretaryEntryOverdue(entry)) ? "warning" : "info", {
-    title: "Tagesbriefing · Sekretär",
+  appendAdminSystemNotification(briefing.summary, briefing.tone, {
+    title: "Morgenbriefing · Sekretär",
     targetSection: "ceo-secretary-section",
+    targetView: "briefing",
   });
   renderAdminNotifications();
   if (typeof Notification !== "undefined" && Notification.permission === "granted") {
     try {
-      new Notification("Dein Sekretär", { body: getCeoSecretaryCommitmentReminderText(commitments) });
+      new Notification("Dein Sekretär", { body: briefing.pushText });
     } catch (_error) {
       // Die Glocke ist die verlässliche tägliche Erinnerung.
     }
@@ -37070,6 +37079,42 @@ function getCeoSecretaryCommitmentReminderText(entries = getCeoSecretaryCommitme
   return `${entries.length} ${entries.length === 1 ? "Zusage wartet" : "Zusagen warten"} auf dein Nachhalten.`;
 }
 
+function getCeoSecretaryFollowupPrompt(entries = getCeoSecretaryFocusEntries()) {
+  const entry = (Array.isArray(entries) ? entries : []).find((candidate) => isCeoSecretaryEntryOverdue(candidate))
+    || (Array.isArray(entries) ? entries : []).find((candidate) => isCeoSecretaryEntryDue(candidate))
+    || (Array.isArray(entries) ? entries : [])[0];
+  if (!entry) return null;
+  const dueLabel = getCeoSecretaryDueLabel(entry);
+  const timing = isCeoSecretaryEntryOverdue(entry)
+    ? `ist ${dueLabel.toLocaleLowerCase("de-AT")}`
+    : isCeoSecretaryEntryDue(entry)
+      ? "ist heute fällig"
+      : "wartet noch auf einen nächsten Schritt";
+  return {
+    entry,
+    title: isCeoSecretaryCommitment(entry) ? "Jetzt nachfassen" : "Nächster klarer Schritt",
+    text: `„${entry.title}" ${timing}. Öffne den Punkt und entscheide: erledigt, verschieben oder ergänzen.`,
+  };
+}
+
+function getCeoSecretaryMorningBriefing(focusEntries = getCeoSecretaryFocusEntries(), commitments = getCeoSecretaryCommitmentEntries()) {
+  const overdueCount = focusEntries.filter((entry) => isCeoSecretaryEntryOverdue(entry)).length;
+  const todayCount = focusEntries.filter((entry) => isCeoSecretaryEntryDue(entry)).length;
+  const followup = getCeoSecretaryFollowupPrompt(focusEntries);
+  const headline = overdueCount
+    ? `${overdueCount} ${overdueCount === 1 ? "Punkt ist" : "Punkte sind"} überfällig.`
+    : todayCount
+      ? `${todayCount} ${todayCount === 1 ? "Punkt ist" : "Punkte sind"} heute fällig.`
+      : `${focusEntries.length} offene ${focusEntries.length === 1 ? "Schleife wartet" : "Schleifen warten"} auf Priorisierung.`;
+  const commitmentHint = commitments.length ? ` ${getCeoSecretaryCommitmentReminderText(commitments)}` : "";
+  return {
+    summary: `${headline}${commitmentHint}${followup ? ` ${followup.text}` : " Öffne dein Briefing für den nächsten Schritt."}`,
+    pushText: followup ? `${headline} ${followup.text}` : headline,
+    tone: overdueCount ? "warning" : "info",
+    followup,
+  };
+}
+
 function getCeoSecretaryGreeting() {
   const focusEntries = getCeoSecretaryFocusEntries();
   const overdueCount = focusEntries.filter((entry) => isCeoSecretaryEntryOverdue(entry)).length;
@@ -37139,6 +37184,13 @@ function renderCeoSecretaryBriefing() {
         : focusEntries.length
           ? "Keine Frist brennt. Diese offenen Punkte behält dein Sekretär trotzdem im Blick."
           : "Du hast aktuell keine offenen Schleifen. Nutze die Zeit für das, was das Unternehmen voranbringt.";
+  }
+  const followup = getCeoSecretaryFollowupPrompt(focusEntries);
+  if (els.ceoSecretaryFollowupPrompt) {
+    els.ceoSecretaryFollowupPrompt.classList.toggle("hidden", !followup);
+    els.ceoSecretaryFollowupPrompt.innerHTML = followup
+      ? `<div><span>${escapeHtml(followup.title)}</span><strong>${escapeHtml(followup.entry.title)}</strong><p>${escapeHtml(followup.text)}</p></div><button type="button" class="mini-btn" data-ceo-secretary-detail="${escapeHtml(followup.entry.id)}">Punkt öffnen</button>`
+      : "";
   }
   if (!els.ceoSecretaryFocusList) {
     return;
@@ -37546,8 +37598,11 @@ function renderCeoSecretarySection() {
         : "Lernt deine Arbeitsweise";
   }
   if (els.ceoSecretaryHeaderStatus) {
+    const followup = getCeoSecretaryFollowupPrompt();
     els.ceoSecretaryHeaderStatus.textContent = ceoSecretaryAssistantWorking
       ? "Ich bereite deine nächsten Schritte vor."
+      : followup
+        ? `${followup.title}: ${followup.entry.title}`
       : "Denkt mit, hält nach und schützt deinen Fokus.";
   }
   renderCeoSecretaryChat();

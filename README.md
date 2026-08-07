@@ -51,7 +51,33 @@ Dann `http://localhost:8080/index.html` oeffnen.
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
    - Die folgenden Werte gehören **nicht** in `config.js`: Im Vercel-Projekt unter *Settings → Environment Variables* `SUPABASE_SERVICE_ROLE_KEY` (und empfehlenswert auch `SUPABASE_URL`) setzen. Der Service-Role-Key wird nur von den geschützten Server-Endpunkten für Einladungen verwendet und darf nie an den Browser ausgeliefert werden.
+   - Für den CEO-Sekretär zusätzlich ausschließlich in Vercel `OPENAI_API_KEY` setzen. Optional lässt sich mit `OPENAI_CEO_SECRETARY_MODEL` ein freigegebenes Responses-API-Modell festlegen; ohne diesen Wert verwendet der Server sein Standardmodell. Der Schlüssel darf nie in `config.js`, im Browser oder im Repository stehen.
 13. Seite neu laden. Danach liest/schreibt die App in Supabase.
+
+## CEO-Sekretär aktivieren
+
+Der Sekretär arbeitet bewusst nur im privaten CEO Office und erfordert eine
+bestätigte Superadmin-MFA-Sitzung (AAL2). Nach dem Login erstellt er einmal pro
+Kalendertag ein Morgenbriefing in der Glocke: offene und überfällige Punkte,
+Zusagen sowie der eine sinnvollste nächste Nachfasspunkt. Das Briefing wird aus
+dem privaten CEO-Gedächtnis erzeugt; es verändert keine Aufgabe und keine CRM-Daten.
+
+Voraussetzungen:
+
+1. Die SQL-Patches in dieser Reihenfolge im Supabase SQL Editor ausführen:
+   `supabase/patch_ceo_secretary.sql`, `supabase/patch_ceo_secretary_ai.sql`,
+   `supabase/patch_ceo_secretary_knowledge_base.sql`,
+   `supabase/patch_ceo_secretary_crm_links.sql`,
+   `supabase/patch_ceo_secretary_security.sql` und
+   `supabase/patch_ceo_secretary_knowledge_workspace.sql`. Anschließend zwingend
+   `supabase/patch_superadmin_mfa.sql` und
+   `supabase/patch_admin_mfa.sql` ausführen, damit die CEO-Office-RLS nur mit
+   einer AAL2-/Authenticator-Sitzung greift.
+2. In Vercel die geschützten Variablen `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY` und `OPENAI_API_KEY` setzen.
+3. Mit einer AAL2-Superadmin-Sitzung anmelden. Ohne OpenAI-Schlüssel bleibt das
+   sichere Notiz- und Briefing-Fallback aktiv; intelligente Einordnung wird klar
+   als noch nicht aktiviert ausgewiesen.
 
 ## Login / Mitarbeiter-Flow
 

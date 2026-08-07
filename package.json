@@ -6,7 +6,8 @@
     "test:resilience": "node scripts/test-crm-resilience.mjs",
     "test:persistence": "node scripts/test-persistence-verification.mjs",
     "test:secretary-knowledge": "node scripts/test-ceo-secretary-knowledge-base.mjs",
-    "test": "npm run test:provision && npm run test:provider-workflow && npm run test:provider-invitation-api && npm run test:resilience && npm run test:persistence && npm run test:secretary-knowledge"
+    "test:secretary-proactivity": "node scripts/test-ceo-secretary-proactivity.mjs",
+    "test": "npm run test:provision && npm run test:provider-workflow && npm run test:provider-invitation-api && npm run test:resilience && npm run test:persistence && npm run test:secretary-knowledge && npm run test:secretary-proactivity"
   },
   "dependencies": {
     "vercel": "^50.37.3",

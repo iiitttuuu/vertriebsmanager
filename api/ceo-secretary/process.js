@@ -34,6 +34,15 @@ async function parseBody(req) {
   return {};
 }
 
+function getJwtAssuranceLevel(accessToken = "") {
+  try {
+    const payload = String(accessToken || "").split(".")[1] || "";
+    return String(JSON.parse(Buffer.from(payload, "base64url").toString("utf8"))?.aal || "aal1").toLowerCase();
+  } catch (_error) {
+    return "aal1";
+  }
+}
+
 async function authenticateSuperadmin(req, supabaseUrl, serviceRoleKey) {
   const authorization = String(req.headers.authorization || "").trim();
   if (!authorization.toLowerCase().startsWith("bearer ")) {
@@ -42,6 +51,9 @@ async function authenticateSuperadmin(req, supabaseUrl, serviceRoleKey) {
   const token = authorization.slice(7).trim();
   if (!token) {
     return { ok: false, status: 401, error: "Ungültiger Login-Token." };
+  }
+  if (getJwtAssuranceLevel(token) !== "aal2") {
+    return { ok: false, status: 403, error: "Für das CEO Office ist eine bestätigte Authenticator-Sitzung erforderlich." };
   }
 
   const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {

@@ -27002,6 +27002,48 @@ body {
   line-height: 1.48;
 }
 
+.ceo-secretary-followup-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #f1d49a;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #fff8e8, #fffdf8);
+  padding: 13px 14px;
+}
+
+.ceo-secretary-followup-prompt > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.ceo-secretary-followup-prompt span {
+  color: #99631d;
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.ceo-secretary-followup-prompt strong {
+  color: #5d3b12;
+  font-size: 0.88rem;
+}
+
+.ceo-secretary-followup-prompt p {
+  margin: 0;
+  color: #785b35;
+  font-size: 0.78rem;
+  line-height: 1.42;
+}
+
+.ceo-secretary-followup-prompt .mini-btn {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .ceo-secretary-focus-list {
   display: grid;
   gap: 8px;
@@ -27212,6 +27254,16 @@ body {
 
   .ceo-secretary-chat-message {
     max-width: 95%;
+  }
+
+  .ceo-secretary-followup-prompt {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ceo-secretary-followup-prompt .mini-btn {
+    width: 100%;
+    margin-left: 0;
   }
 
   .ceo-secretary-message-actions .btn {
