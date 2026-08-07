@@ -32514,3 +32514,105 @@ button.table-btn.delete-icon-button {
   min-height: 36px;
   padding: 0;
 }
+
+/* Einfache private Ideensammlung: festhalten, wiederfinden, später entscheiden. */
+.ceo-secretary-view-tabs {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: min(100%, 760px);
+}
+
+.ceo-secretary-idea-collection {
+  display: grid;
+  gap: 18px;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid rgba(60, 60, 67, 0.14);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 42px rgba(20, 31, 46, 0.07);
+}
+
+.ceo-secretary-idea-collection-head,
+.ceo-secretary-idea-form-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ceo-secretary-idea-collection-head h3 {
+  margin: 0;
+  color: #1d1d1f;
+  font-size: 1.15rem;
+  letter-spacing: -0.025em;
+}
+
+.ceo-secretary-idea-collection-head p:not(.ceo-secretary-eyebrow),
+.ceo-secretary-idea-form-actions p {
+  margin: 5px 0 0;
+  color: #6e6e73;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.ceo-secretary-idea-collection-count {
+  display: inline-grid;
+  min-width: 30px;
+  min-height: 30px;
+  place-items: center;
+  border-radius: 999px;
+  background: #f2f2f7;
+  color: #515154;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.ceo-secretary-idea-form {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(60, 60, 67, 0.14);
+  border-radius: 18px;
+  background: #fbfbfd;
+}
+
+.ceo-secretary-idea-form textarea {
+  width: 100%;
+  min-height: 86px;
+  box-sizing: border-box;
+  resize: vertical;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #1d1d1f;
+  font: inherit;
+  line-height: 1.55;
+}
+
+.ceo-secretary-idea-form-actions {
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid rgba(60, 60, 67, 0.11);
+}
+
+.ceo-secretary-idea-form-actions p { margin: 0; }
+.ceo-secretary-idea-form-actions .btn { border-radius: 999px; white-space: nowrap; }
+.ceo-secretary-idea-collection-list { gap: 10px; }
+.ceo-secretary-idea-collection-entry { border-left: 3px solid #8d6ce5; }
+
+@media (max-width: 700px) {
+  .ceo-secretary-view-tabs {
+    display: flex;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .ceo-secretary-view-tabs::-webkit-scrollbar { display: none; }
+  .ceo-secretary-view-tab { flex: 0 0 auto; min-width: 116px; }
+}
+
+@media (max-width: 480px) {
+  .ceo-secretary-idea-collection-head,
+  .ceo-secretary-idea-form-actions { flex-direction: column; align-items: stretch; }
+  .ceo-secretary-idea-collection-count { width: fit-content; }
+  .ceo-secretary-idea-form-actions .btn { width: 100%; }
+}

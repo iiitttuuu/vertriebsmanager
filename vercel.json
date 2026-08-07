@@ -3,6 +3,14 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/app-provider-workflow-v83",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/styles-provider-workflow-v78",
+      "destination": "/styles.css"
+    },
+    {
       "source": "/app-provider-workflow-v82",
       "destination": "/app.js"
     },

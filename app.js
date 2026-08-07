@@ -2035,16 +2035,19 @@ const els = {
   ceoSecretaryMemoryCount: document.getElementById("ceo-secretary-memory-count"),
   ceoSecretaryIdeaCount: document.getElementById("ceo-secretary-idea-count"),
   ceoSecretaryKnowledgeCount: document.getElementById("ceo-secretary-knowledge-count"),
-  ceoSecretaryOpenIdeaBoard: document.getElementById("ceo-secretary-open-idea-board"),
-  ceoSecretaryIdeaBoardPanel: document.getElementById("ceo-secretary-idea-board-panel"),
+  ceoSecretaryIdeaForm: document.getElementById("ceo-secretary-idea-form"),
+  ceoSecretaryIdeaInput: document.getElementById("ceo-secretary-idea-input"),
+  ceoSecretaryIdeaSaveBtn: document.getElementById("ceo-secretary-idea-save-btn"),
+  ceoSecretaryIdeaCollectionList: document.getElementById("ceo-secretary-idea-collection-list"),
+  ceoSecretaryIdeaCollectionEmpty: document.getElementById("ceo-secretary-idea-collection-empty"),
+  ceoSecretaryIdeaCollectionCount: document.getElementById("ceo-secretary-idea-collection-count"),
   ceoSecretaryHeaderStatus: document.getElementById("ceo-secretary-header-status"),
   ceoSecretaryViewButtons: document.querySelectorAll("[data-ceo-secretary-view]"),
   ceoSecretaryViewSecretary: document.getElementById("ceo-secretary-view-secretary"),
   ceoSecretaryViewBriefing: document.getElementById("ceo-secretary-view-briefing"),
   ceoSecretaryViewMemory: document.getElementById("ceo-secretary-view-memory"),
+  ceoSecretaryViewIdeas: document.getElementById("ceo-secretary-view-ideas"),
   ceoSecretaryViewNotifications: document.getElementById("ceo-secretary-view-notifications"),
-  ceoSecretaryIdeaStats: document.getElementById("ceo-secretary-idea-stats"),
-  ceoSecretaryIdeaBoard: document.getElementById("ceo-secretary-idea-board"),
   ceoSecretaryChatFeed: document.getElementById("ceo-secretary-chat-feed"),
   ceoSecretaryLearningStatus: document.getElementById("ceo-secretary-learning-status"),
   ceoSecretarySuggestionButtons: document.querySelectorAll("[data-ceo-secretary-suggestion]"),
@@ -6004,11 +6007,9 @@ function bindEvents() {
       renderCeoSecretarySection();
     });
   });
-  els.ceoSecretaryOpenIdeaBoard?.addEventListener("click", () => {
-    if (els.ceoSecretaryIdeaBoardPanel) {
-      els.ceoSecretaryIdeaBoardPanel.open = true;
-      els.ceoSecretaryIdeaBoardPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
+  els.ceoSecretaryIdeaForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void handleCeoSecretaryIdeaCaptureSubmit();
   });
   els.ceoSecretaryViewButtons?.forEach((button) => {
     button.addEventListener("click", () => {
@@ -6032,14 +6033,6 @@ function bindEvents() {
     if (!isSuperAdmin()) {
       return;
     }
-    const workspaceStatusButton = event.target.closest("button[data-ceo-secretary-workspace-status]");
-    if (workspaceStatusButton) {
-      void updateCeoSecretaryWorkspaceStatus(
-        workspaceStatusButton.dataset.ceoSecretaryEntryId || "",
-        workspaceStatusButton.dataset.ceoSecretaryWorkspaceStatus || ""
-      );
-      return;
-    }
     const toggleButton = event.target.closest("button[data-ceo-secretary-toggle]");
     if (toggleButton) {
       void handleCeoSecretaryToggleCompleted(toggleButton.dataset.ceoSecretaryToggle || "");
@@ -6060,18 +6053,17 @@ function bindEvents() {
       openCeoSecretaryDetailModal(detailTarget.dataset.ceoSecretaryDetail || "");
     }
   });
-  els.ceoSecretaryIdeaBoard?.addEventListener("click", (event) => {
+  els.ceoSecretaryIdeaCollectionList?.addEventListener("click", (event) => {
     if (!isSuperAdmin()) return;
-    const workspaceStatusButton = event.target.closest("button[data-ceo-secretary-workspace-status]");
-    if (workspaceStatusButton) {
-      void updateCeoSecretaryWorkspaceStatus(
-        workspaceStatusButton.dataset.ceoSecretaryEntryId || "",
-        workspaceStatusButton.dataset.ceoSecretaryWorkspaceStatus || ""
-      );
+    const editButton = event.target.closest("button[data-ceo-secretary-edit]");
+    if (editButton) {
+      beginCeoSecretaryEdit(editButton.dataset.ceoSecretaryEdit || "");
       return;
     }
-    const detailTarget = event.target.closest("[data-ceo-secretary-detail]");
-    if (detailTarget) openCeoSecretaryDetailModal(detailTarget.dataset.ceoSecretaryDetail || "");
+    const deleteButton = event.target.closest("button[data-ceo-secretary-delete]");
+    if (deleteButton) {
+      void handleCeoSecretaryDelete(deleteButton.dataset.ceoSecretaryDelete || "");
+    }
   });
   els.ceoSecretaryMemoryEntryList?.addEventListener("click", (event) => {
     if (!isSuperAdmin()) return;
@@ -36066,6 +36058,44 @@ async function persistCeoSecretaryAnalyzedEntries(client, entries) {
   return savedEntries;
 }
 
+async function handleCeoSecretaryIdeaCaptureSubmit() {
+  if (!isSuperAdmin()) return;
+  const message = String(els.ceoSecretaryIdeaInput?.value || "").trim();
+  if (!message) return;
+  const client = getSupabaseClient();
+  if (!client) {
+    ceoSecretaryLastError = "Keine sichere Verbindung zum CEO Office verfügbar.";
+    renderCeoSecretarySection();
+    return;
+  }
+
+  setActionButtonBusy(els.ceoSecretaryIdeaSaveBtn, true, "Wird gespeichert …");
+  ceoSecretaryLastError = "";
+  try {
+    await persistCeoSecretaryAnalyzedEntries(client, [
+      {
+        type: "idea",
+        title: createCeoSecretaryTitle(message),
+        body: message,
+        context: "",
+        tags: [],
+        dueDate: "",
+        priority: "normal",
+      },
+    ]);
+    if (els.ceoSecretaryIdeaInput) els.ceoSecretaryIdeaInput.value = "";
+    ceoSecretaryLoadedRemote = true;
+    ceoSecretaryRemoteUnavailable = false;
+    showSuccessFeedback("Idee festgehalten.", { toast: false, statusPersistMs: 1800 });
+  } catch (error) {
+    console.warn("Idee konnte nicht gespeichert werden.", error);
+    ceoSecretaryLastError = getCeoSecretaryRemoteErrorMessage(error);
+  } finally {
+    setActionButtonBusy(els.ceoSecretaryIdeaSaveBtn, false);
+    renderCeoSecretarySection();
+  }
+}
+
 function normalizeCeoSecretaryAssistantAction(rawAction) {
   const action = String(rawAction?.action || "").trim().toLowerCase();
   const targetId = String(rawAction?.targetId || rawAction?.target_id || "").trim();
@@ -36964,13 +36994,13 @@ function renderCeoSecretaryLegacySection() {
 
 function normalizeCeoSecretaryView(value) {
   const view = String(value || "").trim().toLowerCase();
-  return ["secretary", "briefing", "memory", "notifications"].includes(view) ? view : "secretary";
+  return ["secretary", "briefing", "memory", "ideas", "notifications"].includes(view) ? view : "secretary";
 }
 
 function setCeoSecretaryActiveView(nextView) {
   ceoSecretaryActiveView = normalizeCeoSecretaryView(nextView);
   renderCeoSecretarySection();
-  if (ceoSecretaryActiveView === "memory") {
+  if (["memory", "ideas"].includes(ceoSecretaryActiveView)) {
     void hydrateCeoSecretaryEntriesFromSupabase({ force: true });
   }
 }
@@ -37172,12 +37202,10 @@ function renderCeoSecretaryMemory() {
     const type = sanitizeCeoSecretaryEntryType(entry.type);
     const dueLabel = getCeoSecretaryDueLabel(entry);
     const canComplete = ["task", "followup"].includes(type);
-    const workspaceStatus = getCeoSecretaryWorkspaceStatus(entry);
     return `<article class="ceo-secretary-entry ${entry.completed ? "is-completed" : ""} ${isCeoSecretaryEntryOverdue(entry) ? "is-overdue" : ""}">
       <div class="ceo-secretary-entry-main">
         <div class="ceo-secretary-entry-meta">
           <span class="ceo-secretary-entry-type ceo-secretary-entry-type-${escapeHtml(type)}">${escapeHtml(getCeoSecretaryEntryTypeLabel(type))}</span>
-          ${workspaceStatus ? `<span>${escapeHtml(CEO_SECRETARY_WORKSPACE_STATUS_LABELS[workspaceStatus] || workspaceStatus)}</span>` : ""}
           ${entry.context ? `<span>${escapeHtml(entry.context)}</span>` : ""}
           ${(entry.tags || []).map((tag) => `<span class="ceo-secretary-entry-tag">#${escapeHtml(tag)}</span>`).join("")}
           ${dueLabel ? `<span class="ceo-secretary-entry-due">${escapeHtml(dueLabel)}</span>` : ""}
@@ -37194,64 +37222,38 @@ function renderCeoSecretaryMemory() {
   }).join("");
 }
 
-function renderCeoSecretaryWorkspaceStats(element, items, definitions) {
-  if (!element) return;
-  element.innerHTML = definitions
-    .map(({ label, status, tone }) => `<span class="ceo-secretary-workspace-stat is-${escapeHtml(tone)}"><strong>${items.filter((entry) => getCeoSecretaryWorkspaceStatus(entry) === status).length}</strong>${escapeHtml(label)}</span>`)
-    .join("");
-}
-
-function renderCeoSecretaryIdeaBoard() {
-  if (!els.ceoSecretaryIdeaBoard) return;
-  const ideas = ceoSecretaryEntries.filter((entry) => entry.type === "idea");
-  const columns = [
-    { status: "inbox", label: "Neu", hint: "Frisch festgehalten", tone: "new" },
-    { status: "exploring", label: "Weiterdenken", hint: "Noch schärfen", tone: "exploring" },
-    { status: "planned", label: "Geplant", hint: "Bereit für den nächsten Schritt", tone: "planned" },
-    { status: "archived", label: "Archiv", hint: "Bewusst zurückgestellt", tone: "archived" },
-  ];
-  renderCeoSecretaryWorkspaceStats(els.ceoSecretaryIdeaStats, ideas, columns);
-  const renderCard = (entry) => {
-    const status = getCeoSecretaryWorkspaceStatus(entry);
-    return `<article class="ceo-secretary-idea-card" data-ceo-secretary-detail="${escapeHtml(entry.id)}">
-      <div class="ceo-secretary-idea-card-head"><span>${escapeHtml(CEO_SECRETARY_WORKSPACE_STATUS_LABELS[status] || "Idee")}</span><small>${escapeHtml(formatCeoSecretaryEntryTimestamp(entry.updatedAt || entry.createdAt) || "Neu")}</small></div>
-      <h4>${escapeHtml(entry.title)}</h4>
-      ${entry.body !== entry.title ? `<p>${escapeHtml(entry.body)}</p>` : ""}
-      ${(entry.tags || []).length ? `<div class="ceo-secretary-card-tags">${entry.tags.map((tag) => `<span>#${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
-      <div class="ceo-secretary-card-actions">
-        ${["inbox", "exploring", "planned", "archived"].filter((candidate) => candidate !== status).map((candidate) => `<button type="button" class="${candidate === "archived" ? "is-quiet" : ""}" data-ceo-secretary-workspace-status="${escapeHtml(candidate)}" data-ceo-secretary-entry-id="${escapeHtml(entry.id)}">${escapeHtml(candidate === "archived" ? "Archivieren" : CEO_SECRETARY_WORKSPACE_STATUS_LABELS[candidate])}</button>`).join("")}
-      </div>
-    </article>`;
-  };
-  els.ceoSecretaryIdeaBoard.innerHTML = columns
-    .map((column) => {
-      const items = ideas.filter((entry) => getCeoSecretaryWorkspaceStatus(entry) === column.status);
-      return `<section class="ceo-secretary-idea-column is-${escapeHtml(column.tone)}"><div class="ceo-secretary-idea-column-head"><div><span>${escapeHtml(column.label)}</span><small>${escapeHtml(column.hint)}</small></div><b>${items.length}</b></div><div class="ceo-secretary-idea-column-list">${items.length ? items.map(renderCard).join("") : '<p>Hier ist Raum für den nächsten Gedanken.</p>'}</div></section>`;
-    })
-    .join("");
-}
-
-async function updateCeoSecretaryWorkspaceStatus(entryId, nextStatus) {
-  const entry = getCeoSecretaryEntryById(entryId);
-  const workspaceStatus = sanitizeCeoSecretaryWorkspaceStatus(nextStatus);
-  const client = getSupabaseClient();
-  if (!entry || !workspaceStatus || !client || !["idea", "knowledge"].includes(entry.type)) return;
-  try {
-    const { data, error } = await client
-      .from(getCeoSecretaryTable())
-      .update({ workspace_status: workspaceStatus })
-      .eq("id", entry.id)
-      .select()
-      .single();
-    if (error) throw error;
-    const savedEntry = normalizeCeoSecretaryEntry(data);
-    ceoSecretaryEntries = normalizeCeoSecretaryEntries(ceoSecretaryEntries.map((candidate) => candidate.id === entry.id ? savedEntry || candidate : candidate));
-    showSuccessFeedback(`Status: ${CEO_SECRETARY_WORKSPACE_STATUS_LABELS[workspaceStatus]}.`, { toast: false, statusPersistMs: 1600 });
-  } catch (error) {
-    console.warn("Status der Wissensbasis konnte nicht gespeichert werden.", error);
-    ceoSecretaryLastError = getCeoSecretaryRemoteErrorMessage(error);
+function renderCeoSecretaryIdeaCollection() {
+  if (!els.ceoSecretaryIdeaCollectionList || !els.ceoSecretaryIdeaCollectionEmpty) return;
+  const ideas = ceoSecretaryEntries
+    .filter((entry) => entry.type === "idea")
+    .sort((left, right) => String(right.updatedAt || right.createdAt || "").localeCompare(String(left.updatedAt || left.createdAt || "")));
+  if (els.ceoSecretaryIdeaCollectionCount) {
+    els.ceoSecretaryIdeaCollectionCount.textContent = String(ideas.length);
   }
-  renderCeoSecretarySection();
+  if (!ideas.length) {
+    els.ceoSecretaryIdeaCollectionList.innerHTML = "";
+    els.ceoSecretaryIdeaCollectionEmpty.textContent = "Noch keine Idee festgehalten. Schreib einfach den ersten Gedanken auf.";
+    els.ceoSecretaryIdeaCollectionEmpty.classList.remove("hidden");
+    return;
+  }
+  els.ceoSecretaryIdeaCollectionEmpty.classList.add("hidden");
+  els.ceoSecretaryIdeaCollectionList.innerHTML = ideas
+    .map((entry) => `<article class="ceo-secretary-entry ceo-secretary-idea-collection-entry">
+      <div class="ceo-secretary-entry-main">
+        <div class="ceo-secretary-entry-meta">
+          <span class="ceo-secretary-entry-type ceo-secretary-entry-type-idea">Idee</span>
+          <span>${escapeHtml(formatCeoSecretaryEntryTimestamp(entry.updatedAt || entry.createdAt) || "Gerade eben")}</span>
+          ${(entry.tags || []).map((tag) => `<span class="ceo-secretary-entry-tag">#${escapeHtml(tag)}</span>`).join("")}
+        </div>
+        <h4>${escapeHtml(entry.title)}</h4>
+        ${entry.body !== entry.title ? `<p>${escapeHtml(entry.body)}</p>` : ""}
+      </div>
+      <div class="ceo-secretary-entry-actions">
+        <button type="button" class="mini-btn" data-ceo-secretary-edit="${escapeHtml(entry.id)}">Bearbeiten</button>
+        <button type="button" class="mini-btn danger" data-ceo-secretary-delete="${escapeHtml(entry.id)}" aria-label="Idee löschen">✕</button>
+      </div>
+    </article>`)
+    .join("");
 }
 
 function getCeoSecretaryMessageRecipients() {
@@ -37531,6 +37533,7 @@ function renderCeoSecretarySection() {
     secretary: els.ceoSecretaryViewSecretary,
     briefing: els.ceoSecretaryViewBriefing,
     memory: els.ceoSecretaryViewMemory,
+    ideas: els.ceoSecretaryViewIdeas,
     notifications: els.ceoSecretaryViewNotifications,
   };
   Object.entries(panels).forEach(([view, panel]) => panel?.classList.toggle("hidden", view !== ceoSecretaryActiveView));
@@ -37550,7 +37553,7 @@ function renderCeoSecretarySection() {
   renderCeoSecretaryChat();
   renderCeoSecretaryBriefing();
   renderCeoSecretaryMemory();
-  renderCeoSecretaryIdeaBoard();
+  renderCeoSecretaryIdeaCollection();
 }
 
 function shouldHydrateCeoSecretaryNow() {

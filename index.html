@@ -6,12 +6,12 @@
     <title>CRM | my-waycard</title>
     <link id="site-favicon" rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-    <link rel="stylesheet" href="/styles-provider-workflow-v77" />
+    <link rel="stylesheet" href="/styles-provider-workflow-v78" />
     <!-- Defer lädt die Abhängigkeiten bereits während das umfangreiche Dashboard-HTML
          geparst wird; die Reihenfolge bleibt garantiert erhalten. -->
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="config.js?v=20260729-supabase-publishable-key-v1"></script>
-    <script defer src="/app-provider-workflow-v82"></script>
+    <script defer src="/app-provider-workflow-v83"></script>
   </head>
   <body class="app-loading auth-locked">
     <div id="auth-gate" class="auth-gate hidden">
@@ -2232,6 +2232,7 @@
             <button type="button" class="ceo-secretary-view-tab is-active" data-ceo-secretary-view="secretary" role="tab" aria-selected="true">Sekretär</button>
             <button type="button" class="ceo-secretary-view-tab" data-ceo-secretary-view="briefing" role="tab" aria-selected="false">Briefing</button>
             <button type="button" class="ceo-secretary-view-tab" data-ceo-secretary-view="memory" role="tab" aria-selected="false">Gedächtnis</button>
+            <button type="button" class="ceo-secretary-view-tab" data-ceo-secretary-view="ideas" role="tab" aria-selected="false">Ideensammlung</button>
             <button type="button" class="ceo-secretary-view-tab" data-ceo-secretary-view="notifications" role="tab" aria-selected="false">Glocke</button>
           </div>
 
@@ -2317,15 +2318,32 @@
                     <button type="button" data-ceo-secretary-memory-filter="knowledge">Wissen <span id="ceo-secretary-knowledge-count">0</span></button>
                     <button type="button" data-ceo-secretary-memory-filter="open">Offene Punkte</button>
                   </div>
-                  <button type="button" id="ceo-secretary-open-idea-board" class="ceo-secretary-open-board">Ideenboard öffnen</button>
                 </div>
                 <div id="ceo-secretary-memory-entry-list" class="ceo-secretary-entry-list"></div>
                 <p id="ceo-secretary-memory-empty" class="empty hidden"></p>
-                <details id="ceo-secretary-idea-board-panel" class="ceo-secretary-inline-board">
-                  <summary>Ideenboard</summary>
-                  <div id="ceo-secretary-idea-stats" class="ceo-secretary-workspace-stats" aria-live="polite"></div>
-                  <div id="ceo-secretary-idea-board" class="ceo-secretary-idea-board" aria-label="Ideen nach Status"></div>
-                </details>
+              </article>
+            </section>
+
+            <section id="ceo-secretary-view-ideas" class="ceo-secretary-view-panel hidden" role="tabpanel">
+              <article class="ceo-secretary-idea-collection">
+                <div class="ceo-secretary-idea-collection-head">
+                  <div>
+                    <p class="ceo-secretary-eyebrow">Ideensammlung</p>
+                    <h3>Gedanken festhalten, bevor sie verloren gehen</h3>
+                    <p>Einfach notieren. Alles Weitere entscheidest du später.</p>
+                  </div>
+                  <span id="ceo-secretary-idea-collection-count" class="ceo-secretary-idea-collection-count">0</span>
+                </div>
+                <form id="ceo-secretary-idea-form" class="ceo-secretary-idea-form">
+                  <label class="sr-only" for="ceo-secretary-idea-input">Neue Idee</label>
+                  <textarea id="ceo-secretary-idea-input" rows="3" placeholder="Neue Idee festhalten ..." required></textarea>
+                  <div class="ceo-secretary-idea-form-actions">
+                    <p>Kurze Stichworte reichen – deine Idee wird direkt gespeichert.</p>
+                    <button type="submit" id="ceo-secretary-idea-save-btn" class="btn btn-success">Idee festhalten</button>
+                  </div>
+                </form>
+                <div id="ceo-secretary-idea-collection-list" class="ceo-secretary-entry-list ceo-secretary-idea-collection-list"></div>
+                <p id="ceo-secretary-idea-collection-empty" class="empty hidden"></p>
               </article>
             </section>
 

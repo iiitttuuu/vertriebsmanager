@@ -441,8 +441,8 @@ assert.match(
   /hasExplicitProviderTableSyncAction\(providersSync\)[\s\S]*providers_sync_failed/,
   "Explizite Anbieter-Änderungen fallen nicht still auf app_state zurück."
 );
-assert.match(indexSource, /app-provider-workflow-v82/, "Die Anbieter-Statuslogik wird ohne Browser-Cache geladen.");
-assert.match(indexSource, /styles-provider-workflow-v77/, "Die Anbieter-Statusleiste wird ohne Browser-Cache gestaltet.");
+assert.match(indexSource, /app-provider-workflow-v83/, "Die Anbieter-Statuslogik wird ohne Browser-Cache geladen.");
+assert.match(indexSource, /styles-provider-workflow-v78/, "Die Anbieter-Statusleiste wird ohne Browser-Cache gestaltet.");
 assert.match(
   indexSource,
   /id="roles-rights-section" class="panel card superadmin-only-view"[\s\S]*automatisch erzeugt/,
@@ -655,7 +655,7 @@ assert.match(appSource, /await persistCriticalStateSnapshot\(\{ retries: 3 \}\)/
 assert.match(indexSource, /id="ceo-secretary-team-message-form"/, "Der Sekretär bietet ein Formular für Mitarbeiternachrichten.");
 assert.match(indexSource, /data-ceo-secretary-view="notifications"[\s\S]*>Glocke/, "Glockenmeldungen haben einen eigenen CEO-Office-Tab.");
 assert.match(indexSource, /id="ceo-secretary-view-notifications"[\s\S]*id="ceo-secretary-team-message-form"/, "Das Nachrichtenformular liegt ausschließlich im Glocken-Tab.");
-assert.match(appSource, /\["secretary", "briefing", "memory", "notifications"\]/, "Der Sekretär bleibt mit Gedächtnis, Briefing und Glocke klar gegliedert.");
+assert.match(appSource, /\["secretary", "briefing", "memory", "ideas", "notifications"\]/, "Der Sekretär bleibt mit Gedächtnis, Ideensammlung, Briefing und Glocke klar gegliedert.");
 assert.match(indexSource, /ceo-secretary-commitment-radar/, "Das CEO-Briefing enthält einen eigenen Zusagen-Radar.");
 assert.match(appSource, /function getCeoSecretaryCommitmentEntries/, "Offene Zusagen werden für das CEO-Briefing gezielt priorisiert.");
 assert.match(indexSource, /id="ceo-secretary-detail-modal"/, "Ein Briefing-Eintrag kann in einer eigenen Detailansicht geöffnet werden.");

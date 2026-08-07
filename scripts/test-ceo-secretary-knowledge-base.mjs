@@ -17,8 +17,11 @@ assert.match(apiSource, /"idea", "knowledge"/, "Die serverseitige KI-Auswertung 
 assert.match(apiSource, /tags: \{ type: "array", items: \{ type: "string" \} \}/, "Die KI-Auswertung liefert nur strukturierte Schlagwörter.");
 assert.match(sqlSource, /add column if not exists tags text\[\] not null default '\{\}'/, "Der Datenbankpatch ergänzt Schlagwörter.");
 assert.match(sqlSource, /check \(entry_type in \('note', 'task', 'followup', 'decision', 'idea', 'knowledge'\)\)/, "Der Datenbankpatch erlaubt ausschließlich bekannte Eintragstypen.");
-assert.match(appSource, /function renderCeoSecretaryIdeaBoard/, "Das Ideenboard wird als eigener Arbeitsbereich gerendert.");
-assert.match(pageSource, /id="ceo-secretary-idea-board-panel"/, "Das Ideenboard wird nur bei Bedarf innerhalb des Gedächtnisses geöffnet.");
+assert.match(pageSource, /data-ceo-secretary-view="ideas"[^>]*>Ideensammlung/, "Die Ideensammlung ist als eigener Tab direkt erreichbar.");
+assert.match(pageSource, /id="ceo-secretary-idea-form"/, "Ideen können ohne KI-Umweg direkt festgehalten werden.");
+assert.match(appSource, /function handleCeoSecretaryIdeaCaptureSubmit/, "Direkt erfasste Ideen werden sicher gespeichert.");
+assert.match(appSource, /function renderCeoSecretaryIdeaCollection/, "Die Ideensammlung wird als klare Liste gerendert.");
+assert.doesNotMatch(pageSource, /id="ceo-secretary-idea-board-panel"/, "Die komplizierte Board-Ansicht ist entfernt.");
 assert.match(workspaceSqlSource, /workspace_status text/, "Der Board-Status wird privat in der CEO-Tabelle gespeichert.");
 assert.match(workspaceSqlSource, /workspace_status', entry_row\.workspace_status/, "Der Board-Status wird im CEO-Audit erfasst.");
 
