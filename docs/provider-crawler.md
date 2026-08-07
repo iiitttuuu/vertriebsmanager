@@ -36,7 +36,9 @@ Die Verbindung zum bestehenden Anbieter erfolgt nur über `provider_id`.
 - Pro Lauf gelten Grenzen für Seiten, Antwortgrößen, Redirects und Downloads. Ein
   Cron-Aufruf verarbeitet höchstens einen Queue-Eintrag.
 - Für Plattformtexte erhält die KI nur geprüfte Auszüge der gefundenen Anbieter- und
-  Angebotsseiten. Die Texte bleiben Entwürfe zur fachlichen Prüfung; ältere Crawl-Läufe
+  Angebotsseiten. Anbieterprofil und jeder einzelne Kurs erhalten getrennte
+  Quellenkontexte; Kursbeschreibungen dürfen nicht aus allgemeinen Anbietertexten
+  ergänzt werden. Die Texte bleiben Entwürfe zur fachlichen Prüfung; ältere Crawl-Läufe
   werden nie überschrieben. Ein erneuter Crawl erzeugt immer einen separaten Lauf mit
   einem neuen redaktionellen Entwurf.
 - Freigeben bedeutet ausschließlich „Crawler-Revision fachlich geprüft“. Es löst
