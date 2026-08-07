@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-const { default: providerCrawlerHandler } = await import(new URL("../api/provider-crawler.js", import.meta.url));
+const { default: providerCrawlerHandler, __providerCrawlerTestables } = await import(new URL("../api/provider-crawler.js", import.meta.url));
 
 function response(status, payload) {
   const text = typeof payload === "string" ? payload : JSON.stringify(payload);
@@ -100,4 +100,14 @@ const changedWhileQueued = await invoke(
 assert.equal(changedWhileQueued.res.payload.status, "skipped_already_created", "Unmittelbar vor dem Crawl wird dashboard_created erneut geprüft.");
 assert.equal(changedWhileQueued.calls.some((call) => call.url === "https://example.test/"), false, "Bei späterer Dashboard-Anlage wird keine Anbieter-Website abgerufen.");
 
-console.log("Anbieter-Crawler-API geprüft: Eligibility, fehlende Website und serverseitiger Race-Check.");
+const editorialPages = [
+  { url: "https://example.test/angebote", title: "Angebote", html: "<h1>Erlebnisse</h1><h2>Geführte Kajaktour</h2><p>Eine Tour auf dem See mit geschulten Guides.</p>", text: "Erlebnisse Geführte Kajaktour Eine Tour auf dem See mit geschulten Guides." },
+  { url: "https://example.test/angebote/kajak", title: "Kajaktour", html: "<h1>Geführte Kajaktour</h1><p>Die Tour wird von erfahrenen Guides begleitet.</p>", text: "Geführte Kajaktour Die Tour wird von erfahrenen Guides begleitet." },
+];
+const editorialOffers = __providerCrawlerTestables.chooseOffers(editorialPages);
+assert.ok(editorialOffers.some((offer) => offer.original_title === "Geführte Kajaktour"), "Angebote werden auch aus passenden Seitenüberschriften erkannt.");
+const editorialSource = __providerCrawlerTestables.createEditorialSource(editorialPages, editorialOffers);
+assert.equal(editorialSource[0].source_url, "https://example.test/angebote", "Relevante Angebotsseiten stehen im redaktionellen KI-Kontext vorn.");
+assert.equal(__providerCrawlerTestables.cleanEditorialText("Absatz eins\n\n\nAbsatz zwei"), "Absatz eins\n\nAbsatz zwei", "Redaktionelle Absätze bleiben beim Speichern erhalten.");
+
+console.log("Anbieter-Crawler-API geprüft: Eligibility, Race-Check, redaktionelle Quellen und Angebots-Erkennung.");

@@ -35,5 +35,9 @@ Die Verbindung zum bestehenden Anbieter erfolgt nur über `provider_id`.
   prüft Redirects erneut. Login-, CAPTCHA- und private Bereiche werden nicht umgangen.
 - Pro Lauf gelten Grenzen für Seiten, Antwortgrößen, Redirects und Downloads. Ein
   Cron-Aufruf verarbeitet höchstens einen Queue-Eintrag.
+- Für Plattformtexte erhält die KI nur geprüfte Auszüge der gefundenen Anbieter- und
+  Angebotsseiten. Die Texte bleiben Entwürfe zur fachlichen Prüfung; ältere Crawl-Läufe
+  werden nie überschrieben. Ein erneuter Crawl erzeugt immer einen separaten Lauf mit
+  einem neuen redaktionellen Entwurf.
 - Freigeben bedeutet ausschließlich „Crawler-Revision fachlich geprüft“. Es löst
   keine Übernahme und keine Änderung des bestehenden Anbieters aus.
