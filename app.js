@@ -63680,6 +63680,8 @@ function renderProviderCrawlerSection() {
     const run = latestByProvider.get(providerId);
     const status = String(run?.status || "not_started").replace(/_/g, " ");
     const runId = String(run?.id || "");
+    const isFinished = ["completed", "partial"].includes(String(run?.status || ""));
+    const reviewLabel = isFinished ? "Ergebnis" : String(run?.status || "") === "failed" ? "Fehler" : "Status";
     return `<tr>
       <td><input type="checkbox" data-provider-crawler-select="${escapeHtml(providerId)}" ${providerCrawlerSelectedIds.has(providerId) ? "checked" : ""} aria-label="${escapeHtml(String(provider.name || "Anbieter"))} auswählen" /></td>
       <td><strong>${escapeHtml(String(provider.name || "–"))}</strong></td>
@@ -63689,7 +63691,7 @@ function renderProviderCrawlerSection() {
       <td>${escapeHtml(String(run?.experiences_selected ?? "–"))}</td>
       <td><div class="provider-crawler-table-actions">
         <button type="button" class="mini-btn" data-provider-crawler-run="${escapeHtml(providerId)}">Crawlen</button>
-        ${runId ? `<button type="button" class="mini-btn" data-provider-crawler-review="${escapeHtml(runId)}">Ergebnis</button>` : ""}
+        ${runId ? `<button type="button" class="mini-btn" data-provider-crawler-review="${escapeHtml(runId)}">${reviewLabel}</button>` : ""}
       </div></td>
     </tr>`;
   }).join("");
@@ -63738,6 +63740,12 @@ async function openProviderCrawlerReview(runId) {
   providerCrawlerReviewRunId = normalizedRunId;
   els.providerCrawlerReview.classList.remove("hidden");
   els.providerCrawlerReview.textContent = "Crawler-Ergebnis wird geladen …";
+  requestAnimationFrame(() => {
+    els.providerCrawlerReview.scrollIntoView({
+      behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth",
+      block: "start",
+    });
+  });
   const [runResult, resultResult, experiencesResult, mediaResult] = await Promise.all([
     client.from(getProviderCrawlerRunsTable()).select("*").eq("id", normalizedRunId).maybeSingle(),
     client.from(getProviderCrawlerResultsTable()).select("*").eq("run_id", normalizedRunId).maybeSingle(),
@@ -63745,11 +63753,23 @@ async function openProviderCrawlerReview(runId) {
     client.from(getProviderCrawlerMediaTable()).select("*").eq("run_id", normalizedRunId).eq("selected", true),
   ]);
   if (runResult.error || resultResult.error || experiencesResult.error || mediaResult.error) {
-    els.providerCrawlerReview.textContent = "Crawler-Ergebnis konnte nicht geladen werden.";
+    const error = runResult.error || resultResult.error || experiencesResult.error || mediaResult.error;
+    els.providerCrawlerReview.textContent = `Crawler-Ergebnis konnte nicht geladen werden: ${getSupabaseErrorSummary(error)}`;
+    setProviderCrawlerStatus("Crawler-Ergebnis konnte nicht geladen werden. Details stehen unter der Tabelle.", "error");
     return;
   }
   const run = runResult.data || {};
-  const result = resultResult.data || {};
+  const result = resultResult.data;
+  if (!result) {
+    const status = String(run.status || "unbekannt").replace(/_/g, " ");
+    const errorMessage = String(run.error_message || "").trim();
+    const message = ["completed", "partial"].includes(String(run.status || ""))
+      ? "Für diesen abgeschlossenen Crawl wurde kein Ergebnis gespeichert. Bitte den Crawl erneut starten."
+      : `Der Crawl ist noch nicht fertig (Status: ${status}). Aktualisiere die Liste in Kürze.`;
+    els.providerCrawlerReview.textContent = `${message}${errorMessage ? ` Hinweis: ${errorMessage}` : ""}`;
+    setProviderCrawlerStatus(message, String(run.status || "") === "failed" ? "error" : "");
+    return;
+  }
   const facts = result.company_facts && typeof result.company_facts === "object" ? result.company_facts : {};
   const sourceLine = (entry) => entry?.source_url && isSafeCrawlerSourceUrl(entry.source_url) ? `<span class="provider-crawler-source"><a href="${escapeHtml(entry.source_url)}" target="_blank" rel="noopener noreferrer">Quelle öffnen ↗</a></span>` : '<span class="provider-crawler-source">Keine Quelle gefunden</span>';
   const factList = Object.entries(facts).map(([key, entry]) => `<div><strong>${escapeHtml(key)}</strong><br>${escapeHtml(String(entry?.value || "Nicht gefunden"))}<br>${sourceLine(entry)}</div>`).join("") || "<div>Keine Fakten gefunden.</div>";
