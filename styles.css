@@ -30941,6 +30941,11 @@ tr.provider-row-created:hover td {
   font-weight: 650;
 }
 
+.ceo-secretary-entry-meta .ceo-secretary-entry-tag {
+  background: rgba(94, 92, 230, 0.1);
+  color: #514fc4;
+}
+
 .ceo-secretary-detail-meta > span.is-open {
   background: rgba(0, 113, 227, 0.11);
   color: #0064c8;

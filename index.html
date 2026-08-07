@@ -2255,7 +2255,8 @@
               <div class="ceo-secretary-suggestions" aria-label="Sekretär Vorschläge">
                 <button type="button" data-ceo-secretary-suggestion="Was ist heute wirklich wichtig für mich?">Mein Fokus heute</button>
                 <button type="button" data-ceo-secretary-suggestion="Welche Zusagen und Wiedervorlagen sind offen?">Offene Schleifen</button>
-                <button type="button" data-ceo-secretary-suggestion="Ich möchte eine Besprechung festhalten: ">Besprechung festhalten</button>
+                <button type="button" data-ceo-secretary-suggestion="Idee: ">Idee festhalten</button>
+                <button type="button" data-ceo-secretary-suggestion="Wissen: ">Wissen speichern</button>
                 <button type="button" data-ceo-secretary-suggestion="Ergänze beim Eintrag über ">Eintrag ergänzen</button>
               </div>
 
@@ -2264,11 +2265,11 @@
                 <textarea
                   id="ceo-secretary-body-input"
                   rows="3"
-                  placeholder="Sag, was passiert ist – oder gib einen Befehl wie ‚Ergänze bei Werner: …‘ ..."
+                  placeholder="Idee, Wissen, Information oder Aufgabe festhalten – oder gezielt danach fragen ..."
                   required
                 ></textarea>
                 <div class="ceo-secretary-message-actions">
-                  <p>Du kannst auch Befehle geben: ergänzen, ersetzen, erledigen oder löschen.</p>
+                  <p>Schreibe einfach „Idee:“ oder „Wissen:“ – dein Sekretär ordnet ein, vergibt Schlagwörter und macht es wieder auffindbar.</p>
                   <button type="submit" id="ceo-secretary-save-btn" class="btn btn-success ceo-secretary-save-btn">Senden</button>
                 </div>
               </form>
@@ -2301,12 +2302,12 @@
               <article class="ceo-secretary-memory">
                 <div class="ceo-secretary-memory-toolbar">
                   <div>
-                    <p class="ceo-secretary-eyebrow">Dein Gedächtnis</p>
-                    <h3>Finde jeden Kontext wieder</h3>
+                    <p class="ceo-secretary-eyebrow">Deine Wissensbasis</p>
+                    <h3>Finde jede Idee und Information wieder</h3>
                   </div>
                   <label class="ceo-secretary-search-field">
                     <span class="sr-only">CEO Office durchsuchen</span>
-                    <input type="search" id="ceo-secretary-search-input" placeholder="Person, Thema oder Entscheidung suchen ..." autocomplete="off" />
+                    <input type="search" id="ceo-secretary-search-input" placeholder="Thema, Schlagwort, Idee oder Information suchen ..." autocomplete="off" />
                   </label>
                   <label class="ceo-secretary-filter-field">
                     <span class="sr-only">Einträge filtern</span>
@@ -2314,6 +2315,8 @@
                       <option value="all">Alles</option>
                       <option value="open">Offene Schleifen</option>
                       <option value="note">Notizen</option>
+                      <option value="idea">Ideen</option>
+                      <option value="knowledge">Wissen</option>
                       <option value="task">Aufgaben</option>
                       <option value="followup">Wiedervorlagen</option>
                       <option value="decision">Entscheidungen</option>

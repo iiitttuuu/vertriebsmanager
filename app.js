@@ -262,12 +262,14 @@ const ROLE_ADMIN = "admin";
 const ROLE_SUPERADMIN = "superadmin";
 const ROLE_SUPAADMIN_LEGACY = "supaadmin";
 const PRIVILEGED_ROLES = new Set([ROLE_ADMIN, ROLE_SUPERADMIN, ROLE_SUPAADMIN_LEGACY]);
-const CEO_SECRETARY_ENTRY_TYPES = Object.freeze(["note", "task", "followup", "decision"]);
+const CEO_SECRETARY_ENTRY_TYPES = Object.freeze(["note", "task", "followup", "decision", "idea", "knowledge"]);
 const CEO_SECRETARY_ENTRY_TYPE_LABELS = Object.freeze({
   note: "Notiz",
   task: "Aufgabe",
   followup: "Wiedervorlage",
   decision: "Entscheidung",
+  idea: "Idee",
+  knowledge: "Wissen",
 });
 const HELP_ALL_ROLES = Object.freeze([
   ROLE_MITARBEITER,
@@ -35188,6 +35190,17 @@ function sanitizeCeoSecretaryDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "";
 }
 
+function sanitizeCeoSecretaryTags(values) {
+  const rawTags = Array.isArray(values) ? values : String(values || "").split(/[,#;\n]/);
+  return Array.from(
+    new Set(
+      rawTags
+        .map((value) => String(value || "").trim().replace(/\s+/g, " ").slice(0, 40))
+        .filter(Boolean)
+    )
+  ).slice(0, 8);
+}
+
 function normalizeCeoSecretaryEntry(row) {
   if (!row || typeof row !== "object") {
     return null;
@@ -35204,6 +35217,7 @@ function normalizeCeoSecretaryEntry(row) {
     title,
     body,
     context: String(row.context_label || row.context || "").trim(),
+    tags: sanitizeCeoSecretaryTags(row.tags),
     dueDate: sanitizeCeoSecretaryDate(row.due_date || row.dueDate),
     priority: sanitizeCeoSecretaryPriority(row.priority),
     completed: Boolean(row.is_completed ?? row.completed),
@@ -35767,6 +35781,7 @@ function getCeoSecretaryOpenItemsForContext() {
       title: entry.title,
       type: entry.type,
       context: entry.context,
+      tags: entry.tags,
       dueDate: entry.dueDate,
       priority: entry.priority,
     }));
@@ -35775,6 +35790,13 @@ function getCeoSecretaryOpenItemsForContext() {
 function isCeoSecretaryQuestion(message) {
   const text = String(message || "").trim();
   return /\?$/.test(text) || /^(was|wer|wen|wem|wann|wo|wieso|warum|wie|welche|welcher|welches|habe ich|hab ich|zeig(?:e)?|finde|suche|liste|nenn|gib mir|wie viel|wieviel|wieviele)/i.test(text);
+}
+
+function inferCeoSecretaryFallbackType(message) {
+  const text = String(message || "").trim().toLocaleLowerCase("de-AT");
+  if (/^(idee|idee:|einf[aä]ll|ansatz)\b/.test(text)) return "idea";
+  if (/^(wissen|merk(?:e)? dir|prozess|lernerfahrung|info(?:rmation)?):?\b/.test(text)) return "knowledge";
+  return "note";
 }
 
 function getCeoSecretarySearchTerms(message) {
@@ -35803,6 +35825,7 @@ function findCeoSecretaryRelevantEntries(message) {
       const title = String(entry.title || "").toLocaleLowerCase("de-AT");
       const context = String(entry.context || "").toLocaleLowerCase("de-AT");
       const body = String(entry.body || "").toLocaleLowerCase("de-AT");
+      const tags = sanitizeCeoSecretaryTags(entry.tags).join(" ").toLocaleLowerCase("de-AT");
       const linkedEntities = getCeoSecretaryLinkedEntities(entry.id)
         .map((entity) => entity.label)
         .join(" ")
@@ -35810,6 +35833,7 @@ function findCeoSecretaryRelevantEntries(message) {
       const score = terms.reduce((total, term) => {
         if (title.includes(term)) return total + 4;
         if (context.includes(term)) return total + 3;
+        if (tags.includes(term)) return total + 3;
         if (linkedEntities.includes(term)) return total + 2;
         if (body.includes(term)) return total + 1;
         return total;
@@ -35881,6 +35905,7 @@ async function requestCeoSecretaryAnalysis(message) {
           type: entry.type,
           body: entry.body,
           context: entry.context,
+          tags: entry.tags,
           dueDate: entry.dueDate,
           priority: entry.priority,
           completed: entry.completed,
@@ -35916,6 +35941,7 @@ function normalizeCeoSecretaryAnalyzedEntry(entry) {
     title: String(entry?.title || createCeoSecretaryTitle(body)).trim().slice(0, 240),
     body: body.slice(0, 6000),
     context_label: String(entry?.context || entry?.context_label || "").trim().slice(0, 240),
+    tags: sanitizeCeoSecretaryTags(entry?.tags),
     due_date: sanitizeCeoSecretaryDate(entry?.dueDate || entry?.due_date) || null,
     priority: sanitizeCeoSecretaryPriority(entry?.priority),
     is_completed: false,
@@ -36314,6 +36340,7 @@ function renderCeoSecretaryDetailModal() {
       <div><dt>Termin</dt><dd>${escapeHtml(dueLabel)}</dd></div>
       <div><dt>Zuletzt bearbeitet</dt><dd>${escapeHtml(updatedLabel)}</dd></div>
       ${entry.context ? `<div><dt>Kontext</dt><dd>${escapeHtml(entry.context)}</dd></div>` : ""}
+      ${entry.tags.length ? `<div><dt>Schlagwörter</dt><dd>${escapeHtml(entry.tags.join(" · "))}</dd></div>` : ""}
     </dl>
     <section class="ceo-secretary-detail-note">
       <span>Notiz</span>
@@ -36449,7 +36476,7 @@ async function handleCeoSecretaryQuickCaptureSubmit() {
         throw assistantError;
       } else {
         savedEntries = await persistCeoSecretaryAnalyzedEntries(client, [
-          { type: "note", title: createCeoSecretaryTitle(message), body: message, context: "", dueDate: "", priority: "normal" },
+          { type: inferCeoSecretaryFallbackType(message), title: createCeoSecretaryTitle(message), body: message, context: "", tags: [], dueDate: "", priority: "normal" },
         ]);
         reply = "Ich habe deine Nachricht sicher als Notiz festgehalten.";
       }
@@ -36580,7 +36607,7 @@ async function handleCeoSecretaryCaptureSubmit() {
           return;
         }
         const fallbackEntries = await persistCeoSecretaryAnalyzedEntries(client, [
-          { type: "note", title: createCeoSecretaryTitle(message), body: message, context: "", dueDate: "", priority: "normal" },
+          { type: inferCeoSecretaryFallbackType(message), title: createCeoSecretaryTitle(message), body: message, context: "", tags: [], dueDate: "", priority: "normal" },
         ]);
         ceoSecretaryChatMessages.push({
           role: "assistant",
@@ -36690,6 +36717,7 @@ function ceoSecretaryEntryMatchesCurrentFilter(entry) {
     entry.title,
     entry.body,
     entry.context,
+    ...(entry.tags || []),
     getCeoSecretaryEntryTypeLabel(entry.type),
   ]
     .join(" ")
@@ -36811,6 +36839,7 @@ function renderCeoSecretaryLegacySection() {
         getCeoSecretaryEntryTypeLabel(type)
       )}</span>
             ${entry.context ? `<span>${escapeHtml(entry.context)}</span>` : ""}
+            ${(entry.tags || []).map((tag) => `<span class="ceo-secretary-entry-tag">#${escapeHtml(tag)}</span>`).join("")}
             ${dueLabel ? `<span class="ceo-secretary-entry-due">${escapeHtml(dueLabel)}</span>` : ""}
           </div>
           <h4>${escapeHtml(entry.title)}</h4>
@@ -37042,6 +37071,7 @@ function renderCeoSecretaryMemory() {
           <div class="ceo-secretary-entry-meta">
             <span class="ceo-secretary-entry-type ceo-secretary-entry-type-${escapeHtml(type)}">${escapeHtml(getCeoSecretaryEntryTypeLabel(type))}</span>
             ${entry.context ? `<span>${escapeHtml(entry.context)}</span>` : ""}
+            ${(entry.tags || []).map((tag) => `<span class="ceo-secretary-entry-tag">#${escapeHtml(tag)}</span>`).join("")}
             ${dueLabel ? `<span class="ceo-secretary-entry-due">${escapeHtml(dueLabel)}</span>` : ""}
           </div>
           <h4>${escapeHtml(entry.title)}</h4>

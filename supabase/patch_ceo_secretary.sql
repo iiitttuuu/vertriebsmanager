@@ -19,10 +19,11 @@ $$;
 
 create table if not exists public.ceo_secretary_entries (
   id uuid primary key default gen_random_uuid(),
-  entry_type text not null default 'note' check (entry_type in ('note', 'task', 'followup', 'decision')),
+  entry_type text not null default 'note' check (entry_type in ('note', 'task', 'followup', 'decision', 'idea', 'knowledge')),
   title text not null default '',
   body text not null default '',
   context_label text not null default '',
+  tags text[] not null default '{}',
   due_date date,
   priority text not null default 'normal' check (priority in ('low', 'normal', 'high', 'critical')),
   is_completed boolean not null default false,
@@ -38,6 +39,7 @@ alter table public.ceo_secretary_entries
   add column if not exists title text not null default '',
   add column if not exists body text not null default '',
   add column if not exists context_label text not null default '',
+  add column if not exists tags text[] not null default '{}',
   add column if not exists due_date date,
   add column if not exists priority text not null default 'normal',
   add column if not exists is_completed boolean not null default false,
@@ -51,7 +53,7 @@ alter table public.ceo_secretary_entries
   drop constraint if exists ceo_secretary_entries_entry_type_check;
 alter table public.ceo_secretary_entries
   add constraint ceo_secretary_entries_entry_type_check
-  check (entry_type in ('note', 'task', 'followup', 'decision'));
+  check (entry_type in ('note', 'task', 'followup', 'decision', 'idea', 'knowledge'));
 
 alter table public.ceo_secretary_entries
   drop constraint if exists ceo_secretary_entries_priority_check;
@@ -69,6 +71,9 @@ create index if not exists idx_ceo_secretary_entries_owner_open_due
 create index if not exists idx_ceo_secretary_entries_owner_priority_due
   on public.ceo_secretary_entries (created_by_user_id, priority, due_date)
   where is_completed = false;
+
+create index if not exists idx_ceo_secretary_entries_tags
+  on public.ceo_secretary_entries using gin (tags);
 
 drop trigger if exists trg_ceo_secretary_entries_updated_at on public.ceo_secretary_entries;
 create trigger trg_ceo_secretary_entries_updated_at
