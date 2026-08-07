@@ -33230,6 +33230,21 @@ button.table-btn.delete-icon-button {
 
 .provider-crawler-experience-heading h4 { margin: 0.25rem 0 0; }
 
+.provider-crawler-experience-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.provider-crawler-experience-fact {
+  padding: 0.3rem 0.5rem;
+  border-radius: 999px;
+  background: #ecfeff;
+  color: #155e75;
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
 .provider-crawler-experience-meta,
 .provider-crawler-media-links {
   display: flex;

@@ -123,4 +123,34 @@ const courseSources = __providerCrawlerTestables.createOfferEditorialSources(edi
 assert.equal(courseSources[0].source_pages[0].source_url, "https://example.test/angebote/kajak", "Jeder Kurs erhält seine konkrete Kursseite als vorrangige Textquelle.");
 assert.equal(__providerCrawlerTestables.cleanEditorialText("Absatz eins\n\n\nAbsatz zwei"), "Absatz eins\n\nAbsatz zwei", "Redaktionelle Absätze bleiben beim Speichern erhalten.");
 
+const marketplacePages = [
+  { url: "https://example.test/angebote/gleitschirm-tandemflug", title: "Tandemflug", html: "<h1>Gleitschirm Tandemflug</h1><script type=\"application/ld+json\">{\"@type\":\"Product\",\"name\":\"Gleitschirm Tandemflug\",\"url\":\"https://example.test/angebote/gleitschirm-tandemflug\",\"location\":{\"@type\":\"Place\",\"address\":{\"streetAddress\":\"Höhenweg 12\",\"postalCode\":\"6020\",\"addressLocality\":\"Innsbruck\",\"addressCountry\":\"AT\"}}}</script>", text: "Gleitschirm Tandemflug Preis: ab 149 € Dauer: ca. 90 Minuten" },
+  { url: "https://example.test/angebote", title: "Angebote", html: "<a href=\"/angebote/gleitschirm-tandemflug\">Gleitschirm Tandemflug</a><a href=\"/impressum\">Mehr Details</a>", text: "Angebote" },
+];
+const marketplaceOffers = __providerCrawlerTestables.chooseOffers(marketplacePages);
+assert.equal(marketplaceOffers[0].original_title, "Gleitschirm Tandemflug", "Strukturierte Produktdaten haben Vorrang vor allgemeinen Übersichten.");
+const marketplaceSources = __providerCrawlerTestables.createOfferEditorialSources(marketplaceOffers, marketplacePages);
+assert.equal(marketplaceSources[0].facts.price.value, "ab 149 €", "Explizit genannte Preise werden als belegtes Angebotsmerkmal übernommen.");
+assert.equal(marketplaceSources[0].facts.duration.value, "ca. 90 Minuten", "Explizit genannte Dauer wird als belegtes Angebotsmerkmal übernommen.");
+assert.equal(marketplaceSources[0].facts.street.value, "Höhenweg", "Die Erlebnisstraße wird aus strukturierten Quelldaten übernommen.");
+assert.equal(marketplaceSources[0].facts.house_number.value, "12", "Die Hausnummer des Erlebnisortes wird getrennt gespeichert.");
+assert.equal(marketplaceSources[0].facts.city.value, "Innsbruck", "Der Ort des Erlebnisses wird als eigenes Feld übernommen.");
+assert.ok(__providerCrawlerTestables.scoreCrawlerLink({ url: "https://example.test/angebote/kajak-tour", label: "Kajak Tour ab 89 €" }) > __providerCrawlerTestables.scoreCrawlerLink({ url: "https://example.test/kontakt", label: "Kontakt" }), "Konkrete Angebotsseiten werden vor Kontakt- und Infoseiten gecrawlt.");
+
+const providerFacts = __providerCrawlerTestables.extractFacts([{ url: "https://example.test/", title: "Bergzeit Erlebnisse", html: "<script type=\"application/ld+json\">{\"@type\":\"Organization\",\"address\":{\"streetAddress\":\"Alpenstraße 7a\",\"postalCode\":\"5020\",\"addressLocality\":\"Salzburg\",\"addressCountry\":\"Österreich\"}}</script>", text: "Geschäftsführer: Maria Muster Tel: +43 662 123456 office@bergzeit.example" }]);
+assert.equal(providerFacts.company_facts.managing_director_first_name.value, "Maria", "Vorname der Geschäftsführung wird getrennt gespeichert.");
+assert.equal(providerFacts.company_facts.managing_director_last_name.value, "Muster", "Nachname der Geschäftsführung wird getrennt gespeichert.");
+assert.equal(providerFacts.company_facts.street.value, "Alpenstraße", "Anbieterstraße wird getrennt gespeichert.");
+assert.equal(providerFacts.company_facts.house_number.value, "7a", "Anbieterhausnummer wird getrennt gespeichert.");
+assert.equal(providerFacts.company_facts.postal_code.value, "5020", "Anbieter-PLZ wird getrennt gespeichert.");
+
+const nextPageHtml = '<script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"global":{"street":"Landstraße 34","zip_code":"5424","city":"Bad Vigaun","email":{"email":"info@example.test"}},"course":{"title":"Wintergrillen","description":"Ein Grillkurs für die kalte Jahreszeit."}}}}</script>';
+const nextText = __providerCrawlerTestables.htmlToText(nextPageHtml);
+assert.match(nextText, /Wintergrillen/, "In Next.js eingebettete Kursdaten bleiben als Crawl-Quelle erhalten.");
+const nextFacts = __providerCrawlerTestables.extractFacts([{ url: "https://example.test/", title: "Englhartgut", html: nextPageHtml, text: nextText }]);
+assert.equal(nextFacts.company_facts.street.value, "Landstraße", "CMS-Daten mit Straße und PLZ werden als Anbieteradresse verarbeitet.");
+assert.equal(nextFacts.company_facts.house_number.value, "34", "CMS-Daten teilen die Hausnummer von der Straße ab.");
+assert.equal(nextFacts.company_facts.city.value, "Bad Vigaun", "CMS-Daten liefern den Anbieterort.");
+assert.ok(__providerCrawlerTestables.chooseOffers([{ url: "https://example.test/zeitlich-geplante-kurse/wintergrillen", title: "Wintergrillen", html: "<h1>Wintergrillen</h1>", text: "Wintergrillen" }]).length === 1, "Zeitlich geplante Kursseiten werden als Erlebnis erkannt.");
+
 console.log("Anbieter-Crawler-API geprüft: Eligibility, Race-Check, getrennte Quellen und private Bild-Links.");

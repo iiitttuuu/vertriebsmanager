@@ -46,10 +46,12 @@ Ansicht.
 ## Zuletzt vorgenommene Optimierungen
 
 - Der Browser ruft nach `enqueue` nicht mehr `process_next` synchron auf.
-- Pro Crawl maximal 24 nach Relevanz priorisierte HTML-Seiten.
-- Maximal sieben gespeicherte Medien insgesamt, davon höchstens zwei je Erlebnis.
+- Pro Crawl maximal neun nach Angebotsrelevanz priorisierte HTML-Seiten, in vier
+  parallelen Abrufen pro Batch.
+- Maximal dreizehn gespeicherte Medien: Logo plus bis zu vier Bilder pro Erlebnis.
 - Anbieterprofil und jedes einzelne Erlebnis erhalten getrennte Quellenkontexte
-  für die KI-Texte.
+  für die KI-Texte. Unternehmens- und Erlebnisadressen werden bei explizitem
+  Quellenbeleg in Straße, Hausnummer, PLZ, Ort und Land aufgeteilt übernommen.
 - Der Button **Ergebnis** öffnet einen großen, strukturierten Desktop-Dialog mit
   Profil, Angeboten, Logo und Bildern.
 

@@ -33,16 +33,28 @@ Die Verbindung zum bestehenden Anbieter erfolgt nur über `provider_id`.
   `skipped_already_created` beendet.
 - Der Crawler folgt nur der Anbieter-Domain, blockiert lokale/private IP-Ziele und
   prüft Redirects erneut. Login-, CAPTCHA- und private Bereiche werden nicht umgangen.
+- Sichtbarer Seiteninhalt wird nicht mehr nach einem kurzen Kopfbereich abgeschnitten.
+  Bei Next.js-Websites werden zusätzlich öffentlich eingebettete Inhaltsdaten genutzt,
+  etwa um Storyblok-Kursdaten und Kontaktangaben auszulesen. Die Daten bleiben dabei
+  weiterhin reine Quellen; Anweisungen aus der Website werden nie befolgt.
 - Pro Lauf gelten Grenzen für Seiten, Antwortgrößen, Redirects und Downloads. Es
-  werden höchstens 24 priorisierte Seiten sowie sieben Medienobjekte verarbeitet.
-  Ein Cron-Aufruf verarbeitet höchstens einen Queue-Eintrag. Nach dem Einreihen
-  kehrt die Oberfläche sofort zurück; der Crawl läuft ausschließlich im Hintergrund.
+  werden höchstens neun nach Angebotsrelevanz priorisierte HTML-Seiten in kleinen
+  parallelen Batches sowie 13 Medienobjekte verarbeitet (Logo und bis zu vier Bilder
+  je maximal drei Erlebnissen). Dadurch bleiben langsame
+  Websites begrenzt, ohne konkrete Angebotsseiten zu verdrängen. Ein Cron-Aufruf
+  verarbeitet höchstens einen Queue-Eintrag. Nach dem Einreihen kehrt die Oberfläche
+  sofort zurück; der Crawl läuft ausschließlich im Hintergrund.
 - Für Plattformtexte erhält die KI nur geprüfte Auszüge der gefundenen Anbieter- und
   Angebotsseiten. Anbieterprofil und jeder einzelne Kurs erhalten getrennte
   Quellenkontexte; Kursbeschreibungen dürfen nicht aus allgemeinen Anbietertexten
-  ergänzt werden. Die Texte bleiben Entwürfe zur fachlichen Prüfung; ältere Crawl-Läufe
-  werden nie überschrieben. Ein erneuter Crawl erzeugt immer einen separaten Lauf mit
-  einem neuen redaktionellen Entwurf.
+  ergänzt werden. Unternehmens- und Erlebnisadressen werden quellbelegt in Straße,
+  Hausnummer, PLZ, Ort und Land aufgeteilt gespeichert; der Crawl übernimmt zudem
+  Vor- und Nachnamen der Geschäftsführung, E-Mail, Telefon, Website, Slogan sowie
+  je Erlebnis den direkten Link und bis zu vier Bilder. Explizit genannte Preise und
+  Dauer stehen nur als zusätzliche, belegte Redaktionshilfe zur Verfügung.
+  Die Texte bleiben Entwürfe zur fachlichen Prüfung; ältere Crawl-Läufe werden nie
+  überschrieben. Ein erneuter Crawl erzeugt immer einen separaten redaktionellen
+  Entwurf.
 - Logo und Angebotsbilder bleiben im privaten Storage-Bucket. Die Desktop-Ansicht lädt
   sie nur über kurz gültige, serverseitig nach AAL2-Admin-Prüfung erzeugte Links; der
   Bucket wird dafür nicht öffentlich geschaltet.
