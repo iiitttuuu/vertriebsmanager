@@ -33025,6 +33025,15 @@ button.table-btn.delete-icon-button {
   gap: 0.4rem;
 }
 
+.provider-crawler-history {
+  margin-top: 1.5rem;
+}
+
+.provider-crawler-history > p {
+  margin-top: -0.25rem;
+  color: var(--text-muted, #64748b);
+}
+
 .provider-crawler-review {
   margin-top: 1.25rem;
   padding: 1.25rem;

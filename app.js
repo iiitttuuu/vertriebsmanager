@@ -2260,6 +2260,7 @@ const els = {
   providerCrawlerSelectedBtn: document.getElementById("provider-crawler-selected-btn"),
   providerCrawlerSelectAll: document.getElementById("provider-crawler-select-all"),
   providerCrawlerTableBody: document.getElementById("provider-crawler-table-body"),
+  providerCrawlerHistoryBody: document.getElementById("provider-crawler-history-body"),
   providerCrawlerStatus: document.getElementById("provider-crawler-status"),
   providerCrawlerReview: document.getElementById("provider-crawler-review"),
   providerSaveBtn: document.getElementById("provider-save-btn"),
@@ -5095,6 +5096,10 @@ function bindEvents() {
     const crawlButton = event.target.closest("button[data-provider-crawler-run]");
     const reviewButton = event.target.closest("button[data-provider-crawler-review]");
     if (crawlButton) void queueProviderCrawler([crawlButton.dataset.providerCrawlerRun]);
+    if (reviewButton) void openProviderCrawlerReview(reviewButton.dataset.providerCrawlerReview);
+  });
+  els.providerCrawlerHistoryBody?.addEventListener("click", (event) => {
+    const reviewButton = event.target.closest("button[data-provider-crawler-review]");
     if (reviewButton) void openProviderCrawlerReview(reviewButton.dataset.providerCrawlerReview);
   });
   els.providerCrawlerReview?.addEventListener("click", (event) => {
@@ -63630,6 +63635,23 @@ function formatProviderCrawlerDate(value) {
   catch (_error) { return String(value); }
 }
 
+function getLatestProviderCrawlerRuns() {
+  const latestByProvider = new Map();
+  providerCrawlerRuns.forEach((run) => {
+    const providerId = String(run?.provider_id || "");
+    if (!providerId) return;
+    const current = latestByProvider.get(providerId);
+    if (!current || String(run?.created_at || "") > String(current?.created_at || "")) latestByProvider.set(providerId, run);
+  });
+  return [...latestByProvider.values()].sort((left, right) => String(right?.created_at || "").localeCompare(String(left?.created_at || "")));
+}
+
+function getProviderCrawlerReviewLabel(run) {
+  const status = String(run?.status || "");
+  if (["completed", "partial"].includes(status)) return "Ergebnis";
+  return status === "failed" ? "Fehler" : "Status";
+}
+
 function isSafeCrawlerSourceUrl(value) {
   try {
     const url = new URL(String(value || ""));
@@ -63660,12 +63682,20 @@ async function callProviderCrawlerApi(action, payload = {}) {
 
 function renderProviderCrawlerSection() {
   if (!els.providerCrawlerTableBody) return;
-  const latestByProvider = new Map();
-  providerCrawlerRuns.forEach((run) => {
-    const providerId = String(run?.provider_id || "");
-    const current = latestByProvider.get(providerId);
-    if (!current || String(run?.created_at || "") > String(current?.created_at || "")) latestByProvider.set(providerId, run);
-  });
+  const latestRuns = getLatestProviderCrawlerRuns();
+  const latestByProvider = new Map(latestRuns.map((run) => [String(run.provider_id || ""), run]));
+  if (els.providerCrawlerHistoryBody) {
+    els.providerCrawlerHistoryBody.innerHTML = latestRuns.length
+      ? latestRuns.map((run) => `<tr>
+          <td><strong>${escapeHtml(String(run.provider_name_snapshot || "Unbekannter Anbieter"))}</strong></td>
+          <td>${isSafeCrawlerSourceUrl(run.website_snapshot) ? `<a href="${escapeHtml(run.website_snapshot)}" target="_blank" rel="noopener noreferrer">Website ↗</a>` : "–"}</td>
+          <td>${escapeHtml(String(run.status || "unbekannt").replace(/_/g, " "))}</td>
+          <td>${escapeHtml(formatProviderCrawlerDate(run.finished_at || run.last_crawled_at || run.created_at))}</td>
+          <td>${escapeHtml(String(run.experiences_selected ?? "–"))}</td>
+          <td><button type="button" class="mini-btn" data-provider-crawler-review="${escapeHtml(String(run.id || ""))}">${getProviderCrawlerReviewLabel(run)}</button></td>
+        </tr>`).join("")
+      : '<tr><td colspan="6">Noch keine Crawl-Läufe gespeichert.</td></tr>';
+  }
   const eligible = getProviderCrawlerEligibleProviders();
   if (els.providerCrawlerSelectAll) {
     els.providerCrawlerSelectAll.checked = eligible.length > 0 && eligible.every((provider) => providerCrawlerSelectedIds.has(String(provider.id)));
@@ -63680,8 +63710,6 @@ function renderProviderCrawlerSection() {
     const run = latestByProvider.get(providerId);
     const status = String(run?.status || "not_started").replace(/_/g, " ");
     const runId = String(run?.id || "");
-    const isFinished = ["completed", "partial"].includes(String(run?.status || ""));
-    const reviewLabel = isFinished ? "Ergebnis" : String(run?.status || "") === "failed" ? "Fehler" : "Status";
     return `<tr>
       <td><input type="checkbox" data-provider-crawler-select="${escapeHtml(providerId)}" ${providerCrawlerSelectedIds.has(providerId) ? "checked" : ""} aria-label="${escapeHtml(String(provider.name || "Anbieter"))} auswählen" /></td>
       <td><strong>${escapeHtml(String(provider.name || "–"))}</strong></td>
@@ -63691,7 +63719,7 @@ function renderProviderCrawlerSection() {
       <td>${escapeHtml(String(run?.experiences_selected ?? "–"))}</td>
       <td><div class="provider-crawler-table-actions">
         <button type="button" class="mini-btn" data-provider-crawler-run="${escapeHtml(providerId)}">Crawlen</button>
-        ${runId ? `<button type="button" class="mini-btn" data-provider-crawler-review="${escapeHtml(runId)}">${reviewLabel}</button>` : ""}
+        ${runId ? `<button type="button" class="mini-btn" data-provider-crawler-review="${escapeHtml(runId)}">${getProviderCrawlerReviewLabel(run)}</button>` : ""}
       </div></td>
     </tr>`;
   }).join("");
