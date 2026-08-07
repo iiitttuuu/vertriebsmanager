@@ -12,10 +12,12 @@ assert.match(appSource, /!isProviderDashboardCreated\(provider\)/, "Bereits im D
 assert.match(appSource, /!isProviderAdminOnly\(provider\)/, "Nur-Admin-Anbieter werden nicht vorgeschlagen.");
 assert.match(appSource, /!canCurrentUserOpenProvider\(provider, currentUser\)/, "Für den Nutzer gesperrte Anbieter werden nicht vorgeschlagen.");
 assert.match(appSource, /function getProviderBalanceCapacityDeficit\(/, "Die Auswahl berechnet den Rückstand relativ zur verfügbaren Kapazität.");
+assert.match(appSource, /function getProviderBalanceCoveragePercent\(/, "Die Begründung zeigt verständliche Abdeckungsprozente.");
 assert.match(appSource, /const smoothingSize = 4/, "Kleine Bundesländer werden gegen Zufallsschwankungen geglättet.");
 assert.match(appSource, /topicDeficit \+ stateDeficit \+ pairDeficit \* 0\.35/, "Themen, Bundesländer und ihre Kombination werden kapazitätsgerecht gewichtet.");
 assert.match(appSource, /Math\.random\(\)/, "Gleichwertige Vorschläge werden zufällig gemischt.");
 assert.match(appSource, /canCurrentUserSetProviderDashboardCreated/, "Der Assistent bleibt auf Rollen begrenzt, die den vorhandenen Dashboard-Schalter setzen dürfen.");
+assert.match(appSource, /Der Durchschnitt deiner sichtbaren Auswahl liegt bei/, "Der Vorschlag erklärt den Vergleich mit dem aktuellen Durchschnitt.");
 assert.match(htmlSource, /id="provider-balance-assistant-modal"/, "Die Auswahl erscheint in einem eigenen Dialog.");
 assert.match(htmlSource, /id="provider-balance-assistant-btn"/, "Der Assistent ist aus der bestehenden Aktionsleiste erreichbar.");
 assert.match(stylesSource, /\.provider-balance-assistant-modal/, "Der Dialog hat eine isolierte Darstellung.");

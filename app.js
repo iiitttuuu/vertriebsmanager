@@ -40359,6 +40359,14 @@ function getProviderBalanceCapacityDeficit(dashboardCount, totalCount, targetCov
   return relativeDeficit * Math.sqrt(total);
 }
 
+function getProviderBalanceCoveragePercent(dashboardCount, totalCount) {
+  const total = Math.max(0, Number(totalCount) || 0);
+  if (!total) {
+    return 0;
+  }
+  return Math.round((Math.max(0, Number(dashboardCount) || 0) / total) * 100);
+}
+
 function buildProviderBalanceAssistantScope() {
   const currentUser = getCurrentUser();
   if (!canCurrentUserUseProviderBalanceAssistant(currentUser)) {
@@ -40484,6 +40492,15 @@ function getProviderBalanceAssistantSuggestion() {
     topicTotalCount: scope.totalByTopic.get(pair.topic.key) || 0,
     stateDashboardCount: scope.dashboardByState.get(pair.state.key) || 0,
     stateTotalCount: scope.totalByState.get(pair.state.key) || 0,
+    topicCoveragePercent: getProviderBalanceCoveragePercent(
+      scope.dashboardByTopic.get(pair.topic.key) || 0,
+      scope.totalByTopic.get(pair.topic.key) || 0
+    ),
+    stateCoveragePercent: getProviderBalanceCoveragePercent(
+      scope.dashboardByState.get(pair.state.key) || 0,
+      scope.totalByState.get(pair.state.key) || 0
+    ),
+    overallCoveragePercent: Math.round(scope.overallCoverageRate * 100),
   };
 }
 
@@ -40524,14 +40541,14 @@ function renderProviderBalanceAssistantSuggestion() {
     <div class="provider-balance-assistant-metrics">
       <div class="provider-balance-assistant-metric">
         <span>Thema</span>
-        <strong>${escapeHtml(entry.topic.name)} · ${entry.topicDashboardCount} von ${entry.topicTotalCount}</strong>
+        <strong>${escapeHtml(entry.topic.name)} · ${entry.topicDashboardCount} von ${entry.topicTotalCount} (${entry.topicCoveragePercent} %)</strong>
       </div>
       <div class="provider-balance-assistant-metric">
         <span>Bundesland</span>
-        <strong>${escapeHtml(entry.state.name)} · ${entry.stateDashboardCount} von ${entry.stateTotalCount}</strong>
+        <strong>${escapeHtml(entry.state.name)} · ${entry.stateDashboardCount} von ${entry.stateTotalCount} (${entry.stateCoveragePercent} %)</strong>
       </div>
     </div>
-    <p class="provider-balance-assistant-reason"><strong>Warum dieser Vorschlag?</strong> Thema und Bundesland liegen – gemessen an ihrem verfügbaren Anbieterbestand – unter dem aktuellen Abdeckungsniveau. Kleine Bundesländer werden dabei geglättet berücksichtigt. Nach der Anlage bitte im Anbieter den vorhandenen Schalter „Im Dashboard angelegt“ aktivieren.</p>`;
+    <p class="provider-balance-assistant-reason"><strong>Warum dieser Vorschlag?</strong> In ${escapeHtml(entry.state.name)} sind ${entry.stateDashboardCount} von ${entry.stateTotalCount} Anbietern im Dashboard (${entry.stateCoveragePercent} %). Der Durchschnitt deiner sichtbaren Auswahl liegt bei ${entry.overallCoveragePercent} %. Beim Thema „${escapeHtml(entry.topic.name)}“ sind es ${entry.topicDashboardCount} von ${entry.topicTotalCount} (${entry.topicCoveragePercent} %). Mit diesem Anbieter verbesserst du beide Bereiche.</p>`;
 }
 
 function openProviderBalanceAssistant() {
