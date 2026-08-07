@@ -2612,6 +2612,7 @@
             </div>
             <div class="provider-list-actions">
               <button type="button" id="provider-export-btn" class="btn btn-primary superadmin-only-view">CSV Export</button>
+              <button type="button" id="provider-balance-assistant-btn" class="btn btn-secondary hidden">Nächster Anbieter</button>
               <button type="button" id="provider-create-btn" class="btn btn-success btn-action">Neuen Anbieter anlegen</button>
             </div>
           </div>
@@ -3073,6 +3074,28 @@
                 id="provider-tour-tab-panel"
                 class="provider-detail-tab-panel provider-integrated-tab-panel hidden"
               ></div>
+            </div>
+          </div>
+          <div
+            id="provider-balance-assistant-modal"
+            class="modal-overlay-page hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="provider-balance-assistant-title"
+          >
+            <div class="modal-dialog-panel provider-balance-assistant-modal">
+              <div class="modal-dialog-head">
+                <div>
+                  <p class="provider-analytics-eyebrow">ANLAGE-ASSISTENT</p>
+                  <h3 id="provider-balance-assistant-title">Nächster Anbieter</h3>
+                </div>
+                <button type="button" id="provider-balance-assistant-close" class="mini-btn" aria-label="Auswahl-Assistent schließen">✕</button>
+              </div>
+              <div id="provider-balance-assistant-content" class="provider-balance-assistant-content" aria-live="polite"></div>
+              <div class="form-actions provider-balance-assistant-actions">
+                <button type="button" id="provider-balance-assistant-reroll" class="btn btn-secondary">Neu wählen</button>
+                <button type="button" id="provider-balance-assistant-open" class="btn btn-primary">Anbieter öffnen</button>
+              </div>
             </div>
           </div>
         </section>

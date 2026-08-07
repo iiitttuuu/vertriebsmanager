@@ -687,6 +687,8 @@ let providerAnalyticsStateFilter = "all";
 let providerAnalyticsDetailCategoryId = "";
 let providerAnalyticsDetailCategoryName = "";
 let providerAnalyticsReturnAfterEditor = false;
+let providerBalanceAssistantSuggestion = null;
+let providerBalanceAssistantSkippedProviderIds = new Set();
 let providerListShowArchived = false;
 let providerListShowCompetitors = false;
 let invitationRequestBoardShowCompleted = false;
@@ -2166,6 +2168,12 @@ const els = {
   companyContactAddBtn: document.getElementById("company-contact-add-btn"),
   companyContactsList: document.getElementById("company-contacts-list"),
   providerCreateBtn: document.getElementById("provider-create-btn"),
+  providerBalanceAssistantBtn: document.getElementById("provider-balance-assistant-btn"),
+  providerBalanceAssistantModal: document.getElementById("provider-balance-assistant-modal"),
+  providerBalanceAssistantClose: document.getElementById("provider-balance-assistant-close"),
+  providerBalanceAssistantContent: document.getElementById("provider-balance-assistant-content"),
+  providerBalanceAssistantReroll: document.getElementById("provider-balance-assistant-reroll"),
+  providerBalanceAssistantOpen: document.getElementById("provider-balance-assistant-open"),
   providerHeadingLabel: document.getElementById("provider-heading-label"),
   providerListFilters: document.getElementById("provider-list-filters"),
   providerListSearchField: document.getElementById("provider-list-search-field"),
@@ -4753,6 +4761,11 @@ function bindEvents() {
     if (event.key === "Escape" && isProviderInvitationInfoModalOpen()) {
       event.preventDefault();
       closeProviderInvitationInfoModal();
+      return;
+    }
+    if (event.key === "Escape" && isProviderBalanceAssistantOpen()) {
+      event.preventDefault();
+      closeProviderBalanceAssistant();
       return;
     }
     if (event.key === "Escape" && adminNotificationDropdownOpen) {
@@ -7709,6 +7722,25 @@ function bindEvents() {
   els.providerCreateBtn.addEventListener("click", () => {
     clearProviderForm();
     setProvidersView("form");
+  });
+  els.providerBalanceAssistantBtn?.addEventListener("click", () => {
+    openProviderBalanceAssistant();
+  });
+  els.providerBalanceAssistantClose?.addEventListener("click", closeProviderBalanceAssistant);
+  els.providerBalanceAssistantReroll?.addEventListener("click", () => {
+    const previousProviderId = String(providerBalanceAssistantSuggestion?.providerId || "").trim();
+    if (previousProviderId) {
+      providerBalanceAssistantSkippedProviderIds.add(previousProviderId);
+    }
+    renderProviderBalanceAssistantSuggestion();
+  });
+  els.providerBalanceAssistantOpen?.addEventListener("click", () => {
+    const providerId = String(providerBalanceAssistantSuggestion?.providerId || "").trim();
+    if (!providerId) {
+      return;
+    }
+    closeProviderBalanceAssistant();
+    openProviderEditor(providerId, { tab: "master" });
   });
   els.providerFormCloseBtn?.addEventListener("click", () => {
     void leaveProviderForm({ close: true });
@@ -29836,6 +29868,7 @@ function syncBodyModalOpenState() {
     !!els.providerUnsavedChangesPanel && !els.providerUnsavedChangesPanel.classList.contains("hidden");
   const providerAnalyticsDetailOpen =
     !!els.providerAnalyticsDetailModal && !els.providerAnalyticsDetailModal.classList.contains("hidden");
+  const providerBalanceAssistantOpen = isProviderBalanceAssistantOpen();
   const partnerRequestDetailOpen =
     !!els.partnerRequestDetailPanel && !els.partnerRequestDetailPanel.classList.contains("hidden");
   const providerExportOpen = !!els.providerExportPanel && !els.providerExportPanel.classList.contains("hidden");
@@ -29886,6 +29919,7 @@ function syncBodyModalOpenState() {
       providerCompetitorOpen ||
       providerUnsavedChangesOpen ||
       providerAnalyticsDetailOpen ||
+      providerBalanceAssistantOpen ||
       partnerRequestDetailOpen ||
       providerExportOpen ||
       providerTransferRejectOpen ||
@@ -40279,6 +40313,221 @@ function getProviderListViewModel() {
   };
 }
 
+function canCurrentUserUseProviderBalanceAssistant(currentUser = getCurrentUser()) {
+  // Der Assistent zeigt nur bereits freigegebene Anbieter an und öffnet sie
+  // anschließend über die bestehende, serverseitig abgesicherte Bearbeitung.
+  return canCurrentUserSetProviderDashboardCreated(currentUser);
+}
+
+function getProviderBalanceTopicEntries(provider, topicLookup = new Map()) {
+  const entriesByKey = new Map();
+  (Array.isArray(provider?.topicIds) ? provider.topicIds : []).forEach((topicId) => {
+    const topic = topicLookup.get(String(topicId || "").trim());
+    const key = String(topic?.id || "").trim();
+    const name = String(topic?.name || "").trim();
+    if (key && name && !entriesByKey.has(key)) {
+      entriesByKey.set(key, { key, name });
+    }
+  });
+  return Array.from(entriesByKey.values());
+}
+
+function getProviderBalanceStateEntries(provider) {
+  return getProviderAnalyticsStateEntries(provider).map((entry) => ({
+    key: String(entry?.key || "").trim(),
+    name: String(entry?.state || "").trim(),
+  })).filter((entry) => entry.key && entry.name);
+}
+
+function incrementProviderBalanceCounter(counter, key) {
+  counter.set(key, (counter.get(key) || 0) + 1);
+}
+
+function buildProviderBalanceAssistantScope() {
+  const currentUser = getCurrentUser();
+  if (!canCurrentUserUseProviderBalanceAssistant(currentUser)) {
+    return null;
+  }
+  const topicLookup = new Map(getAllTopics().map((topic) => [String(topic?.id || "").trim(), topic]));
+  const eligibleProviders = getProviderListVisibleProviders().filter(
+    (provider) =>
+      provider &&
+      !isProviderCompetitor(provider) &&
+      normalizeProviderStatusValue(provider?.status || "") !== PROVIDER_STATUS_ARCHIVED
+  );
+  const dashboardByTopic = new Map();
+  const dashboardByState = new Map();
+  const dashboardByPair = new Map();
+  const totalByTopic = new Map();
+  const totalByState = new Map();
+  const candidates = [];
+
+  eligibleProviders.forEach((provider) => {
+    const topics = getProviderBalanceTopicEntries(provider, topicLookup);
+    const states = getProviderBalanceStateEntries(provider);
+    if (!topics.length || !states.length) {
+      return;
+    }
+    const pairs = [];
+    topics.forEach((topic) => {
+      incrementProviderBalanceCounter(totalByTopic, topic.key);
+      states.forEach((stateEntry) => {
+        const pairKey = `${topic.key}|${stateEntry.key}`;
+        pairs.push({ key: pairKey, topic, state: stateEntry });
+      });
+    });
+    states.forEach((stateEntry) => incrementProviderBalanceCounter(totalByState, stateEntry.key));
+    if (isProviderDashboardCreated(provider)) {
+      topics.forEach((topic) => incrementProviderBalanceCounter(dashboardByTopic, topic.key));
+      states.forEach((stateEntry) => incrementProviderBalanceCounter(dashboardByState, stateEntry.key));
+      pairs.forEach((pair) => incrementProviderBalanceCounter(dashboardByPair, pair.key));
+      return;
+    }
+    if (!canCurrentUserOpenProvider(provider, currentUser)) {
+      return;
+    }
+    candidates.push({ provider, topics, states, pairs });
+  });
+
+  return {
+    candidates,
+    dashboardByTopic,
+    dashboardByState,
+    dashboardByPair,
+    totalByTopic,
+    totalByState,
+  };
+}
+
+function getProviderBalanceAssistantSuggestion() {
+  const scope = buildProviderBalanceAssistantScope();
+  if (!scope) {
+    return { error: "Der Auswahl-Assistent steht für deine Rolle nicht zur Verfügung." };
+  }
+  let candidates = scope.candidates.filter(
+    (entry) => !providerBalanceAssistantSkippedProviderIds.has(String(entry.provider?.id || "").trim())
+  );
+  if (!candidates.length && providerBalanceAssistantSkippedProviderIds.size) {
+    providerBalanceAssistantSkippedProviderIds.clear();
+    candidates = scope.candidates.slice();
+  }
+  if (!candidates.length) {
+    return {
+      error: "Es gibt aktuell keinen offenen Anbieter mit zugeordnetem Thema und Bundesland.",
+    };
+  }
+
+  const topicMinimum = Math.min(
+    ...Array.from(new Set(candidates.flatMap((entry) => entry.topics.map((topic) => topic.key)))).map(
+      (key) => scope.dashboardByTopic.get(key) || 0
+    )
+  );
+  const stateMinimum = Math.min(
+    ...Array.from(new Set(candidates.flatMap((entry) => entry.states.map((stateEntry) => stateEntry.key)))).map(
+      (key) => scope.dashboardByState.get(key) || 0
+    )
+  );
+  const pairMinimum = Math.min(
+    ...Array.from(new Set(candidates.flatMap((entry) => entry.pairs.map((pair) => pair.key)))).map(
+      (key) => scope.dashboardByPair.get(key) || 0
+    )
+  );
+  const pairOptions = new Map();
+  candidates.forEach((entry) => {
+    entry.pairs.forEach((pair) => {
+      const topicGap = (scope.dashboardByTopic.get(pair.topic.key) || 0) - topicMinimum;
+      const stateGap = (scope.dashboardByState.get(pair.state.key) || 0) - stateMinimum;
+      const pairGap = (scope.dashboardByPair.get(pair.key) || 0) - pairMinimum;
+      const score = topicGap + stateGap + pairGap * 0.35;
+      if (!pairOptions.has(pair.key)) {
+        pairOptions.set(pair.key, { ...pair, score, candidates: [] });
+      }
+      pairOptions.get(pair.key).candidates.push(entry);
+    });
+  });
+  const options = Array.from(pairOptions.values());
+  const bestScore = Math.min(...options.map((option) => option.score));
+  // Eine kleine Toleranz lässt gleichwertige Themen und Bundesländer bewusst
+  // gemischt erscheinen, ohne die Unterrepräsentierten zu verdrängen.
+  const balancedOptions = options.filter((option) => option.score <= bestScore + 0.35);
+  const pair = balancedOptions[Math.floor(Math.random() * balancedOptions.length)];
+  const candidate = pair.candidates[Math.floor(Math.random() * pair.candidates.length)];
+  return {
+    providerId: String(candidate.provider?.id || "").trim(),
+    providerName: String(candidate.provider?.name || "Unbenannter Anbieter").trim(),
+    location: String(getProviderCoverageSummary(candidate.provider) || "Standort nicht hinterlegt").trim(),
+    topic: pair.topic,
+    state: pair.state,
+    topicDashboardCount: scope.dashboardByTopic.get(pair.topic.key) || 0,
+    topicTotalCount: scope.totalByTopic.get(pair.topic.key) || 0,
+    stateDashboardCount: scope.dashboardByState.get(pair.state.key) || 0,
+    stateTotalCount: scope.totalByState.get(pair.state.key) || 0,
+  };
+}
+
+function isProviderBalanceAssistantOpen() {
+  return Boolean(els.providerBalanceAssistantModal && !els.providerBalanceAssistantModal.classList.contains("hidden"));
+}
+
+function renderProviderBalanceAssistantSuggestion() {
+  if (!els.providerBalanceAssistantContent) {
+    return;
+  }
+  const suggestion = getProviderBalanceAssistantSuggestion();
+  providerBalanceAssistantSuggestion = suggestion?.providerId ? suggestion : null;
+  if (!providerBalanceAssistantSuggestion) {
+    els.providerBalanceAssistantContent.innerHTML = `<p class="provider-balance-assistant-empty">${escapeHtml(
+      suggestion?.error || "Für die aktuelle Auswahl ist kein Anbieter verfügbar."
+    )}</p>`;
+    if (els.providerBalanceAssistantOpen) {
+      els.providerBalanceAssistantOpen.disabled = true;
+    }
+    if (els.providerBalanceAssistantReroll) {
+      els.providerBalanceAssistantReroll.disabled = true;
+    }
+    return;
+  }
+  if (els.providerBalanceAssistantOpen) {
+    els.providerBalanceAssistantOpen.disabled = false;
+  }
+  if (els.providerBalanceAssistantReroll) {
+    els.providerBalanceAssistantReroll.disabled = false;
+  }
+  const entry = providerBalanceAssistantSuggestion;
+  els.providerBalanceAssistantContent.innerHTML = `
+    <article class="provider-balance-assistant-provider">
+      <strong>${escapeHtml(entry.providerName)}</strong>
+      <span>${escapeHtml(entry.location)}</span>
+    </article>
+    <div class="provider-balance-assistant-metrics">
+      <div class="provider-balance-assistant-metric">
+        <span>Thema</span>
+        <strong>${escapeHtml(entry.topic.name)} · ${entry.topicDashboardCount} von ${entry.topicTotalCount}</strong>
+      </div>
+      <div class="provider-balance-assistant-metric">
+        <span>Bundesland</span>
+        <strong>${escapeHtml(entry.state.name)} · ${entry.stateDashboardCount} von ${entry.stateTotalCount}</strong>
+      </div>
+    </div>
+    <p class="provider-balance-assistant-reason"><strong>Warum dieser Vorschlag?</strong> Thema und Bundesland gehören in deiner sichtbaren Auswahl aktuell zu den am wenigsten im Dashboard angelegten Bereichen. Nach der Anlage bitte im Anbieter den vorhandenen Schalter „Im Dashboard angelegt“ aktivieren.</p>`;
+}
+
+function openProviderBalanceAssistant() {
+  if (!canCurrentUserUseProviderBalanceAssistant()) {
+    showWarningFeedback("Der Auswahl-Assistent steht für deine Rolle nicht zur Verfügung.");
+    return;
+  }
+  providerBalanceAssistantSkippedProviderIds = new Set();
+  renderProviderBalanceAssistantSuggestion();
+  els.providerBalanceAssistantModal?.classList.remove("hidden");
+  syncBodyModalOpenState();
+}
+
+function closeProviderBalanceAssistant() {
+  els.providerBalanceAssistantModal?.classList.add("hidden");
+  syncBodyModalOpenState();
+}
+
 function getProviderCsvFieldValue(provider, fieldId, topicLookup = new Map()) {
   const normalizedFieldId = String(fieldId || "").trim();
   const locations = getProviderLocations(provider);
@@ -40549,6 +40798,12 @@ function exportProvidersCsv() {
 
 function renderProvidersTable() {
   const currentUser = getCurrentUser();
+  if (els.providerBalanceAssistantBtn) {
+    els.providerBalanceAssistantBtn.classList.toggle(
+      "hidden",
+      !canCurrentUserUseProviderBalanceAssistant(currentUser)
+    );
+  }
   if (!canCurrentUserUseProviderListAdvancedFilters(currentUser)) {
     providerListShowArchived = false;
     providerListShowCompetitors = false;

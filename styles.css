@@ -30338,6 +30338,77 @@ body {
   border-top: 1px solid rgba(29, 29, 31, 0.08);
 }
 
+/* Der Auswahl-Assistent erscheint nur bei Bedarf im Dialog, damit die
+   Anbieterübersicht selbst ruhig und unverändert bleibt. */
+.provider-balance-assistant-modal {
+  width: min(590px, calc(100vw - 28px));
+}
+
+.provider-balance-assistant-modal .modal-dialog-head {
+  align-items: start;
+}
+
+.provider-balance-assistant-content {
+  display: grid;
+  gap: 13px;
+}
+
+.provider-balance-assistant-provider {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(0, 113, 227, 0.2);
+  border-radius: 15px;
+  background: linear-gradient(135deg, rgba(0, 113, 227, 0.075), rgba(255, 255, 255, 0.96));
+  padding: 15px;
+}
+
+.provider-balance-assistant-provider strong {
+  color: #123b6b;
+  font-size: 1.03rem;
+}
+
+.provider-balance-assistant-provider span,
+.provider-balance-assistant-reason,
+.provider-balance-assistant-empty {
+  color: #586b82;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.provider-balance-assistant-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.provider-balance-assistant-metric {
+  display: grid;
+  gap: 2px;
+  border-radius: 11px;
+  background: #f5f8fc;
+  padding: 10px 11px;
+}
+
+.provider-balance-assistant-metric span {
+  color: #6e7d90;
+  font-size: 0.71rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.provider-balance-assistant-metric strong {
+  color: #213f63;
+  font-size: 0.91rem;
+}
+
+.provider-balance-assistant-actions {
+  justify-content: flex-end;
+  margin: 16px 0 0;
+  padding-top: 15px;
+  border-top: 1px solid rgba(29, 29, 31, 0.08);
+}
+
 @media (max-width: 900px) {
   .provider-analytics-main-grid {
     grid-template-columns: 1fr;
@@ -30375,6 +30446,10 @@ body {
   .provider-analytics-detail-provider {
     align-items: start;
     gap: 10px;
+  }
+
+  .provider-balance-assistant-metrics {
+    grid-template-columns: 1fr;
   }
 
   .provider-analytics-progress {
