@@ -974,6 +974,7 @@ let ceoSecretaryPreferencesLoaded = false;
 let ceoSecretaryPreferences = { assistantName: "", memory: [], updatedAt: "" };
 let ceoSecretaryChatMessages = [];
 let ceoSecretaryLastReferencedEntryIds = [];
+const ceoSecretaryLocalReminderTimers = new Map();
 let providerFormDirty = false;
 let providerDraftPendingResume = false;
 let providerEditorResumeRestoredForSession = false;
@@ -4583,6 +4584,8 @@ async function bootstrapAfterAuth(flowId = 0) {
   ceoSecretaryPreferences = { assistantName: "", memory: [], updatedAt: "" };
   ceoSecretaryChatMessages = [];
   ceoSecretaryLastReferencedEntryIds = [];
+  ceoSecretaryLocalReminderTimers.forEach((timerId) => window.clearTimeout(timerId));
+  ceoSecretaryLocalReminderTimers.clear();
   resetCeoSecretaryComposer();
   incomingInvoicesLoadedRemote = false;
   incomingInvoicesLoadingRemote = false;
@@ -36067,6 +36070,64 @@ async function persistCeoSecretaryAnalyzedEntries(client, entries) {
   return savedEntries;
 }
 
+function parseCeoSecretaryRelativeReminder(message) {
+  const text = String(message || "").trim();
+  const match = text.match(/\b(?:erinnere(?:\s+mich)?|erinnerung)\s+(?:mich\s+)?in\s+(\d{1,4})\s*(sek(?:unde|unden|\.)?|min(?:ute|uten|\.)?|stunde(?:n)?|std\.?|h)\b/i);
+  if (!match) return null;
+  const amount = Number(match[1]);
+  const unit = String(match[2] || "").toLocaleLowerCase("de-AT");
+  if (!Number.isInteger(amount) || amount < 1) return null;
+  const multiplier = /^sek/.test(unit) ? 1000 : /^min/.test(unit) ? 60000 : 3600000;
+  const delayMs = amount * multiplier;
+  if (delayMs > 24 * 60 * 60 * 1000) return null;
+  const unitLabel = multiplier === 1000 ? (amount === 1 ? "Sekunde" : "Sekunden") : multiplier === 60000 ? (amount === 1 ? "Minute" : "Minuten") : (amount === 1 ? "Stunde" : "Stunden");
+  const subject = text
+    .replace(match[0], "")
+    .replace(/^\s*(?:an|für|ueber|über)\s*/i, "")
+    .replace(/^\s*[,.:;-]\s*/, "")
+    .trim();
+  return { delayMs, label: `${amount} ${unitLabel}`, subject: subject || "Deine Erinnerung" };
+}
+
+function scheduleCeoSecretaryLocalReminder(reminder) {
+  if (!reminder?.delayMs || !reminder?.subject) return;
+  const reminderId = createId("ceo_secretary_local_reminder");
+  const timerId = window.setTimeout(() => {
+    ceoSecretaryLocalReminderTimers.delete(reminderId);
+    const text = `Erinnerung: ${reminder.subject}`;
+    appendAdminSystemNotification(text, "warning", {
+      title: "Sekretär · Erinnerung",
+      targetSection: "ceo-secretary-section",
+      targetView: "briefing",
+    });
+    renderAdminNotifications();
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      try {
+        new Notification("Dein Sekretär", { body: text });
+      } catch (_error) {
+        // Die Glocke bleibt die verlässliche Anzeige innerhalb der geöffneten App.
+      }
+    }
+  }, reminder.delayMs);
+  ceoSecretaryLocalReminderTimers.set(reminderId, timerId);
+}
+
+async function createCeoSecretaryRelativeReminder(client, message, reminder) {
+  const savedEntries = await persistCeoSecretaryAnalyzedEntries(client, [
+    {
+      type: "followup",
+      title: `Erinnerung in ${reminder.label}: ${reminder.subject}`,
+      body: String(message || "").trim(),
+      context: "Kurz-Erinnerung",
+      tags: [],
+      dueDate: getTodayDateInputValue(),
+      priority: "high",
+    },
+  ]);
+  scheduleCeoSecretaryLocalReminder(reminder);
+  return savedEntries;
+}
+
 async function handleCeoSecretaryIdeaCaptureSubmit() {
   if (!isSuperAdmin()) return;
   const message = String(els.ceoSecretaryIdeaInput?.value || "").trim();
@@ -36580,6 +36641,23 @@ async function handleCeoSecretaryQuickCaptureSubmit() {
   setCeoSecretaryQuickStatus("Dein Sekretär hält das fest …");
   setActionButtonBusy(els.ceoSecretaryQuickSave, true, "Wird festgehalten …");
   try {
+    const relativeReminder = parseCeoSecretaryRelativeReminder(message);
+    if (relativeReminder) {
+      const savedEntries = await createCeoSecretaryRelativeReminder(client, message, relativeReminder);
+      ceoSecretaryLastReferencedEntryIds = savedEntries.map((entry) => entry.id).filter(Boolean).slice(0, 8);
+      ceoSecretaryChatMessages.push({ role: "user", text: message });
+      ceoSecretaryChatMessages.push({
+        role: "assistant",
+        text: `Erinnerung gesetzt. Ich melde mich in ${relativeReminder.label}. Solange diese Seite geöffnet bleibt, erscheint sie auch in deiner Glocke.`,
+        savedCount: savedEntries.length,
+      });
+      if (els.ceoSecretaryQuickInput) els.ceoSecretaryQuickInput.value = "";
+      ceoSecretaryLoadedRemote = true;
+      ceoSecretaryRemoteUnavailable = false;
+      renderCeoSecretarySection();
+      closeCeoSecretaryQuickModal();
+      return;
+    }
     let savedEntries = [];
     let actionResults = [];
     let reply = "";
@@ -36679,6 +36757,22 @@ async function handleCeoSecretaryCaptureSubmit() {
       resetCeoSecretaryComposer();
       ceoSecretaryChatMessages.push({ role: "assistant", text: "Eintrag aktualisiert und im Gedächtnis korrigiert." });
       showSuccessFeedback("Eintrag aktualisiert.", { toast: false, statusPersistMs: 1800 });
+      return;
+    }
+
+    const relativeReminder = parseCeoSecretaryRelativeReminder(message);
+    if (relativeReminder) {
+      const savedEntries = await createCeoSecretaryRelativeReminder(client, message, relativeReminder);
+      ceoSecretaryLastReferencedEntryIds = savedEntries.map((entry) => entry.id).filter(Boolean).slice(0, 8);
+      ceoSecretaryChatMessages.push({ role: "user", text: message });
+      ceoSecretaryChatMessages.push({
+        role: "assistant",
+        text: `Erinnerung gesetzt. Ich melde mich in ${relativeReminder.label}. Solange diese Seite geöffnet bleibt, erscheint sie auch in deiner Glocke.`,
+        savedCount: savedEntries.length,
+      });
+      if (els.ceoSecretaryBodyInput) els.ceoSecretaryBodyInput.value = "";
+      ceoSecretaryLoadedRemote = true;
+      ceoSecretaryRemoteUnavailable = false;
       return;
     }
 

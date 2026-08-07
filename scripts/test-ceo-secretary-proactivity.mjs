@@ -9,6 +9,8 @@ const [appSource, htmlSource, apiSource] = await Promise.all([
 
 assert.match(appSource, /function getCeoSecretaryMorningBriefing\(/, "Der Sekretär erzeugt ein Morgenbriefing.");
 assert.match(appSource, /function getCeoSecretaryFollowupPrompt\(/, "Der Sekretär leitet einen konkreten Nachfasspunkt ab.");
+assert.match(appSource, /function parseCeoSecretaryRelativeReminder\(/, "Der Sekretär erkennt kurze relative Erinnerungen.");
+assert.match(appSource, /function scheduleCeoSecretaryLocalReminder\(/, "Der Sekretär plant Kurz-Erinnerungen für die Glocke.");
 assert.match(appSource, /title: "Morgenbriefing · Sekretär"/, "Das Morgenbriefing erscheint in der Glocke.");
 assert.match(appSource, /targetView: "briefing"/, "Die Glocke öffnet das CEO-Briefing direkt.");
 assert.match(appSource, /data-admin-notification-target-view/, "Glockenmeldungen können gezielt eine Unteransicht öffnen.");
