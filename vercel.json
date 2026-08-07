@@ -6,6 +6,20 @@
       "schedule": "*/1 * * * *"
     }
   ],
+  "functions": {
+    "api/provider-crawler-queue.js": {
+      "maxDuration": 60,
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "provider-crawler-jobs",
+          "retryAfterSeconds": 20,
+          "initialDelaySeconds": 0,
+          "maxConcurrency": 2
+        }
+      ]
+    }
+  },
   "trailingSlash": false,
   "rewrites": [
     {

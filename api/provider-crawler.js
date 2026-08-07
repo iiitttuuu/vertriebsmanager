@@ -2,8 +2,10 @@ import crypto from "node:crypto";
 import dns from "node:dns/promises";
 import net from "node:net";
 import sharp from "sharp";
+import { send as sendQueueMessage } from "@vercel/queue";
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+const CRAWLER_QUEUE_TOPIC = "provider-crawler-jobs";
 const CRAWLER_BUCKET = "provider-crawler";
 const CRAWLER_USER_AGENT = "MyWayCardProviderCrawler/1.0 (+https://my-waycard.com)";
 const MAX_PROVIDER_IDS = 100;
@@ -46,6 +48,23 @@ function getConfig(req) {
   const supabaseUrl = sanitizeSupabaseUrl(process.env.SUPABASE_URL || "");
   const serviceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   return { supabaseUrl, serviceRoleKey, ready: Boolean(supabaseUrl && serviceRoleKey) };
+}
+
+async function publishCrawlerJob(runId, stage = "text") {
+  const normalizedRunId = cleanText(runId, 80);
+  if (!normalizedRunId || process.env.VERCEL !== "1") return false;
+  try {
+    await sendQueueMessage(
+      CRAWLER_QUEUE_TOPIC,
+      { run_id: normalizedRunId, stage },
+      { idempotencyKey: `provider-crawler:${stage}:${normalizedRunId}`, retentionSeconds: 86_400 }
+    );
+    return true;
+  } catch (error) {
+    // Die Datenbank-Queue und der Cron bleiben absichtlich ein belastbarer Fallback.
+    console.error("Provider crawler queue publish failed", error);
+    return false;
+  }
 }
 
 function parseBody(req) {
@@ -772,6 +791,7 @@ async function processRun(config, run, actor) {
   const finalStatus = copy ? "completed" : "partial";
   await updateRun(config, run.id, { status: finalStatus, finished_at: new Date().toISOString(), last_crawled_at: new Date().toISOString(), pages_scanned: pages.length, experiences_found: offers.length, experiences_selected: experienceRows.length, error_code: "media_pending", error_message: copy ? "Texte sind verfügbar; Logo und Bilder werden im Hintergrund ergänzt." : "Fakten wurden gespeichert; Plattformtexte konnten nicht erzeugt werden. Logo und Bilder werden im Hintergrund ergänzt." }, "running");
   await logEvent(config, run.id, finalStatus, actor.userId, { stage: "text", pages_scanned: pages.length, experiences_selected: experienceRows.length });
+  await publishCrawlerJob(run.id, "media");
   return { status: finalStatus };
 }
 
@@ -810,6 +830,62 @@ async function processMediaRun(config, run, actor) {
   });
   await logEvent(config, run.id, "completed", actor.userId, { stage: "media", media_saved: mediaRows.length });
   return { status: run.status, media: mediaRows.length };
+}
+
+async function claimAndProcessQueuedTextRun(config, actor, runId, deliveryCount = 1) {
+  const queued = await rest(config, `provider_crawl_runs?select=*&id=eq.${encodeURIComponent(runId)}&status=eq.queued&limit=1`);
+  const run = Array.isArray(queued.payload) ? queued.payload[0] : null;
+  if (!run) return { ignored: true };
+  const claimed = await updateRun(config, run.id, { status: "running", started_at: new Date().toISOString(), started_by_user_id: actor.userId, error_code: "", error_message: "" }, "queued");
+  if (!claimed) return { ignored: true };
+  await logEvent(config, claimed.id, "started", actor.userId, { delivery: "vercel_queue" });
+  try { return { run: claimed, ...(await processRun(config, claimed, actor)) }; }
+  catch (error) {
+    const retryPending = deliveryCount < 3;
+    await updateRun(config, claimed.id, {
+      status: retryPending ? "queued" : "failed",
+      ...(retryPending ? {} : { finished_at: new Date().toISOString() }),
+      error_code: retryPending ? "crawl_retry_pending" : "crawl_failed",
+      error_message: cleanText(error?.message || "Unbekannter Crawl-Fehler.", 1200),
+    }, "running");
+    await logEvent(config, claimed.id, "failed", actor.userId, { error: cleanText(error?.message || "Unbekannt", 800), delivery: "vercel_queue", delivery_count: deliveryCount, retry_pending: retryPending });
+    if (retryPending) throw error;
+    return { run: claimed, status: "failed" };
+  }
+}
+
+async function claimAndProcessQueuedMediaRun(config, actor, runId, deliveryCount = 1) {
+  const queuedText = await rest(config, "provider_crawl_runs?select=id&status=eq.queued&limit=1");
+  if (Array.isArray(queuedText.payload) && queuedText.payload[0]) return { deferred: true };
+  const pending = await rest(config, `provider_crawl_runs?select=*&id=eq.${encodeURIComponent(runId)}&status=in.(completed,partial)&error_code=eq.media_pending&limit=1`);
+  const mediaRun = Array.isArray(pending.payload) ? pending.payload[0] : null;
+  if (!mediaRun) return { ignored: true };
+  const claimedMedia = await claimMediaStage(config, mediaRun.id);
+  if (!claimedMedia) return { ignored: true };
+  try { return { run: claimedMedia, ...(await processMediaRun(config, claimedMedia, actor)) }; }
+  catch (error) {
+    const retryPending = deliveryCount < 3;
+    await rest(config, `provider_crawl_runs?id=eq.${encodeURIComponent(claimedMedia.id)}&error_code=eq.media_running`, {
+      method: "PATCH",
+      body: { error_code: retryPending ? "media_pending" : "media_failed", error_message: cleanText(error?.message || "Bilder konnten nicht geladen werden.", 1200) },
+    });
+    await logEvent(config, claimedMedia.id, "completed", actor.userId, { stage: "media", error: cleanText(error?.message || "Unbekannt", 800), delivery: "vercel_queue", delivery_count: deliveryCount, retry_pending: retryPending });
+    if (retryPending) throw error;
+    return { run: claimedMedia, status: claimedMedia.status, media: "failed" };
+  }
+}
+
+export async function processProviderCrawlerQueueJob(message = {}, metadata = {}) {
+  const config = getConfig();
+  if (!config.ready) throw new Error("Crawler-Serverkonfiguration ist unvollständig.");
+  const runId = cleanText(message?.run_id, 80);
+  const stage = cleanText(message?.stage, 20);
+  if (!runId || !["text", "media"].includes(stage)) throw new Error("Ungültige Crawler-Queue-Nachricht.");
+  const actor = { userId: null, name: "Crawler-Queue", role: "system" };
+  const deliveryCount = Math.max(1, Number(metadata?.deliveryCount) || 1);
+  return stage === "media"
+    ? claimAndProcessQueuedMediaRun(config, actor, runId, deliveryCount)
+    : claimAndProcessQueuedTextRun(config, actor, runId, deliveryCount);
 }
 
 async function claimAndProcessNext(config, actor) {
@@ -857,7 +933,7 @@ async function enqueueProviders(config, providerIds, actor) {
     if (!normalizeUrl(provider.website || "")) { skipped.push({ providerId: id, reason: "missing_website" }); continue; }
     const insert = await rest(config, "provider_crawl_runs", { method: "POST", headers: { Prefer: "return=representation,resolution=merge-duplicates" }, body: { provider_id: provider.id, provider_name_snapshot: cleanText(provider.name, 240), website_snapshot: normalizeUrl(provider.website), provider_updated_at_snapshot: provider.updated_at || null, status: "queued", queued_by_user_id: actor.userId } });
     const saved = Array.isArray(insert.payload) ? insert.payload[0] : null;
-    if (saved) { created.push(saved); await logEvent(config, saved.id, "queued", actor.userId); }
+    if (saved) { created.push(saved); await logEvent(config, saved.id, "queued", actor.userId); await publishCrawlerJob(saved.id, "text"); }
     else skipped.push({ providerId: id, reason: insert.status === 409 ? "already_queued" : "queue_failed" });
   }
   return { created, skipped };
@@ -875,6 +951,7 @@ async function enqueueAllEligibleProviders(config, actor) {
       method: "POST",
       body: created.map((run) => ({ run_id: run.id, event_type: "queued", payload: { bulk: true }, created_by_user_id: actor.userId || null })),
     });
+    await Promise.all(created.map((run) => publishCrawlerJob(run.id, "text")));
   }
   return { created, skipped: [] };
 }

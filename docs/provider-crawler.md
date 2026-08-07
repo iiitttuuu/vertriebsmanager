@@ -20,9 +20,10 @@ Die Verbindung zum bestehenden Anbieter erfolgt nur über `provider_id`.
 3. Für KI-Texte `OPENAI_API_KEY` setzen; optional kann
    `PROVIDER_CRAWLER_OPENAI_MODEL` festgelegt werden. Ohne Schlüssel speichert der
    Crawler nur belegte Fakten und markiert den Lauf als `partial`.
-4. Für die Cron-Queue `CRON_SECRET` in Vercel setzen. Vercel übermittelt dieses
+4. Für den Cron-Fallback `CRON_SECRET` in Vercel setzen. Vercel übermittelt dieses
    Geheimnis an den Cron-Aufruf; optional kann statt dessen
-   `PROVIDER_CRAWLER_CRON_SECRET` verwendet werden.
+   `PROVIDER_CRAWLER_CRON_SECRET` verwendet werden. Der primäre, sofortige Start
+   erfolgt über Vercel Queues und benötigt kein zusätzliches Browser-Geheimnis.
 
 ## Sicherheits- und Betriebsregeln
 
@@ -41,9 +42,12 @@ Die Verbindung zum bestehenden Anbieter erfolgt nur über `provider_id`.
   priorisierte HTML-Seiten in kleinen parallelen Batches verarbeitet und die Textdaten
   sofort gespeichert. Logo und bis zu vier Bilder je maximal drei Erlebnissen folgen
   als nachgelagerte Medien-Stufe, sobald keine Text-Crawls mehr warten. Damit bleiben
-  langsame Bilddownloads von den nutzbaren Ergebnissen entkoppelt. Ein Cron-Aufruf
-  verarbeitet höchstens einen Queue-Eintrag. Nach dem Einreihen kehrt die Oberfläche
-  sofort zurück; der Crawl läuft ausschließlich im Hintergrund.
+  langsame Bilddownloads von den nutzbaren Ergebnissen entkoppelt. Nach dem
+  Einreihen veröffentlicht der Server einen Vercel-Queue-Auftrag; dessen privater
+  Worker startet sofort mit höchstens zwei parallelen Crawls. Bei temporären Fehlern
+  wird derselbe Lauf bis zu zweimal erneut zugestellt. Der Cron verarbeitet weiterhin
+  einen wartenden Eintrag je Aufruf als Sicherheitsnetz. Nach dem Einreihen kehrt die
+  Oberfläche sofort zurück; der Crawl läuft ausschließlich im Hintergrund.
 - Für Plattformtexte erhält die KI nur geprüfte Auszüge der gefundenen Anbieter- und
   Angebotsseiten. Anbieterprofil und jeder einzelne Kurs erhalten getrennte
   Quellenkontexte; Kursbeschreibungen dürfen nicht aus allgemeinen Anbietertexten

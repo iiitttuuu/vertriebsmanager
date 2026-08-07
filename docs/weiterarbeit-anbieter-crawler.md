@@ -1,27 +1,29 @@
 # Übergabe: Anbieter-Crawler
 
-Stand: 7. August 2026 · Branch `main` · Arbeitsordner war nach dem Release sauber.
+Stand: 7. August 2026 · Branch `main`
 
 ## Letzte Live-Version
 
-- Commit: `1c20169 Process provider crawler jobs in background`
-- Produktivdeployment: `dpl_7aawVpi4LfoSD1UtQdNDvsXLPabB`
+- Commit: `6bde997 Split crawler text and media processing`
+- Produktivdeployment: `dpl_9Uvonawake9jAwXXk4kzmhZzWJEc`
 - Live-Adresse: `https://project-xykur.vercel.app`
 
 Der Nutzer meldete zuletzt: „Crawler-Anfrage hat zu lange gedauert.“ Das ist
 behoben und live: Beim Klick auf **Crawlen** wird der Lauf nur eingereiht. Die
 Oberfläche wartet nicht mehr auf die vollständige Website-Analyse und kann
-daher nicht mehr nach 60 Sekunden abbrechen. Der Vercel-Cron-Worker verarbeitet
-den Auftrag im Hintergrund; nach etwa einer Minute aktualisiert der Nutzer die
-Ansicht.
+daher nicht mehr nach 60 Sekunden abbrechen. Die nächste Änderung ersetzt die
+bis zu einminütige Wartezeit auf den Cron durch einen sofortigen Vercel-Queue-Start.
 
 ## Wichtige Dateien
 
 - `api/provider-crawler.js`: geschützte Crawler-API, Queue-Verarbeitung,
   Website-Abruf, KI-Texte und private Bildspeicherung.
-- `api/provider-crawler-worker.js`: Cron-Endpunkt; verarbeitet genau einen
-  Queue-Eintrag.
-- `vercel.json`: Cron `"/api/provider-crawler-worker"` jede Minute.
+- `api/provider-crawler-queue.js`: privater Vercel-Queue-Consumer für den
+  sofortigen Start und erneute Zustellungen.
+- `api/provider-crawler-worker.js`: Cron-Fallback; verarbeitet genau einen
+  wartenden Eintrag.
+- `vercel.json`: Vercel Queue `provider-crawler-jobs` (maximal zwei parallele
+  Consumer) sowie Cron-Fallback jede Minute.
 - `app.js`: Desktop-Oberfläche, Queue-Auftrag und Ergebnisdialog.
 - `index.html`, `styles.css`: Desktop-Crawlerbereich und großer Ergebnisdialog.
 - `docs/provider-crawler.md`: fachliche und technische Betriebsdokumentation.
@@ -46,6 +48,10 @@ Ansicht.
 ## Zuletzt vorgenommene Optimierungen
 
 - Der Browser ruft nach `enqueue` nicht mehr `process_next` synchron auf.
+- Der Server veröffentlicht bei jedem neuen Lauf unverzüglich eine Vercel-Queue-
+  Nachricht. Der private Consumer startet sofort und stellt temporär fehlgeschlagene
+  Text- oder Medienläufe bis zu zweimal erneut zu; Zustelldopplungen sind über die
+  Zustandswechsel des Laufes abgesichert.
 - Text-Stufe: maximal fünf nach Angebotsrelevanz priorisierte HTML-Seiten, in vier
   parallelen Abrufen pro Batch. Das Ergebnis ist danach bereits sichtbar.
 - Medien-Stufe: maximal dreizehn gespeicherte Medien (Logo plus bis zu vier Bilder pro
@@ -58,10 +64,11 @@ Ansicht.
 
 ## Noch sinnvoll zu prüfen
 
-1. Als AAL2-Admin einen frischen Crawl ausführen, etwa eine Minute warten und
-   **Aktualisieren** klicken. Es muss kein Browser-Timeout mehr erscheinen.
-2. Prüfen, ob der Cron auf Produktion tatsächlich einen wartenden Eintrag
-   übernimmt. `CRON_SECRET` ist in Produktion gesetzt.
+1. Als AAL2-Admin einen frischen Crawl ausführen und **Aktualisieren** klicken.
+   Der Textlauf soll ohne Cron-Wartezeit starten und es darf kein Browser-Timeout
+   erscheinen.
+2. Prüfen, ob der Cron auf Produktion weiterhin einen wartenden Eintrag
+   übernimmt, falls die Queue-Nachricht nicht zugestellt werden kann.
 3. Für die Textqualität anhand konkreter Anbieterseiten bewerten. Bei Bedarf
    nur die Prompt-/Quellenauswahl in `api/provider-crawler.js` nachschärfen;
    niemals Ergebnisse automatisch in den Anbieter-Datensatz übernehmen.
