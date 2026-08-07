@@ -655,7 +655,7 @@ assert.match(appSource, /await persistCriticalStateSnapshot\(\{ retries: 3 \}\)/
 assert.match(indexSource, /id="ceo-secretary-team-message-form"/, "Der Sekretär bietet ein Formular für Mitarbeiternachrichten.");
 assert.match(indexSource, /data-ceo-secretary-view="notifications"[\s\S]*>Glocke/, "Glockenmeldungen haben einen eigenen CEO-Office-Tab.");
 assert.match(indexSource, /id="ceo-secretary-view-notifications"[\s\S]*id="ceo-secretary-team-message-form"/, "Das Nachrichtenformular liegt ausschließlich im Glocken-Tab.");
-assert.match(appSource, /\["secretary", "briefing", "memory", "notifications"\]/, "Der Glocken-Tab wird im CEO Office als gültige Ansicht gerendert.");
+assert.match(appSource, /\["secretary", "briefing", "memory", "ideas", "knowledge", "notifications"\]/, "Gedächtnis, Ideenboard, Wissensbibliothek und Glocke werden als gültige CEO-Office-Ansichten gerendert.");
 assert.match(indexSource, /ceo-secretary-commitment-radar/, "Das CEO-Briefing enthält einen eigenen Zusagen-Radar.");
 assert.match(appSource, /function getCeoSecretaryCommitmentEntries/, "Offene Zusagen werden für das CEO-Briefing gezielt priorisiert.");
 assert.match(indexSource, /id="ceo-secretary-detail-modal"/, "Ein Briefing-Eintrag kann in einer eigenen Detailansicht geöffnet werden.");

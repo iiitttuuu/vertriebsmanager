@@ -22652,6 +22652,16 @@ tr.provider-row-in-sales-phone td:nth-child(2) {
   color: #65419d;
 }
 
+.ceo-secretary-entry-type-idea {
+  background: #f2edff;
+  color: #6541ac;
+}
+
+.ceo-secretary-entry-type-knowledge {
+  background: #e8f5ff;
+  color: #126298;
+}
+
 .ceo-secretary-entry-due {
   color: #a15126;
   font-weight: 750;
@@ -27228,6 +27238,184 @@ body {
     padding-inline: 6px;
     font-size: 0.84rem;
   }
+}
+
+/* Ideenboard und Wissensbibliothek: zwei unterschiedliche Denkmodi. */
+.ceo-secretary-view-tabs-workspace {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  width: min(100%, 900px);
+}
+
+.ceo-secretary-idea-workspace,
+.ceo-secretary-knowledge-library {
+  display: grid;
+  gap: 20px;
+  border: 1px solid rgba(60, 60, 67, 0.14);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 42px rgba(20, 31, 46, 0.07);
+  padding: clamp(20px, 3vw, 30px);
+}
+
+.ceo-secretary-idea-workspace {
+  background: linear-gradient(145deg, rgba(245, 242, 255, 0.94), rgba(255, 255, 255, 0.94));
+}
+
+.ceo-secretary-workspace-intro {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.ceo-secretary-workspace-intro h3 {
+  margin: 3px 0 6px;
+  color: #1d1d1f;
+  font-size: clamp(1.25rem, 2.4vw, 1.72rem);
+  letter-spacing: -0.035em;
+}
+
+.ceo-secretary-workspace-intro p:not(.ceo-secretary-eyebrow) {
+  max-width: 600px;
+  margin: 0;
+  color: #6e6e73;
+  line-height: 1.45;
+}
+
+.ceo-secretary-knowledge-intro .ceo-secretary-search-field {
+  flex: 0 1 350px;
+}
+
+.ceo-secretary-workspace-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ceo-secretary-workspace-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #6e6e73;
+  padding: 8px 11px;
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.ceo-secretary-workspace-stat strong {
+  color: #1d1d1f;
+  font-size: 1.03rem;
+}
+
+.ceo-secretary-workspace-stat.is-new strong { color: #6c4cc8; }
+.ceo-secretary-workspace-stat.is-exploring strong { color: #b96e12; }
+.ceo-secretary-workspace-stat.is-planned strong { color: #0071e3; }
+.ceo-secretary-workspace-stat.is-trusted strong { color: #248a3d; }
+.ceo-secretary-workspace-stat.is-review strong { color: #b96e12; }
+
+.ceo-secretary-idea-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 13px;
+  align-items: start;
+}
+
+.ceo-secretary-idea-column {
+  display: grid;
+  gap: 10px;
+  min-height: 260px;
+  border: 1px solid rgba(60, 60, 67, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.6);
+  padding: 12px;
+}
+
+.ceo-secretary-idea-column.is-new { border-top: 3px solid #8d6ce5; }
+.ceo-secretary-idea-column.is-exploring { border-top: 3px solid #f2a335; }
+.ceo-secretary-idea-column.is-planned { border-top: 3px solid #0a84ff; }
+.ceo-secretary-idea-column.is-archived { border-top: 3px solid #a1a1a6; background: rgba(245, 245, 247, 0.8); }
+
+.ceo-secretary-idea-column-head,
+.ceo-secretary-idea-card-head,
+.ceo-secretary-knowledge-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ceo-secretary-idea-column-head > div { display: grid; gap: 2px; }
+.ceo-secretary-idea-column-head span { color: #1d1d1f; font-size: 0.86rem; font-weight: 800; }
+.ceo-secretary-idea-column-head small { color: #86868b; font-size: 0.7rem; }
+.ceo-secretary-idea-column-head b { border-radius: 999px; background: rgba(60, 60, 67, 0.08); color: #515154; padding: 3px 8px; font-size: 0.72rem; }
+
+.ceo-secretary-idea-column-list { display: grid; gap: 9px; }
+.ceo-secretary-idea-column-list > p { margin: 22px 4px; color: #86868b; font-size: 0.78rem; line-height: 1.45; }
+
+.ceo-secretary-idea-card,
+.ceo-secretary-knowledge-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 5px 14px rgba(28, 28, 31, 0.055);
+  padding: 14px;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.ceo-secretary-idea-card:hover,
+.ceo-secretary-knowledge-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(28, 28, 31, 0.09);
+}
+
+.ceo-secretary-idea-card-head span,
+.ceo-secretary-knowledge-card-head > span {
+  color: #6c4cc8;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ceo-secretary-idea-card-head small,
+.ceo-secretary-knowledge-card-head small { color: #86868b; font-size: 0.66rem; }
+.ceo-secretary-knowledge-card-head > span.is-trusted { color: #248a3d; }
+.ceo-secretary-knowledge-card-head > span.is-review { color: #b96e12; }
+.ceo-secretary-knowledge-card-head > span.is-archived { color: #86868b; }
+
+.ceo-secretary-idea-card h4,
+.ceo-secretary-knowledge-card h4 { margin: 0; color: #1d1d1f; font-size: 0.92rem; line-height: 1.35; }
+.ceo-secretary-idea-card p,
+.ceo-secretary-knowledge-card p { display: -webkit-box; margin: 0; overflow: hidden; color: #515154; font-size: 0.8rem; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 4; white-space: pre-wrap; }
+
+.ceo-secretary-card-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.ceo-secretary-card-tags span { border-radius: 999px; background: #f2f2f7; color: #515154; padding: 4px 7px; font-size: 0.66rem; font-weight: 650; }
+
+.ceo-secretary-card-actions { display: flex; flex-wrap: wrap; gap: 5px; padding-top: 2px; }
+.ceo-secretary-card-actions button { border: 0; border-radius: 8px; background: rgba(0, 113, 227, 0.09); color: #0064c8; padding: 5px 7px; font: inherit; font-size: 0.67rem; font-weight: 750; cursor: pointer; }
+.ceo-secretary-card-actions button:hover { background: rgba(0, 113, 227, 0.16); }
+.ceo-secretary-card-actions button.is-quiet { background: transparent; color: #86868b; }
+
+.ceo-secretary-knowledge-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ceo-secretary-knowledge-card { min-height: 180px; align-content: start; }
+
+@media (max-width: 820px) {
+  .ceo-secretary-view-tabs-workspace { grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .ceo-secretary-idea-board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ceo-secretary-idea-column { min-height: auto; }
+}
+
+@media (max-width: 560px) {
+  .ceo-secretary-view-tabs-workspace { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ceo-secretary-workspace-intro { align-items: stretch; flex-direction: column; }
+  .ceo-secretary-knowledge-intro .ceo-secretary-search-field { flex-basis: auto; }
+  .ceo-secretary-knowledge-grid { grid-template-columns: 1fr; }
+  .ceo-secretary-idea-board { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 760px) {

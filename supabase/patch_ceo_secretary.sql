@@ -24,6 +24,7 @@ create table if not exists public.ceo_secretary_entries (
   body text not null default '',
   context_label text not null default '',
   tags text[] not null default '{}',
+  workspace_status text check (workspace_status in ('inbox', 'exploring', 'planned', 'trusted', 'review', 'archived')),
   due_date date,
   priority text not null default 'normal' check (priority in ('low', 'normal', 'high', 'critical')),
   is_completed boolean not null default false,
@@ -40,6 +41,7 @@ alter table public.ceo_secretary_entries
   add column if not exists body text not null default '',
   add column if not exists context_label text not null default '',
   add column if not exists tags text[] not null default '{}',
+  add column if not exists workspace_status text,
   add column if not exists due_date date,
   add column if not exists priority text not null default 'normal',
   add column if not exists is_completed boolean not null default false,
@@ -60,6 +62,12 @@ alter table public.ceo_secretary_entries
 alter table public.ceo_secretary_entries
   add constraint ceo_secretary_entries_priority_check
   check (priority in ('low', 'normal', 'high', 'critical'));
+
+alter table public.ceo_secretary_entries
+  drop constraint if exists ceo_secretary_entries_workspace_status_check;
+alter table public.ceo_secretary_entries
+  add constraint ceo_secretary_entries_workspace_status_check
+  check (workspace_status is null or workspace_status in ('inbox', 'exploring', 'planned', 'trusted', 'review', 'archived'));
 
 create index if not exists idx_ceo_secretary_entries_owner_updated
   on public.ceo_secretary_entries (created_by_user_id, updated_at desc);

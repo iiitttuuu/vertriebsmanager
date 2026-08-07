@@ -5484,6 +5484,7 @@ create table if not exists public.ceo_secretary_entries (
   body text not null default '',
   context_label text not null default '',
   tags text[] not null default '{}',
+  workspace_status text check (workspace_status in ('inbox', 'exploring', 'planned', 'trusted', 'review', 'archived')),
   due_date date,
   is_completed boolean not null default false,
   completed_at timestamptz,
@@ -5499,6 +5500,7 @@ alter table public.ceo_secretary_entries
   add column if not exists body text not null default '',
   add column if not exists context_label text not null default '',
   add column if not exists tags text[] not null default '{}',
+  add column if not exists workspace_status text,
   add column if not exists due_date date,
   add column if not exists is_completed boolean not null default false,
   add column if not exists completed_at timestamptz,
@@ -5512,6 +5514,12 @@ alter table public.ceo_secretary_entries
 alter table public.ceo_secretary_entries
   add constraint ceo_secretary_entries_entry_type_check
   check (entry_type in ('note', 'task', 'followup', 'decision', 'idea', 'knowledge'));
+
+alter table public.ceo_secretary_entries
+  drop constraint if exists ceo_secretary_entries_workspace_status_check;
+alter table public.ceo_secretary_entries
+  add constraint ceo_secretary_entries_workspace_status_check
+  check (workspace_status is null or workspace_status in ('inbox', 'exploring', 'planned', 'trusted', 'review', 'archived'));
 
 create index if not exists idx_ceo_secretary_entries_owner_updated
   on public.ceo_secretary_entries (created_by_user_id, updated_at desc);
@@ -5788,6 +5796,8 @@ as $$
     'title', coalesce(entry_row.title, ''),
     'entry_type', coalesce(entry_row.entry_type, ''),
     'context_label', coalesce(entry_row.context_label, ''),
+    'tags', coalesce(to_jsonb(entry_row.tags), '[]'::jsonb),
+    'workspace_status', entry_row.workspace_status,
     'due_date', entry_row.due_date,
     'priority', coalesce(entry_row.priority, 'normal'),
     'is_completed', coalesce(entry_row.is_completed, false),

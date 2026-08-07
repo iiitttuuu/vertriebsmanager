@@ -45,12 +45,13 @@ Dann `http://localhost:8080/index.html` oeffnen.
 7. Für Push-Mitteilungen der Vertriebs-PWA: SQL aus `supabase/patch_web_push_subscriptions.sql` ausführen.
 8. Für sofortige Desktop-Synchronisierung ohne häufiges Polling: SQL aus `supabase/patch_desktop_realtime_sync.sql` ausführen.
 9. Für die Wissensbasis des Sekretärs (Ideen, Wissen und Schlagwörter): SQL aus `supabase/patch_ceo_secretary_knowledge_base.sql` ausführen. Voraussetzung ist der bestehende CEO-Sekretär-Patch.
-10. Optional: SQL aus `supabase/seed_categories.sql` ausfuehren, um die 6 Standard-Hauptkategorien vorzubelegen.
-11. In `config.js` setzen:
+10. Für Ideenboard und Wissensbibliothek: SQL aus `supabase/patch_ceo_secretary_knowledge_workspace.sql` ausführen. Der Patch speichert ausschließlich den privaten Workflow-Status und erweitert den Audit-Snapshot.
+11. Optional: SQL aus `supabase/seed_categories.sql` ausfuehren, um die 6 Standard-Hauptkategorien vorzubelegen.
+12. In `config.js` setzen:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
    - Die folgenden Werte gehören **nicht** in `config.js`: Im Vercel-Projekt unter *Settings → Environment Variables* `SUPABASE_SERVICE_ROLE_KEY` (und empfehlenswert auch `SUPABASE_URL`) setzen. Der Service-Role-Key wird nur von den geschützten Server-Endpunkten für Einladungen verwendet und darf nie an den Browser ausgeliefert werden.
-12. Seite neu laden. Danach liest/schreibt die App in Supabase.
+13. Seite neu laden. Danach liest/schreibt die App in Supabase.
 
 ## Login / Mitarbeiter-Flow
 

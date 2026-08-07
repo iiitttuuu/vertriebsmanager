@@ -2228,10 +2228,12 @@
             <span class="ceo-secretary-private-badge">Privat</span>
           </div>
 
-          <div class="ceo-secretary-view-tabs" role="tablist" aria-label="CEO Office Bereiche">
+          <div class="ceo-secretary-view-tabs ceo-secretary-view-tabs-workspace" role="tablist" aria-label="CEO Office Bereiche">
             <button type="button" class="ceo-secretary-view-tab is-active" data-ceo-secretary-view="secretary" role="tab" aria-selected="true">Sekretär</button>
             <button type="button" class="ceo-secretary-view-tab" data-ceo-secretary-view="briefing" role="tab" aria-selected="false">Briefing</button>
             <button type="button" class="ceo-secretary-view-tab" data-ceo-secretary-view="memory" role="tab" aria-selected="false">Gedächtnis</button>
+            <button type="button" class="ceo-secretary-view-tab" data-ceo-secretary-view="ideas" role="tab" aria-selected="false">Ideenboard</button>
+            <button type="button" class="ceo-secretary-view-tab" data-ceo-secretary-view="knowledge" role="tab" aria-selected="false">Wissensbibliothek</button>
             <button type="button" class="ceo-secretary-view-tab" data-ceo-secretary-view="notifications" role="tab" aria-selected="false">Glocke</button>
           </div>
 
@@ -2302,16 +2304,16 @@
               <article class="ceo-secretary-memory">
                 <div class="ceo-secretary-memory-toolbar">
                   <div>
-                    <p class="ceo-secretary-eyebrow">Deine Wissensbasis</p>
-                    <h3>Finde jede Idee und Information wieder</h3>
+                    <p class="ceo-secretary-eyebrow">Dein Gedächtnis</p>
+                    <h3>Finde jeden gespeicherten Kontext wieder</h3>
                   </div>
                   <label class="ceo-secretary-search-field">
-                    <span class="sr-only">CEO Office durchsuchen</span>
-                    <input type="search" id="ceo-secretary-search-input" placeholder="Thema, Schlagwort, Idee oder Information suchen ..." autocomplete="off" />
+                    <span class="sr-only">CEO-Gedächtnis durchsuchen</span>
+                    <input type="search" id="ceo-secretary-memory-search-input" placeholder="Person, Thema oder Entscheidung suchen ..." autocomplete="off" />
                   </label>
                   <label class="ceo-secretary-filter-field">
-                    <span class="sr-only">Einträge filtern</span>
-                    <select id="ceo-secretary-filter-select">
+                    <span class="sr-only">Gedächtnis filtern</span>
+                    <select id="ceo-secretary-memory-filter-select">
                       <option value="all">Alles</option>
                       <option value="open">Offene Schleifen</option>
                       <option value="note">Notizen</option>
@@ -2324,7 +2326,40 @@
                     </select>
                   </label>
                 </div>
-                <div id="ceo-secretary-entry-list" class="ceo-secretary-entry-list"></div>
+                <div id="ceo-secretary-memory-entry-list" class="ceo-secretary-entry-list"></div>
+                <p id="ceo-secretary-memory-empty" class="empty hidden"></p>
+              </article>
+            </section>
+
+            <section id="ceo-secretary-view-ideas" class="ceo-secretary-view-panel hidden" role="tabpanel">
+              <article class="ceo-secretary-idea-workspace">
+                <div class="ceo-secretary-workspace-intro">
+                  <div>
+                    <p class="ceo-secretary-eyebrow">Ideenboard</p>
+                    <h3>Vom Einfall zur umsetzbaren Initiative.</h3>
+                    <p>Bewege Ideen bewusst weiter, statt sie in einer Liste verschwinden zu lassen.</p>
+                  </div>
+                </div>
+                <div id="ceo-secretary-idea-stats" class="ceo-secretary-workspace-stats" aria-live="polite"></div>
+                <div id="ceo-secretary-idea-board" class="ceo-secretary-idea-board" aria-label="Ideen nach Status"></div>
+              </article>
+            </section>
+
+            <section id="ceo-secretary-view-knowledge" class="ceo-secretary-view-panel hidden" role="tabpanel">
+              <article class="ceo-secretary-knowledge-library">
+                <div class="ceo-secretary-workspace-intro ceo-secretary-knowledge-intro">
+                  <div>
+                    <p class="ceo-secretary-eyebrow">Wissensbibliothek</p>
+                    <h3>Wichtige Erkenntnisse. Sofort wiedergefunden.</h3>
+                    <p>Dein verlässlicher Kontext für Entscheidungen, Abläufe und wiederkehrende Fragen.</p>
+                  </div>
+                  <label class="ceo-secretary-search-field">
+                    <span class="sr-only">Wissensbibliothek durchsuchen</span>
+                    <input type="search" id="ceo-secretary-search-input" placeholder="Thema, Schlagwort oder Information suchen ..." autocomplete="off" />
+                  </label>
+                </div>
+                <div id="ceo-secretary-knowledge-stats" class="ceo-secretary-workspace-stats" aria-live="polite"></div>
+                <div id="ceo-secretary-entry-list" class="ceo-secretary-knowledge-grid"></div>
                 <p id="ceo-secretary-empty" class="empty hidden"></p>
               </article>
             </section>
