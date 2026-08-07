@@ -7,7 +7,7 @@ const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const CRAWLER_BUCKET = "provider-crawler";
 const CRAWLER_USER_AGENT = "MyWayCardProviderCrawler/1.0 (+https://my-waycard.com)";
 const MAX_PROVIDER_IDS = 100;
-const MAX_HTML_PAGES = 40;
+const MAX_HTML_PAGES = 24;
 const MAX_HTML_BYTES = 1_500_000;
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_EDITORIAL_SOURCE_CHARS = 60_000;
@@ -15,6 +15,8 @@ const MAX_OFFER_SOURCE_CHARS = 9_000;
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_REDIRECTS = 4;
 const MEDIA_URL_EXPIRY_SECONDS = 600;
+const MAX_MEDIA_PER_EXPERIENCE = 2;
+const MAX_MEDIA_PER_RUN = 7;
 const CRAWLABLE_ROLES = new Set(["admin", "superadmin", "supaadmin"]);
 const ACTIVE_STATUSES = new Set(["queued", "running"]);
 const OFFER_HINT = /angebot|erlebnis|kurs|workshop|tour|aktivität|aktivitaet|ticket|eintritt|rafting|canyoning|kletter|yoga|wellness|führung|fuehrung|paragliding|sport|event/i;
@@ -502,7 +504,8 @@ async function processRun(config, run, actor) {
   for (const experience of insertedExperiences) {
     let count = 0;
     for (const image of pageImages) {
-      if (count >= 4 || usedUrls.has(image.url)) continue;
+      if (count >= MAX_MEDIA_PER_EXPERIENCE || mediaRows.length >= MAX_MEDIA_PER_RUN) break;
+      if (usedUrls.has(image.url)) continue;
       try { mediaRows.push(await storeImage(config, run, image, "experience_image", experience.id)); usedUrls.add(image.url); count += 1; } catch (_error) {}
     }
   }

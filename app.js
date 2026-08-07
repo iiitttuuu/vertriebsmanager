@@ -63750,8 +63750,7 @@ async function queueProviderCrawler(providerIds, allEligible = false) {
   const response = await callProviderCrawlerApi(allEligible ? "enqueue_all" : "enqueue", allEligible ? {} : { providerIds });
   const queuedCount = Array.isArray(response.created) ? response.created.length : 0;
   const skippedCount = Array.isArray(response.skipped) ? response.skipped.length : 0;
-  setProviderCrawlerStatus(`${queuedCount} Crawl-Läufe eingereiht${skippedCount ? ` · ${skippedCount} übersprungen` : ""}. Verarbeitung läuft serverseitig.`, "success");
-  await processProviderCrawlerQueue();
+  setProviderCrawlerStatus(`${queuedCount} Crawl-Läufe eingereiht${skippedCount ? ` · ${skippedCount} übersprungen` : ""}. Die Verarbeitung startet automatisch im Hintergrund; bitte in etwa einer Minute aktualisieren.`, "success");
   await loadProviderCrawlerRuns();
 }
 

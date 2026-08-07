@@ -33,8 +33,10 @@ Die Verbindung zum bestehenden Anbieter erfolgt nur über `provider_id`.
   `skipped_already_created` beendet.
 - Der Crawler folgt nur der Anbieter-Domain, blockiert lokale/private IP-Ziele und
   prüft Redirects erneut. Login-, CAPTCHA- und private Bereiche werden nicht umgangen.
-- Pro Lauf gelten Grenzen für Seiten, Antwortgrößen, Redirects und Downloads. Ein
-  Cron-Aufruf verarbeitet höchstens einen Queue-Eintrag.
+- Pro Lauf gelten Grenzen für Seiten, Antwortgrößen, Redirects und Downloads. Es
+  werden höchstens 24 priorisierte Seiten sowie sieben Medienobjekte verarbeitet.
+  Ein Cron-Aufruf verarbeitet höchstens einen Queue-Eintrag. Nach dem Einreihen
+  kehrt die Oberfläche sofort zurück; der Crawl läuft ausschließlich im Hintergrund.
 - Für Plattformtexte erhält die KI nur geprüfte Auszüge der gefundenen Anbieter- und
   Angebotsseiten. Anbieterprofil und jeder einzelne Kurs erhalten getrennte
   Quellenkontexte; Kursbeschreibungen dürfen nicht aus allgemeinen Anbietertexten
