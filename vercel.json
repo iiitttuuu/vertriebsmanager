@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "crons": [
+    {
+      "path": "/api/provider-crawler-worker",
+      "schedule": "*/1 * * * *"
+    }
+  ],
   "trailingSlash": false,
   "rewrites": [
     {

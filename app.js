@@ -505,6 +505,7 @@ const PROVIDER_NOTE_DELETE_ENDPOINT = "/api/provider-notes/delete";
 const PROVIDER_INVITATION_TOGGLE_ENDPOINT = "/api/providers/toggle-invitation";
 const PROVIDER_INVITATION_RESET_ENDPOINT = "/api/providers/reset-invitation";
 const PROVIDER_INVITATION_COMPLETE_ENDPOINT = "/api/providers/complete-invitation";
+const PROVIDER_CRAWLER_ENDPOINT = "/api/provider-crawler";
 const WEB_PUSH_EMPLOYEE_MESSAGE_ENDPOINT = "/api/push/employee-message";
 // Eine Aktion aus der Anbieterübersicht darf niemals einen Dialog dauerhaft
 // blockieren. Nach diesem Zeitraum wird die Anfrage abgebrochen und der
@@ -677,6 +678,9 @@ let userResponsibilityDraft = [];
 let inventoryEditingId = "";
 let inventorySearchTerm = "";
 let providersViewMode = "list";
+let providerCrawlerRuns = [];
+let providerCrawlerSelectedIds = new Set();
+let providerCrawlerReviewRunId = "";
 let providerListSearchTerm = "";
 let providerListOwnerFilter = "all";
 let providerListStatusFilter = "offen";
@@ -2251,6 +2255,13 @@ const els = {
   providerTopicResults: document.getElementById("provider-topic-results"),
   providerTopicChips: document.getElementById("provider-topic-chips"),
   providersTableBody: document.getElementById("providers-table-body"),
+  providerCrawlerRefreshBtn: document.getElementById("provider-crawler-refresh-btn"),
+  providerCrawlerAllBtn: document.getElementById("provider-crawler-all-btn"),
+  providerCrawlerSelectedBtn: document.getElementById("provider-crawler-selected-btn"),
+  providerCrawlerSelectAll: document.getElementById("provider-crawler-select-all"),
+  providerCrawlerTableBody: document.getElementById("provider-crawler-table-body"),
+  providerCrawlerStatus: document.getElementById("provider-crawler-status"),
+  providerCrawlerReview: document.getElementById("provider-crawler-review"),
   providerSaveBtn: document.getElementById("provider-save-btn"),
   providerResetBtn: document.getElementById("provider-reset-btn"),
   providerDeleteBtn: document.getElementById("provider-delete-btn"),
@@ -5051,6 +5062,60 @@ function bindEvents() {
       permissionButton.dataset.rolePagePermission,
       permissionButton.dataset.rolePagePermissionRole
     );
+  });
+  els.providerCrawlerRefreshBtn?.addEventListener("click", () => {
+    void loadProviderCrawlerRuns({ showStatus: true });
+  });
+  els.providerCrawlerSelectAll?.addEventListener("change", () => {
+    const eligible = getProviderCrawlerEligibleProviders();
+    if (els.providerCrawlerSelectAll.checked) {
+      eligible.forEach((provider) => providerCrawlerSelectedIds.add(String(provider.id || "")));
+    } else {
+      eligible.forEach((provider) => providerCrawlerSelectedIds.delete(String(provider.id || "")));
+    }
+    renderProviderCrawlerSection();
+  });
+  els.providerCrawlerTableBody?.addEventListener("change", (event) => {
+    const input = event.target.closest("input[data-provider-crawler-select]");
+    if (!input) return;
+    const providerId = String(input.dataset.providerCrawlerSelect || "").trim();
+    if (input.checked) providerCrawlerSelectedIds.add(providerId);
+    else providerCrawlerSelectedIds.delete(providerId);
+    renderProviderCrawlerSection();
+  });
+  els.providerCrawlerSelectedBtn?.addEventListener("click", () => {
+    const providerIds = [...providerCrawlerSelectedIds];
+    if (!providerIds.length) { setProviderCrawlerStatus("Bitte mindestens einen Anbieter auswählen.", "error"); return; }
+    void queueProviderCrawler(providerIds);
+  });
+  els.providerCrawlerAllBtn?.addEventListener("click", () => {
+    void queueProviderCrawler([], true);
+  });
+  els.providerCrawlerTableBody?.addEventListener("click", (event) => {
+    const crawlButton = event.target.closest("button[data-provider-crawler-run]");
+    const reviewButton = event.target.closest("button[data-provider-crawler-review]");
+    if (crawlButton) void queueProviderCrawler([crawlButton.dataset.providerCrawlerRun]);
+    if (reviewButton) void openProviderCrawlerReview(reviewButton.dataset.providerCrawlerReview);
+  });
+  els.providerCrawlerReview?.addEventListener("click", (event) => {
+    const closeButton = event.target.closest("button[data-provider-crawler-review-close]");
+    const saveButton = event.target.closest("button[data-provider-crawler-save-review]");
+    const approveButton = event.target.closest("button[data-provider-crawler-approve]");
+    if (closeButton) { providerCrawlerReviewRunId = ""; els.providerCrawlerReview.classList.add("hidden"); els.providerCrawlerReview.innerHTML = ""; }
+    if (saveButton) void saveProviderCrawlerReview(saveButton.dataset.providerCrawlerSaveReview, false);
+    if (approveButton) void saveProviderCrawlerReview(approveButton.dataset.providerCrawlerApprove, true);
+    const removeMediaButton = event.target.closest("button[data-provider-crawler-remove-media]");
+    if (removeMediaButton && providerCrawlerReviewRunId) {
+      void (async () => {
+        try {
+          await callProviderCrawlerApi("remove_media", { mediaId: removeMediaButton.dataset.providerCrawlerRemoveMedia });
+          await openProviderCrawlerReview(providerCrawlerReviewRunId);
+          setProviderCrawlerStatus("Bild wurde aus dem Crawler-Ergebnis entfernt.", "success");
+        } catch (error) {
+          setProviderCrawlerStatus(String(error?.message || "Bild konnte nicht entfernt werden."), "error");
+        }
+      })();
+    }
   });
 
   els.navButtons.forEach((button) => {
@@ -18066,6 +18131,9 @@ function resolveAccessibleSectionForRole(targetId, roleLike) {
     sectionId = fallbackSectionId;
   }
   if (sectionId === "companies-section" && !roleAdmin) {
+    sectionId = fallbackSectionId;
+  }
+  if (sectionId === "provider-crawler-section" && !roleAdmin) {
     sectionId = fallbackSectionId;
   }
   if (sectionId === "incoming-invoices-section" && !roleAdmin) {
@@ -63526,6 +63594,190 @@ async function handleDeleteTopic(topicId) {
   );
 }
 
+function getProviderCrawlerRunsTable() {
+  return window.APP_CONFIG?.SUPABASE_PROVIDER_CRAWL_RUNS_TABLE || "provider_crawl_runs";
+}
+
+function getProviderCrawlerResultsTable() {
+  return window.APP_CONFIG?.SUPABASE_PROVIDER_CRAWL_RESULTS_TABLE || "provider_crawl_results";
+}
+
+function getProviderCrawlerExperiencesTable() {
+  return window.APP_CONFIG?.SUPABASE_PROVIDER_CRAWL_EXPERIENCES_TABLE || "provider_crawl_experiences";
+}
+
+function getProviderCrawlerMediaTable() {
+  return window.APP_CONFIG?.SUPABASE_PROVIDER_CRAWL_MEDIA_TABLE || "provider_crawl_media";
+}
+
+function getProviderCrawlerEligibleProviders() {
+  return (state.providers || []).filter((provider) => {
+    const dashboardCreated = provider?.dashboardCreated === true || provider?.dashboard_created === true;
+    return !dashboardCreated && Boolean(String(provider?.website || "").trim());
+  });
+}
+
+function setProviderCrawlerStatus(message = "", tone = "") {
+  if (!els.providerCrawlerStatus) return;
+  els.providerCrawlerStatus.textContent = String(message || "");
+  els.providerCrawlerStatus.classList.toggle("is-error", tone === "error");
+  els.providerCrawlerStatus.classList.toggle("is-success", tone === "success");
+}
+
+function formatProviderCrawlerDate(value) {
+  if (!value) return "–";
+  try { return new Intl.DateTimeFormat("de-AT", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
+  catch (_error) { return String(value); }
+}
+
+function isSafeCrawlerSourceUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch (_error) { return false; }
+}
+
+async function callProviderCrawlerApi(action, payload = {}) {
+  const token = await getAuthAccessToken({ forceRefresh: false });
+  if (!token) throw new Error("Login-Token fehlt.");
+  const { response, payload: responsePayload } = await fetchJsonWithTimeout(
+    PROVIDER_CRAWLER_ENDPOINT,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+        "x-supabase-url": String(window.APP_CONFIG?.SUPABASE_URL || ""),
+      },
+      body: JSON.stringify({ action, ...payload }),
+    },
+    60_000,
+    "Crawler-Anfrage hat zu lange gedauert."
+  );
+  if (!response.ok) throw new Error(String(responsePayload?.error || "Crawler-Anfrage ist fehlgeschlagen."));
+  return responsePayload || {};
+}
+
+function renderProviderCrawlerSection() {
+  if (!els.providerCrawlerTableBody) return;
+  const latestByProvider = new Map();
+  providerCrawlerRuns.forEach((run) => {
+    const providerId = String(run?.provider_id || "");
+    const current = latestByProvider.get(providerId);
+    if (!current || String(run?.created_at || "") > String(current?.created_at || "")) latestByProvider.set(providerId, run);
+  });
+  const eligible = getProviderCrawlerEligibleProviders();
+  if (els.providerCrawlerSelectAll) {
+    els.providerCrawlerSelectAll.checked = eligible.length > 0 && eligible.every((provider) => providerCrawlerSelectedIds.has(String(provider.id)));
+    els.providerCrawlerSelectAll.indeterminate = eligible.some((provider) => providerCrawlerSelectedIds.has(String(provider.id))) && !els.providerCrawlerSelectAll.checked;
+  }
+  if (!eligible.length) {
+    els.providerCrawlerTableBody.innerHTML = '<tr><td colspan="7">Keine crawlbaren Anbieter vorhanden. Voraussetzung: Website hinterlegt und „Im Dashboard angelegt“ deaktiviert.</td></tr>';
+    return;
+  }
+  els.providerCrawlerTableBody.innerHTML = eligible.map((provider) => {
+    const providerId = String(provider.id || "");
+    const run = latestByProvider.get(providerId);
+    const status = String(run?.status || "not_started").replace(/_/g, " ");
+    const runId = String(run?.id || "");
+    return `<tr>
+      <td><input type="checkbox" data-provider-crawler-select="${escapeHtml(providerId)}" ${providerCrawlerSelectedIds.has(providerId) ? "checked" : ""} aria-label="${escapeHtml(String(provider.name || "Anbieter"))} auswählen" /></td>
+      <td><strong>${escapeHtml(String(provider.name || "–"))}</strong></td>
+      <td>${isSafeCrawlerSourceUrl(provider.website) ? `<a href="${escapeHtml(provider.website)}" target="_blank" rel="noopener noreferrer">Website ↗</a>` : "–"}</td>
+      <td>${escapeHtml(status)}</td>
+      <td>${escapeHtml(formatProviderCrawlerDate(run?.finished_at || run?.last_crawled_at))}</td>
+      <td>${escapeHtml(String(run?.experiences_selected ?? "–"))}</td>
+      <td><div class="provider-crawler-table-actions">
+        <button type="button" class="mini-btn" data-provider-crawler-run="${escapeHtml(providerId)}">Crawlen</button>
+        ${runId ? `<button type="button" class="mini-btn" data-provider-crawler-review="${escapeHtml(runId)}">Ergebnis</button>` : ""}
+      </div></td>
+    </tr>`;
+  }).join("");
+}
+
+async function loadProviderCrawlerRuns({ showStatus = false } = {}) {
+  const client = getSupabaseClient();
+  if (!client) { setProviderCrawlerStatus("Supabase-Verbindung ist nicht verfügbar.", "error"); return; }
+  const { data, error } = await client.from(getProviderCrawlerRunsTable()).select("*").order("created_at", { ascending: false }).limit(500);
+  if (error) {
+    providerCrawlerRuns = [];
+    setProviderCrawlerStatus(`Crawler-Daten konnten nicht geladen werden: ${getSupabaseErrorSummary(error)}. Bitte SQL-Migration prüfen.`, "error");
+  } else {
+    providerCrawlerRuns = data || [];
+    if (showStatus) setProviderCrawlerStatus(`${getProviderCrawlerEligibleProviders().length} Anbieter sind aktuell crawlbar.`, "success");
+  }
+  renderProviderCrawlerSection();
+}
+
+async function queueProviderCrawler(providerIds, allEligible = false) {
+  const message = allEligible ? "Alle berechtigten Anbieter werden in die Crawl-Warteschlange eingereiht …" : "Ausgewählte Anbieter werden in die Crawl-Warteschlange eingereiht …";
+  setProviderCrawlerStatus(message);
+  const response = await callProviderCrawlerApi(allEligible ? "enqueue_all" : "enqueue", allEligible ? {} : { providerIds });
+  const queuedCount = Array.isArray(response.created) ? response.created.length : 0;
+  const skippedCount = Array.isArray(response.skipped) ? response.skipped.length : 0;
+  setProviderCrawlerStatus(`${queuedCount} Crawl-Läufe eingereiht${skippedCount ? ` · ${skippedCount} übersprungen` : ""}. Verarbeitung läuft serverseitig.`, "success");
+  await processProviderCrawlerQueue();
+  await loadProviderCrawlerRuns();
+}
+
+async function processProviderCrawlerQueue() {
+  try {
+    const response = await callProviderCrawlerApi("process_next");
+    if (response?.run?.id) {
+      setProviderCrawlerStatus(`Crawl verarbeitet: ${response.status || "abgeschlossen"}. Weitere Jobs werden beim nächsten Abruf fortgesetzt.`, response.status === "failed" ? "error" : "success");
+    }
+  } catch (error) {
+    setProviderCrawlerStatus(String(error?.message || "Crawler-Queue konnte nicht gestartet werden."), "error");
+  }
+}
+
+async function openProviderCrawlerReview(runId) {
+  const normalizedRunId = String(runId || "").trim();
+  const client = getSupabaseClient();
+  if (!normalizedRunId || !client || !els.providerCrawlerReview) return;
+  providerCrawlerReviewRunId = normalizedRunId;
+  els.providerCrawlerReview.classList.remove("hidden");
+  els.providerCrawlerReview.textContent = "Crawler-Ergebnis wird geladen …";
+  const [runResult, resultResult, experiencesResult, mediaResult] = await Promise.all([
+    client.from(getProviderCrawlerRunsTable()).select("*").eq("id", normalizedRunId).maybeSingle(),
+    client.from(getProviderCrawlerResultsTable()).select("*").eq("run_id", normalizedRunId).maybeSingle(),
+    client.from(getProviderCrawlerExperiencesTable()).select("*").eq("run_id", normalizedRunId).order("rank"),
+    client.from(getProviderCrawlerMediaTable()).select("*").eq("run_id", normalizedRunId).eq("selected", true),
+  ]);
+  if (runResult.error || resultResult.error || experiencesResult.error || mediaResult.error) {
+    els.providerCrawlerReview.textContent = "Crawler-Ergebnis konnte nicht geladen werden.";
+    return;
+  }
+  const run = runResult.data || {};
+  const result = resultResult.data || {};
+  const facts = result.company_facts && typeof result.company_facts === "object" ? result.company_facts : {};
+  const sourceLine = (entry) => entry?.source_url && isSafeCrawlerSourceUrl(entry.source_url) ? `<span class="provider-crawler-source"><a href="${escapeHtml(entry.source_url)}" target="_blank" rel="noopener noreferrer">Quelle öffnen ↗</a></span>` : '<span class="provider-crawler-source">Keine Quelle gefunden</span>';
+  const factList = Object.entries(facts).map(([key, entry]) => `<div><strong>${escapeHtml(key)}</strong><br>${escapeHtml(String(entry?.value || "Nicht gefunden"))}<br>${sourceLine(entry)}</div>`).join("") || "<div>Keine Fakten gefunden.</div>";
+  const directors = (Array.isArray(result.managing_directors) ? result.managing_directors : []).map((entry) => `<div>${escapeHtml(`${entry.first_name || ""} ${entry.last_name || ""}`.trim() || "Nicht gefunden")}<br>${sourceLine(entry)}</div>`).join("") || "<div>Nicht gefunden</div>";
+  const mediaByExperience = new Map();
+  (mediaResult.data || []).forEach((media) => { const key = String(media.experience_id || "provider"); const collection = mediaByExperience.get(key) || []; collection.push(media); mediaByExperience.set(key, collection); });
+  const experiences = (experiencesResult.data || []).map((entry) => {
+    const images = (mediaByExperience.get(String(entry.id)) || []).filter((image) => isSafeCrawlerSourceUrl(image.source_url)).slice(0, 4);
+    return `<article class="card"><h4>${escapeHtml(entry.platform_title || entry.original_title || "Erlebnis")}</h4><p>${escapeHtml(entry.description || "Beschreibung fehlt.")}</p>${isSafeCrawlerSourceUrl(entry.direct_url) ? `<p><a href="${escapeHtml(entry.direct_url)}" target="_blank" rel="noopener noreferrer">Original-Angebot öffnen ↗</a></p>` : ""}<div>${images.map((image) => `<span><a href="${escapeHtml(image.source_url)}" target="_blank" rel="noopener noreferrer">Bildquelle ↗</a> <button type="button" class="mini-btn" data-provider-crawler-remove-media="${escapeHtml(image.id)}">Entfernen</button></span>`).join(" · ") || "Keine Bilder"}</div></article>`;
+  }).join("") || "<p>Keine Erlebnisse ausgewählt.</p>";
+  els.providerCrawlerReview.innerHTML = `<div class="section-header"><div><p class="provider-analytics-eyebrow">CRAWL-REVISION</p><h3>${escapeHtml(run.provider_name_snapshot || "Anbieter")}</h3><p>Status: ${escapeHtml(String(run.status || "–"))} · Review: ${escapeHtml(String(run.review_status || "pending"))}</p></div><button type="button" class="mini-btn" data-provider-crawler-review-close>Schließen</button></div><div class="provider-crawler-review-grid"><section><h4>Unternehmensdaten</h4><div class="provider-crawler-fact-list">${factList}</div><h4>Geschäftsführung</h4><div class="provider-crawler-fact-list">${directors}</div></section><section><h4>Bearbeitbare Plattformtexte</h4><label>Slogan<textarea data-provider-crawler-field="platform_slogan">${escapeHtml(result.platform_slogan || "")}</textarea></label><label>Kurzbeschreibung<textarea data-provider-crawler-field="short_description">${escapeHtml(result.short_description || "")}</textarea></label><label>Detailbeschreibung<textarea data-provider-crawler-field="detail_description">${escapeHtml(result.detail_description || "")}</textarea></label><label>Review-Notiz<textarea data-provider-crawler-field="review_notes">${escapeHtml(result.review_notes || "")}</textarea></label><div class="provider-crawler-actions"><button type="button" class="btn btn-secondary" data-provider-crawler-save-review="${escapeHtml(normalizedRunId)}">Änderungen speichern</button><button type="button" class="btn btn-success" data-provider-crawler-approve="${escapeHtml(normalizedRunId)}">Crawler-Ergebnis freigeben</button></div></section></div><h4>Erlebnisse</h4><div class="provider-crawler-experience-list">${experiences}</div>`;
+}
+
+async function saveProviderCrawlerReview(runId, approve = false) {
+  const review = {};
+  els.providerCrawlerReview?.querySelectorAll("[data-provider-crawler-field]").forEach((element) => { review[element.dataset.providerCrawlerField] = element.value; });
+  if (!approve) {
+    await callProviderCrawlerApi("save_review", { runId, review });
+    setProviderCrawlerStatus("Crawler-Review gespeichert. Anbieter-Stammdaten wurden nicht verändert.", "success");
+  } else {
+    await callProviderCrawlerApi("save_review", { runId, review });
+    await callProviderCrawlerApi("approve", { runId });
+    setProviderCrawlerStatus("Crawler-Ergebnis freigegeben. Anbieter-Stammdaten wurden nicht verändert.", "success");
+  }
+  await loadProviderCrawlerRuns();
+  await openProviderCrawlerReview(runId);
+}
+
 function setActiveSection(targetId) {
   const currentSectionId = String(document.querySelector(".panel.active")?.id || "").trim();
   const requestedSectionId = String(targetId || "").trim();
@@ -63673,6 +63925,7 @@ function setActiveSection(targetId) {
   );
   setSalesNavSubmenuOpen(
     targetId === "providers-section" ||
+      targetId === "provider-crawler-section" ||
       targetId === "provider-coverage-section" ||
       targetId === "tour-planner-section" ||
       targetId === "sales-leads-section" ||
@@ -63771,6 +64024,10 @@ function setActiveSection(targetId) {
     // ihn anschließend geschlossen durch die aktuelle Liste.
     renderProvidersTable();
     void refreshProviderOverviewFromSupabase({ force: true });
+  }
+  if (targetId === "provider-crawler-section") {
+    renderProviderCrawlerSection();
+    void loadProviderCrawlerRuns({ showStatus: true });
   }
 }
 

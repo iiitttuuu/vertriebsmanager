@@ -17,6 +17,12 @@ window.APP_CONFIG = {
   // Dedizierte Tabelle fuer Anbieterstammdaten.
   SUPABASE_PROVIDERS_TABLE: "providers",
 
+  // Vollständig getrennte Staging-Tabellen des Anbieter-Crawlers.
+  SUPABASE_PROVIDER_CRAWL_RUNS_TABLE: "provider_crawl_runs",
+  SUPABASE_PROVIDER_CRAWL_RESULTS_TABLE: "provider_crawl_results",
+  SUPABASE_PROVIDER_CRAWL_EXPERIENCES_TABLE: "provider_crawl_experiences",
+  SUPABASE_PROVIDER_CRAWL_MEDIA_TABLE: "provider_crawl_media",
+
   // Relationale Tabellen fuer Gesprächsnotizen-Modul.
   SUPABASE_CONVERSATION_THREADS_TABLE: "conversation_threads",
   SUPABASE_CONVERSATION_NOTES_TABLE: "conversation_notes",
