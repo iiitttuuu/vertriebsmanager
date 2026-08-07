@@ -32858,3 +32858,129 @@ button.table-btn.delete-icon-button {
   .ceo-secretary-idea-collection-count { width: fit-content; }
   .ceo-secretary-idea-form-actions .btn { width: 100%; }
 }
+
+/*
+ * Chrome Split-View
+ *
+ * Zwischen Tablet und klassischem Desktop bleibt die Desktop-Navigation sichtbar,
+ * bekommt aber eine kompaktere Informationsdichte. Dadurch wird weder die
+ * Mobile-Ansicht vorzeitig ausgelöst noch entsteht im Inhaltsbereich horizontaler
+ * Druck, wenn Chrome nur eine Bildschirmhälfte zur Verfügung hat.
+ */
+@media (min-width: 721px) and (max-width: 1240px) {
+  :root {
+    --app-gutter: 10px;
+    --sidebar-width: clamp(168px, 22vw, 196px);
+    --radius: 14px;
+    --shadow-soft: 0 10px 22px rgba(12, 32, 68, 0.08);
+  }
+
+  .app-shell {
+    gap: 10px;
+    margin-block: 10px;
+  }
+
+  .topbar {
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .brand-group { gap: 10px; }
+  .brand-logo-mark { width: 82px; height: 46px; flex-basis: 82px; }
+  .brand-header-logo { height: 54px; transform: translate(-8px, -4px); }
+  .brand-logo-mark.is-custom-logo { width: 168px; height: 38px; flex-basis: 168px; }
+  .brand-logo-mark.is-custom-logo .brand-header-logo { height: 100%; transform: none; }
+  .brand-crm-label { font-size: 1.12rem; }
+
+  .topbar-controls {
+    width: auto;
+    min-width: 0;
+    grid-template-columns: minmax(138px, 0.85fr) minmax(126px, 1fr) auto;
+    gap: 8px;
+  }
+
+  .platform-country-control,
+  .topbar-user-meta {
+    min-height: 38px;
+    padding: 4px 8px;
+    gap: 7px;
+    border-radius: 10px;
+  }
+
+  .platform-country-control { grid-template-columns: minmax(0, 1fr); }
+  .platform-country-label { font-size: 0.6rem; }
+  #platform-country-select { min-width: 0; height: 27px; font-size: 0.75rem; }
+  .current-user-label { font-size: 0.75rem; }
+  .role-badge { min-height: 24px; padding: 3px 7px; font-size: 0.64rem; }
+  .topbar-action-row { gap: 5px; }
+  .topbar-notification-btn,
+  .topbar-ceo-secretary-btn { width: 38px; height: 38px; }
+  .topbar-search-btn { min-width: 38px; min-height: 38px; padding: 0 9px; }
+  .topbar-search-btn .topbar-search-label,
+  .topbar-search-btn span:not(.topbar-search-label) { font-size: 0.68rem; }
+
+  .sidebar {
+    top: 10px;
+    max-height: calc(100vh - 20px);
+    gap: 3px;
+    border-radius: 12px;
+  }
+
+  .nav-group,
+  .nav-submenu { gap: 3px; }
+  .nav-submenu { margin-left: 5px; padding-left: 7px; }
+  .nav-btn { padding: 6px 8px; border-radius: 8px; font-size: 0.76rem; }
+  .nav-parent-btn { padding: 6px 23px 6px 8px; font-size: 0.7rem; }
+  .nav-sub-btn { padding: 5px 7px; font-size: 0.72rem; }
+  .sidebar-signout-btn { min-height: 36px; }
+
+  .panel { padding: 14px; }
+  .section-header { margin-bottom: 10px; }
+  .section-header h2 { font-size: 1.02rem; }
+  .section-tools { gap: 7px; margin-bottom: 9px; }
+  .btn { min-height: 32px; padding: 6px 9px; font-size: 0.76rem; }
+  .form-actions.split,
+  .form-actions-left { gap: 6px; }
+  .modal-dialog-panel { width: min(760px, calc(100vw - 28px)); max-height: calc(100vh - 28px); }
+
+  /* Tabellen dürfen ihre Lesbarkeit behalten statt den ganzen Bereich zu quetschen. */
+  .table-wrap,
+  .roles-rights-table-wrap,
+  .dashboard-matrix-wrap { max-width: 100%; overflow-x: auto; }
+
+  /* Häufige Mehrspaltenbereiche erhalten im schmalen Inhaltsbereich eine ruhige,
+     einspaltige Anordnung. Spezifische Mobile-Regeln bleiben davon unberührt. */
+  .dashboard-stats-grid,
+  .dashboard-priority-grid,
+  .sales-dashboard-kpi-grid,
+  .sales-dashboard-grid,
+  .sales-dashboard-tour-layout,
+  .employee-billing-totals,
+  .employee-provision-journal-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .provider-list-primary-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .provider-list-primary-filters > :last-child { grid-column: 1 / -1; }
+  .provider-list-extra-filter-options { grid-template-columns: minmax(0, 1fr); justify-items: stretch; }
+
+  .meeting-protocol-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .meeting-protocol-toolbar-actions { grid-column: 1 / -1; }
+}
+
+/* Sehr schmale Desktop-Split-Views: der eigentliche Inhaltsbereich ist hier
+   schmaler als das Browserfenster. Form- und Aktionsfelder dürfen deshalb
+   umbrechen, während Tabellen weiterhin horizontal scrollbar bleiben. */
+@media (min-width: 721px) and (max-width: 860px) {
+  .topbar { align-items: flex-start; }
+  .topbar-controls { grid-template-columns: minmax(0, 1fr) auto; }
+  .platform-country-control { grid-column: 1 / -1; grid-template-columns: auto minmax(0, 1fr); }
+  .topbar-user-meta { min-width: 0; }
+  .brand-logo-mark.is-custom-logo { width: 132px; flex-basis: 132px; }
+  .auth-actions,
+  .form-actions { flex-wrap: wrap; }
+  .auth-actions .btn-action { min-width: min(150px, 100%); }
+  .provider-list-primary-filters { grid-template-columns: minmax(0, 1fr); }
+  .provider-list-primary-filters > :last-child { grid-column: auto; }
+}
