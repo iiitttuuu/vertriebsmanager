@@ -26515,13 +26515,12 @@ function isProviderDashboardCreated(provider) {
   if (!provider || typeof provider !== "object") {
     return false;
   }
-  if (Object.prototype.hasOwnProperty.call(provider, "dashboardCreated")) {
-    return parseBooleanFlag(provider.dashboardCreated);
-  }
-  if (Object.prototype.hasOwnProperty.call(provider, "dashboard_created")) {
-    return parseBooleanFlag(provider.dashboard_created);
-  }
-  return isLegacyProviderDashboardCreatedStatus(provider.status);
+  const legacyPayload = provider.payload && typeof provider.payload === "object" ? provider.payload : {};
+  return parseBooleanFlag(provider.dashboardCreated)
+    || parseBooleanFlag(provider.dashboard_created)
+    || parseBooleanFlag(legacyPayload.dashboardCreated)
+    || parseBooleanFlag(legacyPayload.dashboard_created)
+    || isLegacyProviderDashboardCreatedStatus(provider.status);
 }
 
 function isProviderEarlyPartner(provider) {
@@ -63623,8 +63622,7 @@ function getProviderCrawlerMediaTable() {
 
 function getProviderCrawlerEligibleProviders() {
   return (state.providers || []).filter((provider) => {
-    const dashboardCreated = provider?.dashboardCreated === true || provider?.dashboard_created === true;
-    return !dashboardCreated && Boolean(String(provider?.website || "").trim());
+    return !isProviderDashboardCreated(provider) && Boolean(String(provider?.website || "").trim());
   });
 }
 
@@ -63763,8 +63761,19 @@ async function queueProviderCrawler(providerIds, allEligible = false) {
   setProviderCrawlerStatus(message);
   const response = await callProviderCrawlerApi(allEligible ? "enqueue_all" : "enqueue", allEligible ? {} : { providerIds });
   const queuedCount = Array.isArray(response.created) ? response.created.length : 0;
-  const skippedCount = Array.isArray(response.skipped) ? response.skipped.length : 0;
-  setProviderCrawlerStatus(`${queuedCount} Crawl-Läufe eingereiht${skippedCount ? ` · ${skippedCount} übersprungen` : ""}. Text-Ergebnisse erscheinen automatisch, Bilder folgen im Hintergrund.`, "success");
+  const skipped = Array.isArray(response.skipped) ? response.skipped : [];
+  const skippedCount = skipped.length;
+  const skipLabels = {
+    already_created: "bereits im Dashboard angelegt",
+    missing_website: "keine gültige Website hinterlegt",
+    already_queued: "bereits in der Crawl-Warteschlange",
+    queue_failed: "konnte nicht eingereiht werden",
+  };
+  const skipSummary = skippedCount
+    ? ` · ${skippedCount} übersprungen${skipped.length <= 3 ? ` (${[...new Set(skipped.map((entry) => skipLabels[String(entry?.reason || "")] || "unbekannter Grund"))].join(", ")})` : ""}`
+    : "";
+  const statusTone = queuedCount || !skippedCount ? "success" : "error";
+  setProviderCrawlerStatus(`${queuedCount} Crawl-Läufe eingereiht${skipSummary}. Text-Ergebnisse erscheinen automatisch, Bilder folgen im Hintergrund.`, statusTone);
   await loadProviderCrawlerRuns();
   if (queuedCount) startProviderCrawlerPolling();
 }
