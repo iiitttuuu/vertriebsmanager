@@ -2031,17 +2031,20 @@ const els = {
   ceoSecretaryMemoryFilterSelect: document.getElementById("ceo-secretary-memory-filter-select"),
   ceoSecretaryMemoryEntryList: document.getElementById("ceo-secretary-memory-entry-list"),
   ceoSecretaryMemoryEmpty: document.getElementById("ceo-secretary-memory-empty"),
+  ceoSecretaryMemoryFilterButtons: document.querySelectorAll("[data-ceo-secretary-memory-filter]"),
+  ceoSecretaryMemoryCount: document.getElementById("ceo-secretary-memory-count"),
+  ceoSecretaryIdeaCount: document.getElementById("ceo-secretary-idea-count"),
+  ceoSecretaryKnowledgeCount: document.getElementById("ceo-secretary-knowledge-count"),
+  ceoSecretaryOpenIdeaBoard: document.getElementById("ceo-secretary-open-idea-board"),
+  ceoSecretaryIdeaBoardPanel: document.getElementById("ceo-secretary-idea-board-panel"),
   ceoSecretaryHeaderStatus: document.getElementById("ceo-secretary-header-status"),
   ceoSecretaryViewButtons: document.querySelectorAll("[data-ceo-secretary-view]"),
   ceoSecretaryViewSecretary: document.getElementById("ceo-secretary-view-secretary"),
   ceoSecretaryViewBriefing: document.getElementById("ceo-secretary-view-briefing"),
   ceoSecretaryViewMemory: document.getElementById("ceo-secretary-view-memory"),
-  ceoSecretaryViewIdeas: document.getElementById("ceo-secretary-view-ideas"),
-  ceoSecretaryViewKnowledge: document.getElementById("ceo-secretary-view-knowledge"),
   ceoSecretaryViewNotifications: document.getElementById("ceo-secretary-view-notifications"),
   ceoSecretaryIdeaStats: document.getElementById("ceo-secretary-idea-stats"),
   ceoSecretaryIdeaBoard: document.getElementById("ceo-secretary-idea-board"),
-  ceoSecretaryKnowledgeStats: document.getElementById("ceo-secretary-knowledge-stats"),
   ceoSecretaryChatFeed: document.getElementById("ceo-secretary-chat-feed"),
   ceoSecretaryLearningStatus: document.getElementById("ceo-secretary-learning-status"),
   ceoSecretarySuggestionButtons: document.querySelectorAll("[data-ceo-secretary-suggestion]"),
@@ -5994,6 +5997,18 @@ function bindEvents() {
   els.ceoSecretaryMemoryFilterSelect?.addEventListener("change", () => {
     ceoSecretaryFilter = String(els.ceoSecretaryMemoryFilterSelect.value || "all").trim().toLowerCase();
     renderCeoSecretarySection();
+  });
+  els.ceoSecretaryMemoryFilterButtons?.forEach((button) => {
+    button.addEventListener("click", () => {
+      ceoSecretaryFilter = String(button.dataset.ceoSecretaryMemoryFilter || "all").trim().toLowerCase();
+      renderCeoSecretarySection();
+    });
+  });
+  els.ceoSecretaryOpenIdeaBoard?.addEventListener("click", () => {
+    if (els.ceoSecretaryIdeaBoardPanel) {
+      els.ceoSecretaryIdeaBoardPanel.open = true;
+      els.ceoSecretaryIdeaBoardPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
   });
   els.ceoSecretaryViewButtons?.forEach((button) => {
     button.addEventListener("click", () => {
@@ -36949,12 +36964,15 @@ function renderCeoSecretaryLegacySection() {
 
 function normalizeCeoSecretaryView(value) {
   const view = String(value || "").trim().toLowerCase();
-  return ["secretary", "briefing", "memory", "ideas", "knowledge", "notifications"].includes(view) ? view : "secretary";
+  return ["secretary", "briefing", "memory", "notifications"].includes(view) ? view : "secretary";
 }
 
 function setCeoSecretaryActiveView(nextView) {
   ceoSecretaryActiveView = normalizeCeoSecretaryView(nextView);
   renderCeoSecretarySection();
+  if (ceoSecretaryActiveView === "memory") {
+    void hydrateCeoSecretaryEntriesFromSupabase({ force: true });
+  }
 }
 
 function getCeoSecretaryFocusEntries() {
@@ -37132,6 +37150,14 @@ function renderCeoSecretaryBriefing() {
 
 function renderCeoSecretaryMemory() {
   if (!els.ceoSecretaryMemoryEntryList || !els.ceoSecretaryMemoryEmpty) return;
+  const ideaCount = ceoSecretaryEntries.filter((entry) => entry.type === "idea").length;
+  const knowledgeCount = ceoSecretaryEntries.filter((entry) => entry.type === "knowledge").length;
+  if (els.ceoSecretaryMemoryCount) els.ceoSecretaryMemoryCount.textContent = String(ceoSecretaryEntries.length);
+  if (els.ceoSecretaryIdeaCount) els.ceoSecretaryIdeaCount.textContent = String(ideaCount);
+  if (els.ceoSecretaryKnowledgeCount) els.ceoSecretaryKnowledgeCount.textContent = String(knowledgeCount);
+  els.ceoSecretaryMemoryFilterButtons?.forEach((button) => {
+    button.classList.toggle("is-active", String(button.dataset.ceoSecretaryMemoryFilter || "all") === ceoSecretaryFilter);
+  });
   const filteredEntries = ceoSecretaryEntries.filter((entry) => ceoSecretaryEntryMatchesCurrentFilter(entry));
   if (!filteredEntries.length) {
     els.ceoSecretaryMemoryEntryList.innerHTML = "";
@@ -37226,40 +37252,6 @@ async function updateCeoSecretaryWorkspaceStatus(entryId, nextStatus) {
     ceoSecretaryLastError = getCeoSecretaryRemoteErrorMessage(error);
   }
   renderCeoSecretarySection();
-}
-
-function renderCeoSecretaryKnowledgeLibrary() {
-  if (!els.ceoSecretaryEntryList || !els.ceoSecretaryEmpty) {
-    return;
-  }
-  const filteredEntries = ceoSecretaryEntries.filter((entry) => entry.type === "knowledge" && ceoSecretaryEntryMatchesCurrentFilter(entry));
-  const allKnowledge = ceoSecretaryEntries.filter((entry) => entry.type === "knowledge");
-  renderCeoSecretaryWorkspaceStats(els.ceoSecretaryKnowledgeStats, allKnowledge, [
-    { status: "trusted", label: "Verlässlich", tone: "trusted" },
-    { status: "review", label: "Prüfen", tone: "review" },
-    { status: "archived", label: "Archiviert", tone: "archived" },
-  ]);
-  if (!filteredEntries.length) {
-    els.ceoSecretaryEntryList.innerHTML = "";
-    els.ceoSecretaryEmpty.textContent = ceoSecretarySearchTerm
-      ? "Dazu finde ich in deiner Wissensbibliothek noch keinen Eintrag."
-      : "Noch kein Wissen gespeichert. Halte eine Erkenntnis, einen Ablauf oder eine wichtige Information fest.";
-    els.ceoSecretaryEmpty.classList.remove("hidden");
-    return;
-  }
-  els.ceoSecretaryEmpty.classList.add("hidden");
-  els.ceoSecretaryEntryList.innerHTML = filteredEntries
-    .map((entry) => {
-      const status = getCeoSecretaryWorkspaceStatus(entry);
-      return `<article class="ceo-secretary-knowledge-card" data-ceo-secretary-detail="${escapeHtml(entry.id)}">
-        <div class="ceo-secretary-knowledge-card-head"><span class="is-${escapeHtml(status)}">${escapeHtml(CEO_SECRETARY_WORKSPACE_STATUS_LABELS[status] || "Wissen")}</span><small>Aktualisiert ${escapeHtml(formatCeoSecretaryEntryTimestamp(entry.updatedAt || entry.createdAt) || "kürzlich")}</small></div>
-        <h4>${escapeHtml(entry.title)}</h4>
-        ${entry.body !== entry.title ? `<p>${escapeHtml(entry.body)}</p>` : ""}
-        ${(entry.tags || []).length ? `<div class="ceo-secretary-card-tags">${entry.tags.map((tag) => `<span>#${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
-        <div class="ceo-secretary-card-actions"><button type="button" data-ceo-secretary-workspace-status="trusted" data-ceo-secretary-entry-id="${escapeHtml(entry.id)}">Verlässlich</button><button type="button" data-ceo-secretary-workspace-status="review" data-ceo-secretary-entry-id="${escapeHtml(entry.id)}">Prüfen</button><button type="button" class="is-quiet" data-ceo-secretary-workspace-status="archived" data-ceo-secretary-entry-id="${escapeHtml(entry.id)}">Archivieren</button></div>
-      </article>`;
-    })
-    .join("");
 }
 
 function getCeoSecretaryMessageRecipients() {
@@ -37491,7 +37483,7 @@ async function handleCeoSecretaryTeamMessageSubmit() {
 }
 
 function renderCeoSecretarySection() {
-  if (!els.ceoSecretaryContent || !els.ceoSecretaryEntryList || !els.ceoSecretaryEmpty) {
+  if (!els.ceoSecretaryContent || !els.ceoSecretaryMemoryEntryList || !els.ceoSecretaryMemoryEmpty) {
     return;
   }
   if (!isSuperAdmin()) {
@@ -37539,8 +37531,6 @@ function renderCeoSecretarySection() {
     secretary: els.ceoSecretaryViewSecretary,
     briefing: els.ceoSecretaryViewBriefing,
     memory: els.ceoSecretaryViewMemory,
-    ideas: els.ceoSecretaryViewIdeas,
-    knowledge: els.ceoSecretaryViewKnowledge,
     notifications: els.ceoSecretaryViewNotifications,
   };
   Object.entries(panels).forEach(([view, panel]) => panel?.classList.toggle("hidden", view !== ceoSecretaryActiveView));
@@ -37561,7 +37551,6 @@ function renderCeoSecretarySection() {
   renderCeoSecretaryBriefing();
   renderCeoSecretaryMemory();
   renderCeoSecretaryIdeaBoard();
-  renderCeoSecretaryKnowledgeLibrary();
 }
 
 function shouldHydrateCeoSecretaryNow() {
