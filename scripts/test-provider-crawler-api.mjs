@@ -100,6 +100,19 @@ const changedWhileQueued = await invoke(
 assert.equal(changedWhileQueued.res.payload.status, "skipped_already_created", "Unmittelbar vor dem Crawl wird dashboard_created erneut geprüft.");
 assert.equal(changedWhileQueued.calls.some((call) => call.url === "https://example.test/"), false, "Bei späterer Dashboard-Anlage wird keine Anbieter-Website abgerufen.");
 
+const deferredMedia = await invoke(
+  { action: "process_next" },
+  baseRoutes({ route: (url, options) => {
+    if (url.includes("/rest/v1/provider_crawl_runs?select=*&status=eq.queued")) return response(200, []);
+    if (url.includes("/rest/v1/provider_crawl_runs?select=*&status=in.(completed,partial)&error_code=eq.media_pending")) return response(200, [{ id: "run-media-pending", provider_id: "provider-media", website_snapshot: "https://example.test", status: "completed", error_code: "media_pending" }]);
+    if (url.includes("/rest/v1/provider_crawl_runs?id=eq.run-media-pending&error_code=eq.media_pending") && options.method === "PATCH") return response(200, [{ id: "run-media-pending", provider_id: "provider-media", website_snapshot: "https://example.test", status: "completed", error_code: "media_running" }]);
+    if (url.includes("/rest/v1/providers?")) return response(200, [{ id: "provider-media", website: "https://example.test", dashboard_created: true }]);
+    if (url.includes("/rest/v1/provider_crawl_runs?id=eq.run-media-pending&error_code=eq.media_running") && options.method === "PATCH") return response(200, [{ id: "run-media-pending", status: "completed" }]);
+  } })
+);
+assert.equal(deferredMedia.res.payload.media, "skipped", "Medien werden als eigene, nachgelagerte Stufe verarbeitet.");
+assert.equal(deferredMedia.calls.some((call) => call.url === "https://example.test/"), false, "Für inzwischen angelegte Anbieter wird auch in der Medien-Stufe keine Website geladen.");
+
 const signedMedia = await invoke(
   { action: "media_urls", runId: "run-media" },
   baseRoutes({ route: (url) => {

@@ -10,7 +10,7 @@ const MAX_PROVIDER_IDS = 100;
 // Ein Crawl soll ein gutes Angebotsprofil liefern, ohne einen Cron-Worker minutenlang
 // zu blockieren. Angebotsseiten werden deshalb priorisiert und in kleinen Batches
 // parallel geladen.
-const MAX_HTML_PAGES = 9;
+const MAX_HTML_PAGES = 5;
 const HTML_FETCH_CONCURRENCY = 4;
 const MAX_HTML_BYTES = 1_500_000;
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
@@ -768,27 +768,55 @@ async function processRun(config, run, actor) {
   if (!resultInsert.ok) throw new Error("Crawler-Ergebnis konnte nicht gespeichert werden.");
   const courseSources = createOfferEditorialSources(offers, pages);
   const experienceRows = offers.slice(0, 3).map((offer, index) => ({ run_id: run.id, rank: index + 1, original_title: offer.original_title, platform_title: cleanText(copy?.experiences?.[index]?.title || offer.original_title, 240), description: cleanEditorialText(copy?.experiences?.[index]?.description || courseSources[index]?.source_pages?.[0]?.excerpt || offer.source_excerpt || "", 5000), location_facts: courseSources[index]?.facts || {}, direct_url: offer.direct_url, source_url: offer.source_url, evidence: [{ value: offer.original_title, source_url: offer.source_url, verification_status: "found" }, ...(courseSources[index]?.source_pages || []).map((source) => ({ value: source.title || offer.original_title, source_url: source.source_url, verification_status: "found" }))] }));
-  let insertedExperiences = [];
-  if (experienceRows.length) { const experienceInsert = await rest(config, "provider_crawl_experiences", { method: "POST", body: experienceRows }); insertedExperiences = Array.isArray(experienceInsert.payload) ? experienceInsert.payload : []; }
+  if (experienceRows.length) await rest(config, "provider_crawl_experiences", { method: "POST", body: experienceRows });
+  const finalStatus = copy ? "completed" : "partial";
+  await updateRun(config, run.id, { status: finalStatus, finished_at: new Date().toISOString(), last_crawled_at: new Date().toISOString(), pages_scanned: pages.length, experiences_found: offers.length, experiences_selected: experienceRows.length, error_code: "media_pending", error_message: copy ? "Texte sind verfügbar; Logo und Bilder werden im Hintergrund ergänzt." : "Fakten wurden gespeichert; Plattformtexte konnten nicht erzeugt werden. Logo und Bilder werden im Hintergrund ergänzt." }, "running");
+  await logEvent(config, run.id, finalStatus, actor.userId, { stage: "text", pages_scanned: pages.length, experiences_selected: experienceRows.length });
+  return { status: finalStatus };
+}
+
+async function claimMediaStage(config, runId) {
+  const result = await rest(config, `provider_crawl_runs?id=eq.${encodeURIComponent(runId)}&error_code=eq.media_pending`, {
+    method: "PATCH",
+    body: { error_code: "media_running", error_message: "Logo und Bilder werden im Hintergrund geladen." },
+  });
+  return Array.isArray(result.payload) ? result.payload[0] || null : null;
+}
+
+async function processMediaRun(config, run, actor) {
+  const providerResult = await rest(config, `providers?select=id,website,dashboard_created,payload&id=eq.${encodeURIComponent(run.provider_id)}&limit=1`);
+  const provider = Array.isArray(providerResult.payload) ? providerResult.payload[0] : null;
+  if (!provider || isProviderDashboardCreated(provider)) {
+    await rest(config, `provider_crawl_runs?id=eq.${encodeURIComponent(run.id)}&error_code=eq.media_running`, { method: "PATCH", body: { error_code: run.status === "partial" ? "llm_unavailable" : "", error_message: "Medienabruf übersprungen, weil der Anbieter inzwischen im Dashboard angelegt wurde." } });
+    return { status: run.status, media: "skipped" };
+  }
+  const rootUrl = normalizeUrl(provider.website || run.website_snapshot);
+  if (!rootUrl) throw new Error("Keine crawlbare Website für Medien verfügbar.");
+  const experiencesResult = await rest(config, `provider_crawl_experiences?select=id,original_title,direct_url,source_url&run_id=eq.${encodeURIComponent(run.id)}&selected=eq.true&order=rank.asc`);
+  const experiences = Array.isArray(experiencesResult.payload) ? experiencesResult.payload : [];
+  const pages = await crawlProviderPages(rootUrl);
+  if (!pages.length) throw new Error("Keine öffentlich erreichbare HTML-Seite für Medien gefunden.");
   const pageImages = pages.flatMap((page) => extractImages(page.html, page.url));
   const logoCandidate = pageImages.find((image) => /logo/i.test(`${image.url} ${image.alt}`));
   const mediaRows = (await mapWithConcurrency(
-    selectExperienceImageCandidates(insertedExperiences, pages, logoCandidate),
+    selectExperienceImageCandidates(experiences, pages, logoCandidate),
     MEDIA_FETCH_CONCURRENCY,
     (candidate) => storeImage(config, run, candidate.image, candidate.kind, candidate.experienceId)
   )).filter(Boolean);
   if (mediaRows.length) await rest(config, "provider_crawl_media", { method: "POST", body: mediaRows });
-  const finalStatus = copy ? "completed" : "partial";
-  await updateRun(config, run.id, { status: finalStatus, finished_at: new Date().toISOString(), last_crawled_at: new Date().toISOString(), pages_scanned: pages.length, experiences_found: offers.length, experiences_selected: experienceRows.length, error_code: copy ? "" : "llm_unavailable", error_message: copy ? "" : "Fakten wurden gespeichert; Plattformtexte konnten nicht erzeugt werden." }, "running");
-  await logEvent(config, run.id, finalStatus, actor.userId, { pages_scanned: pages.length, experiences_selected: experienceRows.length });
-  return { status: finalStatus };
+  await rest(config, `provider_crawl_runs?id=eq.${encodeURIComponent(run.id)}&error_code=eq.media_running`, {
+    method: "PATCH",
+    body: { error_code: run.status === "partial" ? "llm_unavailable" : "", error_message: run.status === "partial" ? "Fakten und Medien wurden gespeichert; Plattformtexte konnten nicht erzeugt werden." : "" },
+  });
+  await logEvent(config, run.id, "completed", actor.userId, { stage: "media", media_saved: mediaRows.length });
+  return { status: run.status, media: mediaRows.length };
 }
 
 async function claimAndProcessNext(config, actor) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const queued = await rest(config, "provider_crawl_runs?select=*&status=eq.queued&order=queued_at.asc&limit=1");
     const run = Array.isArray(queued.payload) ? queued.payload[0] : null;
-    if (!run) return { idle: true };
+    if (!run) break;
     const claimed = await updateRun(config, run.id, { status: "running", started_at: new Date().toISOString(), started_by_user_id: actor.userId, error_code: "", error_message: "" }, "queued");
     if (!claimed) continue;
     await logEvent(config, claimed.id, "started", actor.userId);
@@ -799,7 +827,17 @@ async function claimAndProcessNext(config, actor) {
       return { run: claimed, status: "failed" };
     }
   }
-  return { busy: true };
+  const pendingMedia = await rest(config, "provider_crawl_runs?select=*&status=in.(completed,partial)&error_code=eq.media_pending&order=finished_at.asc&limit=1");
+  const mediaRun = Array.isArray(pendingMedia.payload) ? pendingMedia.payload[0] : null;
+  if (!mediaRun) return { idle: true };
+  const claimedMedia = await claimMediaStage(config, mediaRun.id);
+  if (!claimedMedia) return { busy: true };
+  try { return { run: claimedMedia, ...(await processMediaRun(config, claimedMedia, actor)) }; }
+  catch (error) {
+    await rest(config, `provider_crawl_runs?id=eq.${encodeURIComponent(claimedMedia.id)}&error_code=eq.media_running`, { method: "PATCH", body: { error_code: "media_failed", error_message: cleanText(error?.message || "Bilder konnten nicht geladen werden.", 1200) } });
+    await logEvent(config, claimedMedia.id, "completed", actor.userId, { stage: "media", error: cleanText(error?.message || "Unbekannt", 800) });
+    return { run: claimedMedia, status: claimedMedia.status, media: "failed" };
+  }
 }
 
 async function enqueueProviders(config, providerIds, actor) {

@@ -37,11 +37,11 @@ Die Verbindung zum bestehenden Anbieter erfolgt nur über `provider_id`.
   Bei Next.js-Websites werden zusätzlich öffentlich eingebettete Inhaltsdaten genutzt,
   etwa um Storyblok-Kursdaten und Kontaktangaben auszulesen. Die Daten bleiben dabei
   weiterhin reine Quellen; Anweisungen aus der Website werden nie befolgt.
-- Pro Lauf gelten Grenzen für Seiten, Antwortgrößen, Redirects und Downloads. Es
-  werden höchstens neun nach Angebotsrelevanz priorisierte HTML-Seiten in kleinen
-  parallelen Batches sowie 13 Medienobjekte verarbeitet (Logo und bis zu vier Bilder
-  je maximal drei Erlebnissen). Dadurch bleiben langsame
-  Websites begrenzt, ohne konkrete Angebotsseiten zu verdrängen. Ein Cron-Aufruf
+- Ein Crawl besteht aus zwei Stufen. Zuerst werden höchstens fünf nach Angebotsrelevanz
+  priorisierte HTML-Seiten in kleinen parallelen Batches verarbeitet und die Textdaten
+  sofort gespeichert. Logo und bis zu vier Bilder je maximal drei Erlebnissen folgen
+  als nachgelagerte Medien-Stufe, sobald keine Text-Crawls mehr warten. Damit bleiben
+  langsame Bilddownloads von den nutzbaren Ergebnissen entkoppelt. Ein Cron-Aufruf
   verarbeitet höchstens einen Queue-Eintrag. Nach dem Einreihen kehrt die Oberfläche
   sofort zurück; der Crawl läuft ausschließlich im Hintergrund.
 - Für Plattformtexte erhält die KI nur geprüfte Auszüge der gefundenen Anbieter- und

@@ -681,6 +681,7 @@ let providersViewMode = "list";
 let providerCrawlerRuns = [];
 let providerCrawlerSelectedIds = new Set();
 let providerCrawlerReviewRunId = "";
+let providerCrawlerPollingTimer = null;
 let providerListSearchTerm = "";
 let providerListOwnerFilter = "all";
 let providerListStatusFilter = "offen";
@@ -63744,14 +63745,28 @@ async function loadProviderCrawlerRuns({ showStatus = false } = {}) {
   renderProviderCrawlerSection();
 }
 
+function startProviderCrawlerPolling() {
+  if (providerCrawlerPollingTimer) clearTimeout(providerCrawlerPollingTimer);
+  let attempts = 0;
+  const poll = async () => {
+    attempts += 1;
+    await loadProviderCrawlerRuns();
+    const hasPendingWork = providerCrawlerRuns.some((run) => ["queued", "running"].includes(String(run.status || "")) || ["media_pending", "media_running"].includes(String(run.error_code || "")));
+    if (hasPendingWork && attempts < 18) providerCrawlerPollingTimer = setTimeout(poll, 10_000);
+    else providerCrawlerPollingTimer = null;
+  };
+  providerCrawlerPollingTimer = setTimeout(poll, 10_000);
+}
+
 async function queueProviderCrawler(providerIds, allEligible = false) {
   const message = allEligible ? "Alle berechtigten Anbieter werden in die Crawl-Warteschlange eingereiht …" : "Ausgewählte Anbieter werden in die Crawl-Warteschlange eingereiht …";
   setProviderCrawlerStatus(message);
   const response = await callProviderCrawlerApi(allEligible ? "enqueue_all" : "enqueue", allEligible ? {} : { providerIds });
   const queuedCount = Array.isArray(response.created) ? response.created.length : 0;
   const skippedCount = Array.isArray(response.skipped) ? response.skipped.length : 0;
-  setProviderCrawlerStatus(`${queuedCount} Crawl-Läufe eingereiht${skippedCount ? ` · ${skippedCount} übersprungen` : ""}. Die Verarbeitung startet automatisch im Hintergrund; bitte in etwa einer Minute aktualisieren.`, "success");
+  setProviderCrawlerStatus(`${queuedCount} Crawl-Läufe eingereiht${skippedCount ? ` · ${skippedCount} übersprungen` : ""}. Text-Ergebnisse erscheinen automatisch, Bilder folgen im Hintergrund.`, "success");
   await loadProviderCrawlerRuns();
+  if (queuedCount) startProviderCrawlerPolling();
 }
 
 async function processProviderCrawlerQueue() {
@@ -63837,9 +63852,15 @@ async function openProviderCrawlerReview(runId) {
     return `<article class="provider-crawler-experience-card"><div class="provider-crawler-experience-heading"><span>ERLEBNIS ${escapeHtml(String(entry.rank || "–"))}</span><h4>${escapeHtml(entry.platform_title || entry.original_title || "Erlebnis")}</h4></div>${imageGallery}${factChips ? `<div class="provider-crawler-experience-facts">${factChips}</div>` : ""}<div class="provider-crawler-copy">${textBlocks(entry.description, "Für dieses Erlebnis konnte keine belastbare Beschreibung erzeugt werden.")}</div><div class="provider-crawler-experience-meta">${isSafeCrawlerSourceUrl(entry.direct_url) ? `<a href="${escapeHtml(entry.direct_url)}" target="_blank" rel="noopener noreferrer">Original-Angebot öffnen ↗</a>` : ""}${sourceLine(entry)}</div></article>`;
   }).join("") || '<p class="provider-crawler-empty">Keine passenden Erlebnisse wurden auf den geprüften Seiten gefunden.</p>';
   const status = String(run.status || "–").replace(/_/g, " ");
+  const mediaState = String(run.error_code || "");
+  const mediaHint = mediaState === "media_pending" || mediaState === "media_running"
+    ? '<p class="provider-crawler-media-pending">Texte sind bereits verfügbar. Logo und Bilder werden im Hintergrund ergänzt.</p>'
+    : mediaState === "media_failed"
+      ? '<p class="provider-crawler-media-pending is-warning">Logo oder Bilder konnten nicht vollständig geladen werden. Die Textdaten bleiben verfügbar.</p>'
+      : "";
   const website = isSafeCrawlerSourceUrl(run.website_snapshot) ? `<a href="${escapeHtml(run.website_snapshot)}" target="_blank" rel="noopener noreferrer">Website öffnen ↗</a>` : "";
   const logo = isSafeCrawlerSourceUrl(providerLogoUrl) ? `<img class="provider-crawler-logo" src="${escapeHtml(providerLogoUrl)}" alt="Logo von ${escapeHtml(run.provider_name_snapshot || "Anbieter")}" />` : '<div class="provider-crawler-logo provider-crawler-logo-placeholder">Kein Logo gefunden</div>';
-  els.providerCrawlerReview.innerHTML = `<div class="provider-crawler-result-hero">${logo}<div><p class="provider-analytics-eyebrow">REDAKTIONELLER CRAWL-ENTWURF</p><h3>${escapeHtml(run.provider_name_snapshot || "Anbieter")}</h3><p>${website || "Quellwebsite nicht verfügbar"}</p></div><div class="provider-crawler-run-metrics"><span><strong>${escapeHtml(String(run.pages_scanned ?? 0))}</strong> Seiten geprüft</span><span><strong>${escapeHtml(String(run.experiences_selected ?? 0))}</strong> Erlebnisse ausgewählt</span><span class="provider-crawler-status-badge">${escapeHtml(status)}</span></div><button type="button" class="mini-btn" data-provider-crawler-review-close>Schließen</button></div><section class="provider-crawler-profile"><p class="provider-crawler-slogan">${escapeHtml(result.platform_slogan || result.original_slogan || "Profil noch ohne Slogan")}</p><h4>Kurzprofil</h4><div class="provider-crawler-copy">${textBlocks(result.short_description, "Für dieses Kurzprofil reichen die belegten Informationen noch nicht aus.")}</div><h4>Detailbeschreibung</h4><div class="provider-crawler-copy provider-crawler-detail-copy">${textBlocks(result.detail_description, "Für diese Detailbeschreibung reichen die belegten Informationen noch nicht aus.")}</div></section><div class="provider-crawler-review-grid"><section><h4>Unternehmensdaten</h4><div class="provider-crawler-fact-list">${factList}</div></section><section><h4>Geschäftsführung</h4><div class="provider-crawler-fact-list">${directors}</div></section></div><section class="provider-crawler-offers"><div class="section-header"><div><p class="provider-analytics-eyebrow">KURATIERTE AUSWAHL</p><h4>Erlebnisse</h4></div></div><div class="provider-crawler-experience-list">${experiences}</div></section><details class="provider-crawler-editor"><summary>Texte redaktionell bearbeiten</summary><div class="provider-crawler-editor-fields"><label>Slogan<textarea data-provider-crawler-field="platform_slogan">${escapeHtml(result.platform_slogan || "")}</textarea></label><label>Kurzbeschreibung<textarea data-provider-crawler-field="short_description">${escapeHtml(result.short_description || "")}</textarea></label><label>Detailbeschreibung<textarea data-provider-crawler-field="detail_description">${escapeHtml(result.detail_description || "")}</textarea></label><label>Review-Notiz<textarea data-provider-crawler-field="review_notes">${escapeHtml(result.review_notes || "")}</textarea></label></div><div class="provider-crawler-actions"><button type="button" class="btn btn-secondary" data-provider-crawler-save-review="${escapeHtml(normalizedRunId)}">Änderungen speichern</button><button type="button" class="btn btn-success" data-provider-crawler-approve="${escapeHtml(normalizedRunId)}">Crawler-Ergebnis freigeben</button></div></details>`;
+  els.providerCrawlerReview.innerHTML = `<div class="provider-crawler-result-hero">${logo}<div><p class="provider-analytics-eyebrow">REDAKTIONELLER CRAWL-ENTWURF</p><h3>${escapeHtml(run.provider_name_snapshot || "Anbieter")}</h3><p>${website || "Quellwebsite nicht verfügbar"}</p></div><div class="provider-crawler-run-metrics"><span><strong>${escapeHtml(String(run.pages_scanned ?? 0))}</strong> Seiten geprüft</span><span><strong>${escapeHtml(String(run.experiences_selected ?? 0))}</strong> Erlebnisse ausgewählt</span><span class="provider-crawler-status-badge">${escapeHtml(status)}</span></div><button type="button" class="mini-btn" data-provider-crawler-review-close>Schließen</button></div>${mediaHint}<section class="provider-crawler-profile"><p class="provider-crawler-slogan">${escapeHtml(result.platform_slogan || result.original_slogan || "Profil noch ohne Slogan")}</p><h4>Kurzprofil</h4><div class="provider-crawler-copy">${textBlocks(result.short_description, "Für dieses Kurzprofil reichen die belegten Informationen noch nicht aus.")}</div><h4>Detailbeschreibung</h4><div class="provider-crawler-copy provider-crawler-detail-copy">${textBlocks(result.detail_description, "Für diese Detailbeschreibung reichen die belegten Informationen noch nicht aus.")}</div></section><div class="provider-crawler-review-grid"><section><h4>Unternehmensdaten</h4><div class="provider-crawler-fact-list">${factList}</div></section><section><h4>Geschäftsführung</h4><div class="provider-crawler-fact-list">${directors}</div></section></div><section class="provider-crawler-offers"><div class="section-header"><div><p class="provider-analytics-eyebrow">KURATIERTE AUSWAHL</p><h4>Erlebnisse</h4></div></div><div class="provider-crawler-experience-list">${experiences}</div></section><details class="provider-crawler-editor"><summary>Texte redaktionell bearbeiten</summary><div class="provider-crawler-editor-fields"><label>Slogan<textarea data-provider-crawler-field="platform_slogan">${escapeHtml(result.platform_slogan || "")}</textarea></label><label>Kurzbeschreibung<textarea data-provider-crawler-field="short_description">${escapeHtml(result.short_description || "")}</textarea></label><label>Detailbeschreibung<textarea data-provider-crawler-field="detail_description">${escapeHtml(result.detail_description || "")}</textarea></label><label>Review-Notiz<textarea data-provider-crawler-field="review_notes">${escapeHtml(result.review_notes || "")}</textarea></label></div><div class="provider-crawler-actions"><button type="button" class="btn btn-secondary" data-provider-crawler-save-review="${escapeHtml(normalizedRunId)}">Änderungen speichern</button><button type="button" class="btn btn-success" data-provider-crawler-approve="${escapeHtml(normalizedRunId)}">Crawler-Ergebnis freigeben</button></div></details>`;
 }
 
 async function saveProviderCrawlerReview(runId, approve = false) {
