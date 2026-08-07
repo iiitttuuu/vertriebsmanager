@@ -40343,6 +40343,22 @@ function incrementProviderBalanceCounter(counter, key) {
   counter.set(key, (counter.get(key) || 0) + 1);
 }
 
+function getProviderBalanceCapacityDeficit(dashboardCount, totalCount, targetCoverageRate) {
+  const total = Math.max(0, Number(totalCount) || 0);
+  if (!total) {
+    return 0;
+  }
+  // Vier virtuelle, durchschnittlich abgedeckte Anbieter glätten kleine
+  // Bundesländer. Ihre geringe Datenmenge kann dadurch nicht den nächsten
+  // Vorschlag dominieren, bleibt bei tatsächlichem Rückstand aber sichtbar.
+  const smoothingSize = 4;
+  const targetRate = Math.max(0, Math.min(1, Number(targetCoverageRate) || 0));
+  const smoothedCoverageRate =
+    (Math.max(0, Number(dashboardCount) || 0) + targetRate * smoothingSize) / (total + smoothingSize);
+  const relativeDeficit = Math.max(0, targetRate - smoothedCoverageRate);
+  return relativeDeficit * Math.sqrt(total);
+}
+
 function buildProviderBalanceAssistantScope() {
   const currentUser = getCurrentUser();
   if (!canCurrentUserUseProviderBalanceAssistant(currentUser)) {
@@ -40360,7 +40376,10 @@ function buildProviderBalanceAssistantScope() {
   const dashboardByPair = new Map();
   const totalByTopic = new Map();
   const totalByState = new Map();
+  const totalByPair = new Map();
   const candidates = [];
+  let coverageProviderCount = 0;
+  let dashboardProviderCount = 0;
 
   eligibleProviders.forEach((provider) => {
     const topics = getProviderBalanceTopicEntries(provider, topicLookup);
@@ -40368,16 +40387,19 @@ function buildProviderBalanceAssistantScope() {
     if (!topics.length || !states.length) {
       return;
     }
+    coverageProviderCount += 1;
     const pairs = [];
     topics.forEach((topic) => {
       incrementProviderBalanceCounter(totalByTopic, topic.key);
       states.forEach((stateEntry) => {
         const pairKey = `${topic.key}|${stateEntry.key}`;
         pairs.push({ key: pairKey, topic, state: stateEntry });
+        incrementProviderBalanceCounter(totalByPair, pairKey);
       });
     });
     states.forEach((stateEntry) => incrementProviderBalanceCounter(totalByState, stateEntry.key));
     if (isProviderDashboardCreated(provider)) {
+      dashboardProviderCount += 1;
       topics.forEach((topic) => incrementProviderBalanceCounter(dashboardByTopic, topic.key));
       states.forEach((stateEntry) => incrementProviderBalanceCounter(dashboardByState, stateEntry.key));
       pairs.forEach((pair) => incrementProviderBalanceCounter(dashboardByPair, pair.key));
@@ -40396,6 +40418,8 @@ function buildProviderBalanceAssistantScope() {
     dashboardByPair,
     totalByTopic,
     totalByState,
+    totalByPair,
+    overallCoverageRate: coverageProviderCount ? dashboardProviderCount / coverageProviderCount : 0,
   };
 }
 
@@ -40417,28 +40441,25 @@ function getProviderBalanceAssistantSuggestion() {
     };
   }
 
-  const topicMinimum = Math.min(
-    ...Array.from(new Set(candidates.flatMap((entry) => entry.topics.map((topic) => topic.key)))).map(
-      (key) => scope.dashboardByTopic.get(key) || 0
-    )
-  );
-  const stateMinimum = Math.min(
-    ...Array.from(new Set(candidates.flatMap((entry) => entry.states.map((stateEntry) => stateEntry.key)))).map(
-      (key) => scope.dashboardByState.get(key) || 0
-    )
-  );
-  const pairMinimum = Math.min(
-    ...Array.from(new Set(candidates.flatMap((entry) => entry.pairs.map((pair) => pair.key)))).map(
-      (key) => scope.dashboardByPair.get(key) || 0
-    )
-  );
   const pairOptions = new Map();
   candidates.forEach((entry) => {
     entry.pairs.forEach((pair) => {
-      const topicGap = (scope.dashboardByTopic.get(pair.topic.key) || 0) - topicMinimum;
-      const stateGap = (scope.dashboardByState.get(pair.state.key) || 0) - stateMinimum;
-      const pairGap = (scope.dashboardByPair.get(pair.key) || 0) - pairMinimum;
-      const score = topicGap + stateGap + pairGap * 0.35;
+      const topicDeficit = getProviderBalanceCapacityDeficit(
+        scope.dashboardByTopic.get(pair.topic.key) || 0,
+        scope.totalByTopic.get(pair.topic.key) || 0,
+        scope.overallCoverageRate
+      );
+      const stateDeficit = getProviderBalanceCapacityDeficit(
+        scope.dashboardByState.get(pair.state.key) || 0,
+        scope.totalByState.get(pair.state.key) || 0,
+        scope.overallCoverageRate
+      );
+      const pairDeficit = getProviderBalanceCapacityDeficit(
+        scope.dashboardByPair.get(pair.key) || 0,
+        scope.totalByPair.get(pair.key) || 0,
+        scope.overallCoverageRate
+      );
+      const score = topicDeficit + stateDeficit + pairDeficit * 0.35;
       if (!pairOptions.has(pair.key)) {
         pairOptions.set(pair.key, { ...pair, score, candidates: [] });
       }
@@ -40446,10 +40467,10 @@ function getProviderBalanceAssistantSuggestion() {
     });
   });
   const options = Array.from(pairOptions.values());
-  const bestScore = Math.min(...options.map((option) => option.score));
-  // Eine kleine Toleranz lässt gleichwertige Themen und Bundesländer bewusst
-  // gemischt erscheinen, ohne die Unterrepräsentierten zu verdrängen.
-  const balancedOptions = options.filter((option) => option.score <= bestScore + 0.35);
+  const bestScore = Math.max(...options.map((option) => option.score));
+  // Eine kleine Toleranz lässt annähernd gleich unterversorgte Kombinationen
+  // gemischt erscheinen, ohne verfügbarkeitsstarke Rückstände zu verdrängen.
+  const balancedOptions = options.filter((option) => option.score >= bestScore - Math.max(0.02, bestScore * 0.08));
   const pair = balancedOptions[Math.floor(Math.random() * balancedOptions.length)];
   const candidate = pair.candidates[Math.floor(Math.random() * pair.candidates.length)];
   return {
@@ -40509,7 +40530,7 @@ function renderProviderBalanceAssistantSuggestion() {
         <strong>${escapeHtml(entry.state.name)} · ${entry.stateDashboardCount} von ${entry.stateTotalCount}</strong>
       </div>
     </div>
-    <p class="provider-balance-assistant-reason"><strong>Warum dieser Vorschlag?</strong> Thema und Bundesland gehören in deiner sichtbaren Auswahl aktuell zu den am wenigsten im Dashboard angelegten Bereichen. Nach der Anlage bitte im Anbieter den vorhandenen Schalter „Im Dashboard angelegt“ aktivieren.</p>`;
+    <p class="provider-balance-assistant-reason"><strong>Warum dieser Vorschlag?</strong> Thema und Bundesland liegen – gemessen an ihrem verfügbaren Anbieterbestand – unter dem aktuellen Abdeckungsniveau. Kleine Bundesländer werden dabei geglättet berücksichtigt. Nach der Anlage bitte im Anbieter den vorhandenen Schalter „Im Dashboard angelegt“ aktivieren.</p>`;
 }
 
 function openProviderBalanceAssistant() {

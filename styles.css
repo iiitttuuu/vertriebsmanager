@@ -12934,6 +12934,21 @@ body.provider-form-open .topbar {
   flex-wrap: wrap;
 }
 
+/* Der Assistent ist eine vorbereitende Auswahl; der grüne Button bleibt
+   bewusst als eindeutig getrennte Hauptaktion zum direkten Anlegen erkennbar. */
+#provider-balance-assistant-btn {
+  margin-right: 12px;
+  border-color: #b9cfe8;
+  background: #f5f9fe;
+  color: #1b568f;
+}
+
+#provider-balance-assistant-btn:hover,
+#provider-balance-assistant-btn:focus-visible {
+  border-color: #77a9d8;
+  background: #edf6ff;
+}
+
 .provider-note-task-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(180px, 220px);
@@ -28243,6 +28258,10 @@ body {
 @media (max-width: 760px) {
   #providers-section .provider-list-actions {
     margin-left: 0;
+  }
+
+  #provider-balance-assistant-btn {
+    margin-right: 0;
   }
 }
 
