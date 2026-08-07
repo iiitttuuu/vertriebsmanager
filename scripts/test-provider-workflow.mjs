@@ -442,7 +442,7 @@ assert.match(
   "Explizite Anbieter-Änderungen fallen nicht still auf app_state zurück."
 );
 assert.match(indexSource, /app-provider-workflow-v83/, "Die Anbieter-Statuslogik wird ohne Browser-Cache geladen.");
-assert.match(indexSource, /styles-provider-workflow-v78/, "Die Anbieter-Statusleiste wird ohne Browser-Cache gestaltet.");
+assert.match(indexSource, /styles-provider-workflow-v79/, "Die Anbieter-Statusleiste wird ohne Browser-Cache gestaltet.");
 assert.match(
   indexSource,
   /id="roles-rights-section" class="panel card superadmin-only-view"[\s\S]*automatisch erzeugt/,
