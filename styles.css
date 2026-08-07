@@ -12293,6 +12293,17 @@ body.provider-form-open .topbar {
   margin: 0 0 0.68em;
 }
 
+/* Der Editor speichert eine bewusst eingefügte Leerzeile als <p><br></p>.
+   Sie soll in der Glocke wie eine normale, kompakte Leerzeile wirken – nicht
+   wie ein zusätzlicher vollständiger Absatz. */
+.topbar-notification-item-text.is-rich p:has(> br:only-child),
+.login-notification-briefing-item-text.is-rich p:has(> br:only-child) {
+  min-height: 0;
+  height: 0.56em;
+  line-height: 0.56em;
+  margin-bottom: 0.24em;
+}
+
 .topbar-notification-item-text.is-rich p:last-child,
 .login-notification-briefing-item-text.is-rich p:last-child,
 .topbar-notification-item-text.is-rich ul:last-child,
