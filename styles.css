@@ -12943,6 +12943,13 @@ body.provider-form-open .topbar {
   color: #1b568f;
 }
 
+.provider-balance-assistant-icon {
+  margin-right: 6px;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+  font-size: 0.98em;
+  line-height: 1;
+}
+
 #provider-balance-assistant-btn:hover,
 #provider-balance-assistant-btn:focus-visible {
   border-color: #77a9d8;
