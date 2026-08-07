@@ -40369,6 +40369,7 @@ function buildProviderBalanceAssistantScope() {
     (provider) =>
       provider &&
       !isProviderCompetitor(provider) &&
+      !isProviderAdminOnly(provider) &&
       normalizeProviderStatusValue(provider?.status || "") !== PROVIDER_STATUS_ARCHIVED
   );
   const dashboardByTopic = new Map();

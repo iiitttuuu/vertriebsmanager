@@ -9,6 +9,7 @@ const [appSource, htmlSource, stylesSource] = await Promise.all([
 
 assert.match(appSource, /function buildProviderBalanceAssistantScope\(/, "Der Assistent baut seine Auswahl aus dem bestehenden Anbieterbestand.");
 assert.match(appSource, /!isProviderDashboardCreated\(provider\)/, "Bereits im Dashboard angelegte Anbieter werden ausgeschlossen.");
+assert.match(appSource, /!isProviderAdminOnly\(provider\)/, "Nur-Admin-Anbieter werden nicht vorgeschlagen.");
 assert.match(appSource, /!canCurrentUserOpenProvider\(provider, currentUser\)/, "Für den Nutzer gesperrte Anbieter werden nicht vorgeschlagen.");
 assert.match(appSource, /function getProviderBalanceCapacityDeficit\(/, "Die Auswahl berechnet den Rückstand relativ zur verfügbaren Kapazität.");
 assert.match(appSource, /const smoothingSize = 4/, "Kleine Bundesländer werden gegen Zufallsschwankungen geglättet.");
