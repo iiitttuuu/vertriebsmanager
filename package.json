@@ -3,17 +3,14 @@
     "test:provision": "node scripts/test-provision-accounting.mjs",
     "test:provider-workflow": "node scripts/test-provider-workflow.mjs",
     "test:provider-invitation-api": "node scripts/test-provider-invitation-api.mjs",
-    "test:provider-crawler-api": "node scripts/test-provider-crawler-api.mjs",
     "test:resilience": "node scripts/test-crm-resilience.mjs",
     "test:persistence": "node scripts/test-persistence-verification.mjs",
     "test:provider-balance": "node scripts/test-provider-balance-assistant.mjs",
     "test:secretary-knowledge": "node scripts/test-ceo-secretary-knowledge-base.mjs",
     "test:secretary-proactivity": "node scripts/test-ceo-secretary-proactivity.mjs",
-    "test": "npm run test:provision && npm run test:provider-workflow && npm run test:provider-invitation-api && npm run test:provider-crawler-api && npm run test:resilience && npm run test:persistence && npm run test:provider-balance && npm run test:secretary-knowledge && npm run test:secretary-proactivity"
+    "test": "npm run test:provision && npm run test:provider-workflow && npm run test:provider-invitation-api && npm run test:resilience && npm run test:persistence && npm run test:provider-balance && npm run test:secretary-knowledge && npm run test:secretary-proactivity"
   },
   "dependencies": {
-    "@vercel/queue": "^0.4.0",
-    "sharp": "^0.35.3",
     "vercel": "^50.37.3",
     "web-push": "^3.6.7"
   }

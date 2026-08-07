@@ -270,7 +270,7 @@
             type="button"
             class="nav-btn nav-parent-btn"
             data-nav-toggle="sales-submenu"
-            data-child-targets="providers-section,provider-crawler-section,provider-coverage-section,sales-phone-section,tour-planner-section,sales-leads-section,partner-requests-section"
+            data-child-targets="providers-section,provider-coverage-section,sales-phone-section,tour-planner-section,sales-leads-section,partner-requests-section"
             aria-controls="sales-nav-submenu"
             aria-expanded="false"
           >
@@ -278,7 +278,6 @@
           </button>
           <div id="sales-nav-submenu" class="nav-submenu hidden">
             <button type="button" class="nav-btn nav-sub-btn" data-target="providers-section">Anbieter</button>
-            <button type="button" class="nav-btn nav-sub-btn role-admin-only" data-target="provider-crawler-section">Anbieter Crawler</button>
             <button type="button" class="nav-btn nav-sub-btn" data-target="provider-coverage-section">
               Abdeckung
             </button>
@@ -3099,59 +3098,6 @@
               </div>
             </div>
           </div>
-        </section>
-
-        <section id="provider-crawler-section" class="panel card role-admin-only-view provider-crawler-section">
-          <div class="section-header">
-            <div>
-              <p class="provider-analytics-eyebrow">GETRENNTER STAGING-BEREICH</p>
-              <h2>Anbieter Crawler</h2>
-              <p>Ergebnisse bleiben vollständig getrennt von den bestehenden Anbieter-Stammdaten.</p>
-            </div>
-            <div class="provider-crawler-actions">
-              <button type="button" id="provider-crawler-refresh-btn" class="btn btn-secondary">Aktualisieren</button>
-              <button type="button" id="provider-crawler-all-btn" class="btn btn-primary">Alle berechtigten crawlen</button>
-              <button type="button" id="provider-crawler-selected-btn" class="btn btn-success">Auswahl crawlen</button>
-            </div>
-          </div>
-          <p id="provider-crawler-status" class="provider-crawler-status" aria-live="polite"></p>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th><input type="checkbox" id="provider-crawler-select-all" aria-label="Alle geeigneten Anbieter auswählen" /></th>
-                  <th>Anbieter</th>
-                  <th>Website</th>
-                  <th>Crawl-Status</th>
-                  <th>Letzter Crawl</th>
-                  <th>Erlebnisse</th>
-                  <th>Aktionen</th>
-                </tr>
-              </thead>
-              <tbody id="provider-crawler-table-body"></tbody>
-            </table>
-          </div>
-          <div class="provider-crawler-history">
-            <h3>Bereits gecrawlt</h3>
-            <p>Hier bleiben die zuletzt gespeicherten Crawl-Läufe sichtbar – auch wenn ein Anbieter nicht mehr crawlbar ist.</p>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Anbieter</th>
-                    <th>Website beim Crawl</th>
-                    <th>Status</th>
-                    <th>Letzter Crawl</th>
-                    <th>Erlebnisse</th>
-                    <th>Aktion</th>
-                  </tr>
-                </thead>
-                <tbody id="provider-crawler-history-body"></tbody>
-              </table>
-            </div>
-          </div>
-          <div id="provider-crawler-review-backdrop" class="provider-crawler-review-backdrop hidden" aria-hidden="true"></div>
-          <div id="provider-crawler-review" class="provider-crawler-review hidden" role="dialog" aria-modal="true" aria-label="Crawler-Ergebnis" aria-live="polite" tabindex="-1"></div>
         </section>
 
         <section id="provider-coverage-section" class="panel card provider-analytics-section">

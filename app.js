@@ -505,7 +505,6 @@ const PROVIDER_NOTE_DELETE_ENDPOINT = "/api/provider-notes/delete";
 const PROVIDER_INVITATION_TOGGLE_ENDPOINT = "/api/providers/toggle-invitation";
 const PROVIDER_INVITATION_RESET_ENDPOINT = "/api/providers/reset-invitation";
 const PROVIDER_INVITATION_COMPLETE_ENDPOINT = "/api/providers/complete-invitation";
-const PROVIDER_CRAWLER_ENDPOINT = "/api/provider-crawler";
 const WEB_PUSH_EMPLOYEE_MESSAGE_ENDPOINT = "/api/push/employee-message";
 // Eine Aktion aus der Anbieterübersicht darf niemals einen Dialog dauerhaft
 // blockieren. Nach diesem Zeitraum wird die Anfrage abgebrochen und der
@@ -678,10 +677,6 @@ let userResponsibilityDraft = [];
 let inventoryEditingId = "";
 let inventorySearchTerm = "";
 let providersViewMode = "list";
-let providerCrawlerRuns = [];
-let providerCrawlerSelectedIds = new Set();
-let providerCrawlerReviewRunId = "";
-let providerCrawlerPollingTimer = null;
 let providerListSearchTerm = "";
 let providerListOwnerFilter = "all";
 let providerListStatusFilter = "offen";
@@ -2256,15 +2251,6 @@ const els = {
   providerTopicResults: document.getElementById("provider-topic-results"),
   providerTopicChips: document.getElementById("provider-topic-chips"),
   providersTableBody: document.getElementById("providers-table-body"),
-  providerCrawlerRefreshBtn: document.getElementById("provider-crawler-refresh-btn"),
-  providerCrawlerAllBtn: document.getElementById("provider-crawler-all-btn"),
-  providerCrawlerSelectedBtn: document.getElementById("provider-crawler-selected-btn"),
-  providerCrawlerSelectAll: document.getElementById("provider-crawler-select-all"),
-  providerCrawlerTableBody: document.getElementById("provider-crawler-table-body"),
-  providerCrawlerHistoryBody: document.getElementById("provider-crawler-history-body"),
-  providerCrawlerStatus: document.getElementById("provider-crawler-status"),
-  providerCrawlerReview: document.getElementById("provider-crawler-review"),
-  providerCrawlerReviewBackdrop: document.getElementById("provider-crawler-review-backdrop"),
   providerSaveBtn: document.getElementById("provider-save-btn"),
   providerResetBtn: document.getElementById("provider-reset-btn"),
   providerDeleteBtn: document.getElementById("provider-delete-btn"),
@@ -18142,9 +18128,6 @@ function resolveAccessibleSectionForRole(targetId, roleLike) {
     sectionId = fallbackSectionId;
   }
   if (sectionId === "companies-section" && !roleAdmin) {
-    sectionId = fallbackSectionId;
-  }
-  if (sectionId === "provider-crawler-section" && !roleAdmin) {
     sectionId = fallbackSectionId;
   }
   if (sectionId === "incoming-invoices-section" && !roleAdmin) {
@@ -64034,7 +64017,6 @@ function setActiveSection(targetId) {
   );
   setSalesNavSubmenuOpen(
     targetId === "providers-section" ||
-      targetId === "provider-crawler-section" ||
       targetId === "provider-coverage-section" ||
       targetId === "tour-planner-section" ||
       targetId === "sales-leads-section" ||
@@ -64133,10 +64115,6 @@ function setActiveSection(targetId) {
     // ihn anschließend geschlossen durch die aktuelle Liste.
     renderProvidersTable();
     void refreshProviderOverviewFromSupabase({ force: true });
-  }
-  if (targetId === "provider-crawler-section") {
-    renderProviderCrawlerSection();
-    void loadProviderCrawlerRuns({ showStatus: true });
   }
 }
 
