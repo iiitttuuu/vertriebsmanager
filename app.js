@@ -2263,6 +2263,7 @@ const els = {
   providerCrawlerHistoryBody: document.getElementById("provider-crawler-history-body"),
   providerCrawlerStatus: document.getElementById("provider-crawler-status"),
   providerCrawlerReview: document.getElementById("provider-crawler-review"),
+  providerCrawlerReviewBackdrop: document.getElementById("provider-crawler-review-backdrop"),
   providerSaveBtn: document.getElementById("provider-save-btn"),
   providerResetBtn: document.getElementById("provider-reset-btn"),
   providerDeleteBtn: document.getElementById("provider-delete-btn"),
@@ -5106,7 +5107,7 @@ function bindEvents() {
     const closeButton = event.target.closest("button[data-provider-crawler-review-close]");
     const saveButton = event.target.closest("button[data-provider-crawler-save-review]");
     const approveButton = event.target.closest("button[data-provider-crawler-approve]");
-    if (closeButton) { providerCrawlerReviewRunId = ""; els.providerCrawlerReview.classList.add("hidden"); els.providerCrawlerReview.innerHTML = ""; }
+    if (closeButton) closeProviderCrawlerReview();
     if (saveButton) void saveProviderCrawlerReview(saveButton.dataset.providerCrawlerSaveReview, false);
     if (approveButton) void saveProviderCrawlerReview(approveButton.dataset.providerCrawlerApprove, true);
     const removeMediaButton = event.target.closest("button[data-provider-crawler-remove-media]");
@@ -5121,6 +5122,10 @@ function bindEvents() {
         }
       })();
     }
+  });
+  els.providerCrawlerReviewBackdrop?.addEventListener("click", () => closeProviderCrawlerReview());
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !els.providerCrawlerReview?.classList.contains("hidden")) closeProviderCrawlerReview();
   });
 
   els.navButtons.forEach((button) => {
@@ -63761,19 +63766,24 @@ async function processProviderCrawlerQueue() {
   }
 }
 
+function closeProviderCrawlerReview() {
+  providerCrawlerReviewRunId = "";
+  els.providerCrawlerReview?.classList.add("hidden");
+  els.providerCrawlerReview?.replaceChildren();
+  els.providerCrawlerReviewBackdrop?.classList.add("hidden");
+  els.providerCrawlerReviewBackdrop?.setAttribute("aria-hidden", "true");
+}
+
 async function openProviderCrawlerReview(runId) {
   const normalizedRunId = String(runId || "").trim();
   const client = getSupabaseClient();
   if (!normalizedRunId || !client || !els.providerCrawlerReview) return;
   providerCrawlerReviewRunId = normalizedRunId;
   els.providerCrawlerReview.classList.remove("hidden");
+  els.providerCrawlerReviewBackdrop?.classList.remove("hidden");
+  els.providerCrawlerReviewBackdrop?.setAttribute("aria-hidden", "false");
   els.providerCrawlerReview.textContent = "Crawler-Ergebnis wird geladen …";
-  requestAnimationFrame(() => {
-    els.providerCrawlerReview.scrollIntoView({
-      behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth",
-      block: "start",
-    });
-  });
+  requestAnimationFrame(() => els.providerCrawlerReview.focus({ preventScroll: true }));
   const [runResult, resultResult, experiencesResult, mediaResult] = await Promise.all([
     client.from(getProviderCrawlerRunsTable()).select("*").eq("id", normalizedRunId).maybeSingle(),
     client.from(getProviderCrawlerResultsTable()).select("*").eq("run_id", normalizedRunId).maybeSingle(),
@@ -63799,6 +63809,13 @@ async function openProviderCrawlerReview(runId) {
     return;
   }
   const facts = result.company_facts && typeof result.company_facts === "object" ? result.company_facts : {};
+  let signedMedia = [];
+  try {
+    const mediaResponse = await callProviderCrawlerApi("media_urls", { runId: normalizedRunId });
+    signedMedia = Array.isArray(mediaResponse?.media) ? mediaResponse.media : [];
+  } catch (_error) {
+    setProviderCrawlerStatus("Bilder konnten nicht geladen werden. Die Text-Ergebnisse sind weiterhin verfügbar.", "error");
+  }
   const sourceLine = (entry) => entry?.source_url && isSafeCrawlerSourceUrl(entry.source_url) ? `<span class="provider-crawler-source"><a href="${escapeHtml(entry.source_url)}" target="_blank" rel="noopener noreferrer">Quelle öffnen ↗</a></span>` : '<span class="provider-crawler-source">Keine Quelle gefunden</span>';
   const textBlocks = (value, fallback) => {
     const blocks = String(value || "").trim().split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
@@ -63809,13 +63826,18 @@ async function openProviderCrawlerReview(runId) {
   const directors = (Array.isArray(result.managing_directors) ? result.managing_directors : []).map((entry) => `<article class="provider-crawler-fact"><span>Person</span><strong>${escapeHtml(`${entry.first_name || ""} ${entry.last_name || ""}`.trim() || "Nicht gefunden")}</strong>${sourceLine(entry)}</article>`).join("") || '<p class="provider-crawler-empty">Nicht gefunden</p>';
   const mediaByExperience = new Map();
   (mediaResult.data || []).forEach((media) => { const key = String(media.experience_id || "provider"); const collection = mediaByExperience.get(key) || []; collection.push(media); mediaByExperience.set(key, collection); });
+  const signedMediaById = new Map(signedMedia.map((media) => [String(media.id || ""), media]));
+  const providerLogo = (mediaResult.data || []).find((media) => media.media_kind === "logo");
+  const providerLogoUrl = signedMediaById.get(String(providerLogo?.id || ""))?.signed_url || "";
   const experiences = (experiencesResult.data || []).map((entry) => {
-    const images = (mediaByExperience.get(String(entry.id)) || []).filter((image) => isSafeCrawlerSourceUrl(image.source_url)).slice(0, 4);
-    return `<article class="provider-crawler-experience-card"><div class="provider-crawler-experience-heading"><span>ERLEBNIS ${escapeHtml(String(entry.rank || "–"))}</span><h4>${escapeHtml(entry.platform_title || entry.original_title || "Erlebnis")}</h4></div><div class="provider-crawler-copy">${textBlocks(entry.description, "Für dieses Erlebnis konnte keine belastbare Beschreibung erzeugt werden.")}</div><div class="provider-crawler-experience-meta">${isSafeCrawlerSourceUrl(entry.direct_url) ? `<a href="${escapeHtml(entry.direct_url)}" target="_blank" rel="noopener noreferrer">Original-Angebot öffnen ↗</a>` : ""}${sourceLine(entry)}</div><div class="provider-crawler-media-links">${images.map((image) => `<span><a href="${escapeHtml(image.source_url)}" target="_blank" rel="noopener noreferrer">Bildquelle ↗</a> <button type="button" class="mini-btn" data-provider-crawler-remove-media="${escapeHtml(image.id)}">Entfernen</button></span>`).join("") || ""}</div></article>`;
+    const images = (mediaByExperience.get(String(entry.id)) || []).map((image) => ({ ...image, signed_url: signedMediaById.get(String(image.id || ""))?.signed_url || "" })).filter((image) => isSafeCrawlerSourceUrl(image.signed_url)).slice(0, 4);
+    const imageGallery = images.length ? `<div class="provider-crawler-image-gallery">${images.map((image) => `<figure><img src="${escapeHtml(image.signed_url)}" alt="${escapeHtml(entry.platform_title || entry.original_title || "Erlebnis")}" loading="lazy" /><figcaption><a href="${escapeHtml(image.source_url)}" target="_blank" rel="noopener noreferrer">Bildquelle ↗</a> <button type="button" class="mini-btn" data-provider-crawler-remove-media="${escapeHtml(image.id)}">Entfernen</button></figcaption></figure>`).join("")}</div>` : '<p class="provider-crawler-empty">Für dieses Erlebnis wurde kein verwendbares Bild gefunden.</p>';
+    return `<article class="provider-crawler-experience-card"><div class="provider-crawler-experience-heading"><span>ERLEBNIS ${escapeHtml(String(entry.rank || "–"))}</span><h4>${escapeHtml(entry.platform_title || entry.original_title || "Erlebnis")}</h4></div>${imageGallery}<div class="provider-crawler-copy">${textBlocks(entry.description, "Für dieses Erlebnis konnte keine belastbare Beschreibung erzeugt werden.")}</div><div class="provider-crawler-experience-meta">${isSafeCrawlerSourceUrl(entry.direct_url) ? `<a href="${escapeHtml(entry.direct_url)}" target="_blank" rel="noopener noreferrer">Original-Angebot öffnen ↗</a>` : ""}${sourceLine(entry)}</div></article>`;
   }).join("") || '<p class="provider-crawler-empty">Keine passenden Erlebnisse wurden auf den geprüften Seiten gefunden.</p>';
   const status = String(run.status || "–").replace(/_/g, " ");
   const website = isSafeCrawlerSourceUrl(run.website_snapshot) ? `<a href="${escapeHtml(run.website_snapshot)}" target="_blank" rel="noopener noreferrer">Website öffnen ↗</a>` : "";
-  els.providerCrawlerReview.innerHTML = `<div class="provider-crawler-result-hero"><div><p class="provider-analytics-eyebrow">REDAKTIONELLER CRAWL-ENTWURF</p><h3>${escapeHtml(run.provider_name_snapshot || "Anbieter")}</h3><p>${website || "Quellwebsite nicht verfügbar"}</p></div><div class="provider-crawler-run-metrics"><span><strong>${escapeHtml(String(run.pages_scanned ?? 0))}</strong> Seiten geprüft</span><span><strong>${escapeHtml(String(run.experiences_selected ?? 0))}</strong> Erlebnisse ausgewählt</span><span class="provider-crawler-status-badge">${escapeHtml(status)}</span></div><button type="button" class="mini-btn" data-provider-crawler-review-close>Schließen</button></div><section class="provider-crawler-profile"><p class="provider-crawler-slogan">${escapeHtml(result.platform_slogan || result.original_slogan || "Profil noch ohne Slogan")}</p><h4>Kurzprofil</h4><div class="provider-crawler-copy">${textBlocks(result.short_description, "Für dieses Kurzprofil reichen die belegten Informationen noch nicht aus.")}</div><h4>Detailbeschreibung</h4><div class="provider-crawler-copy provider-crawler-detail-copy">${textBlocks(result.detail_description, "Für diese Detailbeschreibung reichen die belegten Informationen noch nicht aus.")}</div></section><div class="provider-crawler-review-grid"><section><h4>Unternehmensdaten</h4><div class="provider-crawler-fact-list">${factList}</div></section><section><h4>Geschäftsführung</h4><div class="provider-crawler-fact-list">${directors}</div></section></div><section class="provider-crawler-offers"><div class="section-header"><div><p class="provider-analytics-eyebrow">KURATIERTE AUSWAHL</p><h4>Erlebnisse</h4></div></div><div class="provider-crawler-experience-list">${experiences}</div></section><details class="provider-crawler-editor"><summary>Texte redaktionell bearbeiten</summary><div class="provider-crawler-editor-fields"><label>Slogan<textarea data-provider-crawler-field="platform_slogan">${escapeHtml(result.platform_slogan || "")}</textarea></label><label>Kurzbeschreibung<textarea data-provider-crawler-field="short_description">${escapeHtml(result.short_description || "")}</textarea></label><label>Detailbeschreibung<textarea data-provider-crawler-field="detail_description">${escapeHtml(result.detail_description || "")}</textarea></label><label>Review-Notiz<textarea data-provider-crawler-field="review_notes">${escapeHtml(result.review_notes || "")}</textarea></label></div><div class="provider-crawler-actions"><button type="button" class="btn btn-secondary" data-provider-crawler-save-review="${escapeHtml(normalizedRunId)}">Änderungen speichern</button><button type="button" class="btn btn-success" data-provider-crawler-approve="${escapeHtml(normalizedRunId)}">Crawler-Ergebnis freigeben</button></div></details>`;
+  const logo = isSafeCrawlerSourceUrl(providerLogoUrl) ? `<img class="provider-crawler-logo" src="${escapeHtml(providerLogoUrl)}" alt="Logo von ${escapeHtml(run.provider_name_snapshot || "Anbieter")}" />` : '<div class="provider-crawler-logo provider-crawler-logo-placeholder">Kein Logo gefunden</div>';
+  els.providerCrawlerReview.innerHTML = `<div class="provider-crawler-result-hero">${logo}<div><p class="provider-analytics-eyebrow">REDAKTIONELLER CRAWL-ENTWURF</p><h3>${escapeHtml(run.provider_name_snapshot || "Anbieter")}</h3><p>${website || "Quellwebsite nicht verfügbar"}</p></div><div class="provider-crawler-run-metrics"><span><strong>${escapeHtml(String(run.pages_scanned ?? 0))}</strong> Seiten geprüft</span><span><strong>${escapeHtml(String(run.experiences_selected ?? 0))}</strong> Erlebnisse ausgewählt</span><span class="provider-crawler-status-badge">${escapeHtml(status)}</span></div><button type="button" class="mini-btn" data-provider-crawler-review-close>Schließen</button></div><section class="provider-crawler-profile"><p class="provider-crawler-slogan">${escapeHtml(result.platform_slogan || result.original_slogan || "Profil noch ohne Slogan")}</p><h4>Kurzprofil</h4><div class="provider-crawler-copy">${textBlocks(result.short_description, "Für dieses Kurzprofil reichen die belegten Informationen noch nicht aus.")}</div><h4>Detailbeschreibung</h4><div class="provider-crawler-copy provider-crawler-detail-copy">${textBlocks(result.detail_description, "Für diese Detailbeschreibung reichen die belegten Informationen noch nicht aus.")}</div></section><div class="provider-crawler-review-grid"><section><h4>Unternehmensdaten</h4><div class="provider-crawler-fact-list">${factList}</div></section><section><h4>Geschäftsführung</h4><div class="provider-crawler-fact-list">${directors}</div></section></div><section class="provider-crawler-offers"><div class="section-header"><div><p class="provider-analytics-eyebrow">KURATIERTE AUSWAHL</p><h4>Erlebnisse</h4></div></div><div class="provider-crawler-experience-list">${experiences}</div></section><details class="provider-crawler-editor"><summary>Texte redaktionell bearbeiten</summary><div class="provider-crawler-editor-fields"><label>Slogan<textarea data-provider-crawler-field="platform_slogan">${escapeHtml(result.platform_slogan || "")}</textarea></label><label>Kurzbeschreibung<textarea data-provider-crawler-field="short_description">${escapeHtml(result.short_description || "")}</textarea></label><label>Detailbeschreibung<textarea data-provider-crawler-field="detail_description">${escapeHtml(result.detail_description || "")}</textarea></label><label>Review-Notiz<textarea data-provider-crawler-field="review_notes">${escapeHtml(result.review_notes || "")}</textarea></label></div><div class="provider-crawler-actions"><button type="button" class="btn btn-secondary" data-provider-crawler-save-review="${escapeHtml(normalizedRunId)}">Änderungen speichern</button><button type="button" class="btn btn-success" data-provider-crawler-approve="${escapeHtml(normalizedRunId)}">Crawler-Ergebnis freigeben</button></div></details>`;
 }
 
 async function saveProviderCrawlerReview(runId, approve = false) {

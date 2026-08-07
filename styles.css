@@ -33035,16 +33035,33 @@ button.table-btn.delete-icon-button {
 }
 
 .provider-crawler-review {
-  margin-top: 1.25rem;
-  padding: 1.25rem;
+  position: fixed;
+  z-index: 101;
+  top: 3vh;
+  left: 50%;
+  width: min(1180px, calc(100vw - 2rem));
+  max-height: 94vh;
+  overflow: auto;
+  margin: 0;
+  padding: clamp(1rem, 2.5vw, 2rem);
   border: 1px solid var(--border-color, #d9e2ec);
-  border-radius: 0.9rem;
+  border-radius: 1rem;
   background: var(--surface-color, #fff);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.32);
+  transform: translateX(-50%);
+}
+
+.provider-crawler-review-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(3px);
 }
 
 .provider-crawler-result-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   gap: 1rem;
   align-items: start;
   padding-bottom: 1rem;
@@ -33057,6 +33074,24 @@ button.table-btn.delete-icon-button {
 .provider-crawler-offers h4 { margin: 0; }
 
 .provider-crawler-result-hero > div > p:last-child { margin-top: 0.35rem; }
+
+.provider-crawler-logo {
+  width: 78px;
+  height: 78px;
+  object-fit: contain;
+  padding: 0.35rem;
+  border: 1px solid var(--border-color, #d9e2ec);
+  border-radius: 0.8rem;
+  background: #fff;
+}
+
+.provider-crawler-logo-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted, #64748b);
+  font-size: 0.72rem;
+  text-align: center;
+}
 
 .provider-crawler-run-metrics {
   display: flex;
@@ -33155,6 +33190,37 @@ button.table-btn.delete-icon-button {
   background: var(--surface-color, #fff);
 }
 
+.provider-crawler-image-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.provider-crawler-image-gallery figure {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-color, #d9e2ec);
+  border-radius: 0.65rem;
+  background: #f8fafc;
+}
+
+.provider-crawler-image-gallery img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.provider-crawler-image-gallery figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+  padding: 0.45rem;
+  font-size: 0.75rem;
+}
+
 .provider-crawler-experience-heading > span {
   color: #0e7490;
   font-size: 0.72rem;
@@ -33204,6 +33270,13 @@ button.table-btn.delete-icon-button {
 @media (max-width: 760px) {
   .provider-crawler-actions { width: 100%; }
   .provider-crawler-actions .btn { flex: 1 1 100%; }
-  .provider-crawler-result-hero { grid-template-columns: 1fr; }
+  .provider-crawler-review {
+    top: 1vh;
+    width: calc(100vw - 0.8rem);
+    max-height: 98vh;
+    border-radius: 0.65rem;
+  }
+  .provider-crawler-result-hero { grid-template-columns: auto minmax(0, 1fr); }
   .provider-crawler-run-metrics { justify-content: flex-start; }
+  .provider-crawler-result-hero > .mini-btn { grid-column: 1 / -1; }
 }

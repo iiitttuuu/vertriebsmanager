@@ -41,5 +41,8 @@ Die Verbindung zum bestehenden Anbieter erfolgt nur über `provider_id`.
   ergänzt werden. Die Texte bleiben Entwürfe zur fachlichen Prüfung; ältere Crawl-Läufe
   werden nie überschrieben. Ein erneuter Crawl erzeugt immer einen separaten Lauf mit
   einem neuen redaktionellen Entwurf.
+- Logo und Angebotsbilder bleiben im privaten Storage-Bucket. Die Desktop-Ansicht lädt
+  sie nur über kurz gültige, serverseitig nach AAL2-Admin-Prüfung erzeugte Links; der
+  Bucket wird dafür nicht öffentlich geschaltet.
 - Freigeben bedeutet ausschließlich „Crawler-Revision fachlich geprüft“. Es löst
   keine Übernahme und keine Änderung des bestehenden Anbieters aus.

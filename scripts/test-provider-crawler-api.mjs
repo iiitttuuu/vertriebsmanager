@@ -100,6 +100,17 @@ const changedWhileQueued = await invoke(
 assert.equal(changedWhileQueued.res.payload.status, "skipped_already_created", "Unmittelbar vor dem Crawl wird dashboard_created erneut geprüft.");
 assert.equal(changedWhileQueued.calls.some((call) => call.url === "https://example.test/"), false, "Bei späterer Dashboard-Anlage wird keine Anbieter-Website abgerufen.");
 
+const signedMedia = await invoke(
+  { action: "media_urls", runId: "run-media" },
+  baseRoutes({ route: (url) => {
+    if (url.includes("/rest/v1/provider_crawl_runs?select=id")) return response(200, [{ id: "run-media" }]);
+    if (url.includes("/rest/v1/provider_crawl_media?select=")) return response(200, [{ id: "media-1", run_id: "run-media", media_kind: "logo", storage_bucket: "provider-crawler", storage_path: "provider/run/logo.png", source_url: "https://example.test/logo.png" }]);
+    if (url.includes("/storage/v1/object/sign/provider-crawler/provider/run/logo.png")) return response(200, { signedURL: "/object/sign/provider-crawler/provider/run/logo.png?token=test" });
+  } })
+);
+assert.equal(signedMedia.res.statusCode, 200, "AAL2-Admins können kurz gültige Bild-Links anfordern.");
+assert.equal(signedMedia.res.payload.media[0].signed_url, "https://crawler-test.supabase.co/storage/v1/object/sign/provider-crawler/provider/run/logo.png?token=test", "Private Bildpfade werden nur als zeitlich begrenzte Server-Signatur ausgegeben.");
+
 const editorialPages = [
   { url: "https://example.test/angebote", title: "Angebote", html: "<h1>Erlebnisse</h1><h2>Geführte Kajaktour</h2><a href=\"/angebote/kajak\">Geführte Kajaktour</a><p>Eine Tour auf dem See mit geschulten Guides.</p>", text: "Erlebnisse Geführte Kajaktour Eine Tour auf dem See mit geschulten Guides." },
   { url: "https://example.test/angebote/kajak", title: "Kajaktour", html: "<h1>Geführte Kajaktour</h1><p>Die Tour wird von erfahrenen Guides begleitet.</p>", text: "Geführte Kajaktour Die Tour wird von erfahrenen Guides begleitet." },
@@ -112,4 +123,4 @@ const courseSources = __providerCrawlerTestables.createOfferEditorialSources(edi
 assert.equal(courseSources[0].source_pages[0].source_url, "https://example.test/angebote/kajak", "Jeder Kurs erhält seine konkrete Kursseite als vorrangige Textquelle.");
 assert.equal(__providerCrawlerTestables.cleanEditorialText("Absatz eins\n\n\nAbsatz zwei"), "Absatz eins\n\nAbsatz zwei", "Redaktionelle Absätze bleiben beim Speichern erhalten.");
 
-console.log("Anbieter-Crawler-API geprüft: Eligibility, Race-Check und getrennte Anbieter-/Kursquellen.");
+console.log("Anbieter-Crawler-API geprüft: Eligibility, Race-Check, getrennte Quellen und private Bild-Links.");

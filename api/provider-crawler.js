@@ -14,6 +14,7 @@ const MAX_EDITORIAL_SOURCE_CHARS = 60_000;
 const MAX_OFFER_SOURCE_CHARS = 9_000;
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_REDIRECTS = 4;
+const MEDIA_URL_EXPIRY_SECONDS = 600;
 const CRAWLABLE_ROLES = new Set(["admin", "superadmin", "supaadmin"]);
 const ACTIVE_STATUSES = new Set(["queued", "running"]);
 const OFFER_HINT = /angebot|erlebnis|kurs|workshop|tour|aktivität|aktivitaet|ticket|eintritt|rafting|canyoning|kletter|yoga|wellness|führung|fuehrung|paragliding|sport|event/i;
@@ -162,9 +163,9 @@ function isBlockedIp(ip = "") {
   return normalized === "::1" || normalized.startsWith("fc") || normalized.startsWith("fd") || normalized.startsWith("fe80:");
 }
 
-async function assertSafeRemoteUrl(urlValue, rootUrl) {
+async function assertSafeRemoteUrl(urlValue, rootUrl, allowExternal = false) {
   const url = new URL(urlValue);
-  if (!["http:", "https:"].includes(url.protocol) || !sameCrawlerDomain(url.toString(), rootUrl)) throw new Error("URL liegt außerhalb der erlaubten Anbieter-Domain.");
+  if (!["http:", "https:"].includes(url.protocol) || (!allowExternal && !sameCrawlerDomain(url.toString(), rootUrl))) throw new Error("URL liegt außerhalb der erlaubten Anbieter-Domain.");
   const hostname = url.hostname.toLowerCase();
   if (!hostname || hostname === "localhost" || hostname.endsWith(".local")) throw new Error("Lokale oder nicht öffentliche Zieladresse ist gesperrt.");
   if (net.isIP(hostname) && isBlockedIp(hostname)) throw new Error("Private Zieladresse ist gesperrt.");
@@ -173,10 +174,10 @@ async function assertSafeRemoteUrl(urlValue, rootUrl) {
   return url;
 }
 
-async function safeFetch(urlValue, rootUrl, headers = {}, maxBytes = MAX_HTML_BYTES) {
+async function safeFetch(urlValue, rootUrl, headers = {}, maxBytes = MAX_HTML_BYTES, allowExternal = false) {
   let current = normalizeUrl(urlValue);
   for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect += 1) {
-    await assertSafeRemoteUrl(current, rootUrl);
+    await assertSafeRemoteUrl(current, rootUrl, allowExternal);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
@@ -222,12 +223,23 @@ function extractLinks(html, sourceUrl) {
 
 function extractImages(html, sourceUrl) {
   const images = [];
+  const seen = new Set();
+  const addImage = (candidate, alt = "") => {
+    const src = normalizeUrl(candidate, sourceUrl);
+    const key = src.toLowerCase();
+    if (!src || seen.has(key) || /favicon|icon|tracking|pixel|facebook|instagram|youtube|linkedin/i.test(`${src} ${alt}`)) return;
+    seen.add(key);
+    images.push({ url: src, sourceUrl, alt: cleanText(alt, 240) });
+  };
   for (const match of String(html).matchAll(/<img\b[^>]*>/gi)) {
     const tag = match[0];
     const srcset = attribute(tag, "srcset").split(",").map((entry) => entry.trim().split(/\s+/)[0]).filter(Boolean).pop();
-    const src = normalizeUrl(srcset || attribute(tag, "src") || attribute(tag, "data-src"), sourceUrl);
-    const alt = cleanText(attribute(tag, "alt"), 240);
-    if (src && !/favicon|icon|tracking|pixel|facebook|instagram|youtube|linkedin/i.test(`${src} ${alt}`)) images.push({ url: src, sourceUrl, alt });
+    addImage(srcset || attribute(tag, "src") || attribute(tag, "data-src"), attribute(tag, "alt"));
+  }
+  for (const match of String(html).matchAll(/<meta\b[^>]*>/gi)) {
+    const tag = match[0];
+    const property = attribute(tag, "property") || attribute(tag, "name");
+    if (/^og:image(?::url)?$/i.test(property)) addImage(attribute(tag, "content"), "Vorschaubild");
   }
   return images;
 }
@@ -390,7 +402,7 @@ function detectMime(buffer) {
 }
 
 async function storeImage(config, run, image, kind, experienceId = null) {
-  const fetched = await safeFetch(image.url, run.website_snapshot, { accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" }, MAX_IMAGE_BYTES);
+  const fetched = await safeFetch(image.url, run.website_snapshot, { accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" }, MAX_IMAGE_BYTES, true);
   const inputType = detectMime(fetched.buffer);
   if (!inputType) throw new Error("Nicht unterstütztes Bildformat.");
   const raster = await sharp(fetched.buffer, { density: 300, limitInputPixels: 40_000_000 }).rotate().png().toBuffer({ resolveWithObject: true });
@@ -412,6 +424,31 @@ async function updateRun(config, runId, body, expectedStatus = "") {
 
 async function logEvent(config, runId, eventType, actorId, payload = {}) {
   await rest(config, "provider_crawl_events", { method: "POST", body: { run_id: runId, event_type: eventType, payload, created_by_user_id: actorId || null } });
+}
+
+function isSafeStoragePath(value = "") {
+  const path = String(value || "").trim();
+  return Boolean(path) && path.split("/").every((segment) => segment && segment !== "." && segment !== "..");
+}
+
+async function createCrawlerMediaUrls(config, runId) {
+  const mediaResult = await rest(config, `provider_crawl_media?select=id,run_id,experience_id,media_kind,storage_bucket,storage_path,source_url&run_id=eq.${encodeURIComponent(runId)}&selected=eq.true`);
+  const media = Array.isArray(mediaResult.payload) ? mediaResult.payload : [];
+  const signed = await Promise.all(media.map(async (entry) => {
+    if (String(entry.storage_bucket || "") !== CRAWLER_BUCKET || !isSafeStoragePath(entry.storage_path)) return null;
+    const encodedPath = String(entry.storage_path).split("/").map(encodeURIComponent).join("/");
+    const response = await fetch(`${config.supabaseUrl}/storage/v1/object/sign/${CRAWLER_BUCKET}/${encodedPath}`, {
+      method: "POST",
+      headers: { apikey: config.serviceRoleKey, authorization: `Bearer ${config.serviceRoleKey}`, "content-type": "application/json" },
+      body: JSON.stringify({ expiresIn: MEDIA_URL_EXPIRY_SECONDS }),
+    });
+    const payload = await response.json().catch(() => null);
+    const rawUrl = String(payload?.signedURL || payload?.signedUrl || "");
+    if (!response.ok || !rawUrl) return null;
+    const signedUrl = /^https:\/\//i.test(rawUrl) ? rawUrl : `${config.supabaseUrl}/storage/v1${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}`;
+    return { id: entry.id, experience_id: entry.experience_id, media_kind: entry.media_kind, source_url: entry.source_url, signed_url: signedUrl, expires_in: MEDIA_URL_EXPIRY_SECONDS };
+  }));
+  return signed.filter(Boolean);
 }
 
 async function processRun(config, run, actor) {
@@ -575,6 +612,13 @@ export default async function handler(req, res) {
       if (!result.ok) return send(res, 404, { error: "Crawler-Ergebnis nicht gefunden oder nicht speicherbar." });
       await logEvent(config, runId, "review_edited", authorization.actor.userId);
       return send(res, 200, { ok: true, result: Array.isArray(result.payload) ? result.payload[0] : null });
+    }
+    if (action === "media_urls") {
+      const runId = cleanText(body.runId, 80);
+      if (!runId) return send(res, 400, { error: "Crawl-Lauf fehlt." });
+      const run = await rest(config, `provider_crawl_runs?select=id&id=eq.${encodeURIComponent(runId)}&limit=1`);
+      if (!Array.isArray(run.payload) || !run.payload[0]) return send(res, 404, { error: "Crawl-Lauf nicht gefunden." });
+      return send(res, 200, { ok: true, media: await createCrawlerMediaUrls(config, runId), expires_in: MEDIA_URL_EXPIRY_SECONDS });
     }
     if (action === "remove_media") {
       const mediaId = cleanText(body.mediaId, 80);
