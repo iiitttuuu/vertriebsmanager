@@ -48,6 +48,12 @@ Die Verbindung zum bestehenden Anbieter erfolgt nur über `provider_id`.
   wird derselbe Lauf bis zu zweimal erneut zugestellt. Der Cron verarbeitet weiterhin
   einen wartenden Eintrag je Aufruf als Sicherheitsnetz. Nach dem Einreihen kehrt die
   Oberfläche sofort zurück; der Crawl läuft ausschließlich im Hintergrund.
+- Die Text-Stufe ist auf kurze Einzelabrufe begrenzt. Die KI-Redaktion hat ein
+  eigenes Zeitlimit; falls sie nicht rechtzeitig antwortet, werden die bereits
+  belegten Fakten und Angebotsauszüge trotzdem als `partial` gespeichert und sind
+  sofort im Ergebnisdialog verfügbar. Ein durch einen Plattformabbruch länger als
+  zwei Minuten auf `running` stehender Lauf wird vom nächsten Worker-Aufruf
+  kontrolliert erneut eingereiht.
 - Für Plattformtexte erhält die KI nur geprüfte Auszüge der gefundenen Anbieter- und
   Angebotsseiten. Anbieterprofil und jeder einzelne Kurs erhalten getrennte
   Quellenkontexte; Kursbeschreibungen dürfen nicht aus allgemeinen Anbietertexten

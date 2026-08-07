@@ -1,7 +1,6 @@
 import crypto from "node:crypto";
 import dns from "node:dns/promises";
 import net from "node:net";
-import sharp from "sharp";
 import { send as sendQueueMessage } from "@vercel/queue";
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
@@ -20,6 +19,12 @@ const MAX_EDITORIAL_SOURCE_CHARS = 40_000;
 const MAX_OFFER_SOURCE_CHARS = 7_500;
 const REQUEST_TIMEOUT_MS = 8_000;
 const IMAGE_REQUEST_TIMEOUT_MS = 6_000;
+// Das Ergebnis muss deutlich innerhalb des 60-Sekunden-Limits des Queue-Consumers
+// gespeichert werden. KI-Texte sind eine Ergänzung; belegte Fakten und Angebote
+// dürfen nie auf eine langsame Modellantwort warten.
+const LLM_REQUEST_TIMEOUT_MS = 18_000;
+const SUPABASE_REQUEST_TIMEOUT_MS = 10_000;
+const STALE_RUN_AFTER_MS = 120_000;
 const MAX_REDIRECTS = 4;
 const MEDIA_URL_EXPIRY_SECONDS = 600;
 const MAX_MEDIA_PER_EXPERIENCE = 4;
@@ -32,6 +37,12 @@ const GENERIC_OFFER_TITLE = /^(angebote?|erlebnisse?|aktivitäten?|aktivitaeten?
 const NON_OFFER_TITLE = /^(mehr(?: erfahren| details?| infos?)?|details?|weiterlesen|buchen|jetzt buchen|zurück|übersicht|beschreibung|highlights?|ablauf|leistungen?|voraussetzungen?|informationen?|galerie|faq|kontakt|contact|impressum)$/i;
 const RELEVANT_PATH = /impressum|kontakt|contact|about|ueber|über|angebot|erlebnis|kurs|workshop|activit|tour|ticket|shop|fahrten?|foto|grill|koch/i;
 const EXCLUDED_PATH = /datenschutz|privacy|cookie|agb|terms|karriere|career|login|konto|account|warenkorb|cart|presse|press|suche|search/i;
+let sharpProcessor = null;
+
+async function getSharpProcessor() {
+  if (!sharpProcessor) sharpProcessor = import("sharp").then((module) => module.default);
+  return sharpProcessor;
+}
 
 function send(res, status, payload) {
   res.status(status).json(payload);
@@ -99,7 +110,11 @@ function isAuthorizedCrawlerWorker(req) {
 }
 
 async function rest(config, path, options = {}) {
-  const response = await fetch(`${config.supabaseUrl}/rest/v1/${path}`, {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SUPABASE_REQUEST_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetch(`${config.supabaseUrl}/rest/v1/${path}`, {
     method: options.method || "GET",
     headers: {
       apikey: config.serviceRoleKey,
@@ -109,7 +124,11 @@ async function rest(config, path, options = {}) {
       ...(options.headers || {}),
     },
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  });
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   const text = await response.text();
   let payload = null;
   try { payload = text ? JSON.parse(text) : null; } catch (_error) { payload = text || null; }
@@ -612,7 +631,23 @@ async function generatePlatformCopy(providerName, facts, offers, pages) {
     "course_sources[i] gehört ausschließlich zu experiences[i]. Schreibe jede Kurs- oder Erlebnisbeschreibung nur aus den dort enthaltenen source_pages und facts. Benenne, was stattfindet, für wen es gedacht ist oder was vermittelt wird – aber nur, wenn es explizit in dieser Kursquelle steht. Preis, Dauer, Ort oder Teilnehmerzahl darfst du nur erwähnen, wenn der betreffende Wert in facts als found markiert ist. Nutze keine Informationen anderer Kurse oder des allgemeinen Anbieterprofils, um Lücken aufzufüllen.",
     "Die Reihenfolge der Erlebnisse bleibt unverändert. Bei tatsächlich fehlender spezifischer Quelle bleibt nur das betroffene Feld leer.",
   ].join(" ");
-  const response = await fetch(OPENAI_RESPONSES_URL, { method: "POST", headers: { authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "content-type": "application/json" }, body: JSON.stringify({ model: process.env.PROVIDER_CRAWLER_OPENAI_MODEL || "gpt-5-mini", input: [{ role: "system", content: [{ type: "input_text", text: instructions }] }, { role: "user", content: [{ type: "input_text", text: JSON.stringify(input) }] }], text: { format: { type: "json_schema", name: "provider_crawl_copy", strict: true, schema } } }) });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LLM_REQUEST_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetch(OPENAI_RESPONSES_URL, {
+      method: "POST",
+      headers: { authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        model: process.env.PROVIDER_CRAWLER_OPENAI_MODEL || "gpt-5-mini",
+        input: [{ role: "system", content: [{ type: "input_text", text: instructions }] }, { role: "user", content: [{ type: "input_text", text: JSON.stringify(input) }] }],
+        text: { format: { type: "json_schema", name: "provider_crawl_copy", strict: true, schema } },
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!response.ok) throw new Error("Die KI-Textgenerierung ist fehlgeschlagen.");
   const parsed = JSON.parse(getOutputText(await response.json()) || "{}");
   return parsed && Array.isArray(parsed.experiences) ? parsed : null;
@@ -629,6 +664,7 @@ async function storeImage(config, run, image, kind, experienceId = null) {
   const fetched = await safeFetch(image.url, run.website_snapshot, { accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" }, MAX_IMAGE_BYTES, true, IMAGE_REQUEST_TIMEOUT_MS);
   const inputType = detectMime(fetched.buffer);
   if (!inputType) throw new Error("Nicht unterstütztes Bildformat.");
+  const sharp = await getSharpProcessor();
   const raster = await sharp(fetched.buffer, { density: 300, limitInputPixels: 40_000_000 }).rotate().png().toBuffer({ resolveWithObject: true });
   const fileBuffer = raster.data;
   const imageHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
@@ -888,7 +924,25 @@ export async function processProviderCrawlerQueueJob(message = {}, metadata = {}
     : claimAndProcessQueuedTextRun(config, actor, runId, deliveryCount);
 }
 
+async function recoverStaleCrawlerRuns(config) {
+  const staleBefore = new Date(Date.now() - STALE_RUN_AFTER_MS).toISOString();
+  const stale = await rest(config, `provider_crawl_runs?select=id&status=eq.running&started_at=lt.${encodeURIComponent(staleBefore)}&limit=10`);
+  const runs = Array.isArray(stale.payload) ? stale.payload : [];
+  await Promise.all(runs.map(async (run) => {
+    const recovered = await rest(config, `provider_crawl_runs?id=eq.${encodeURIComponent(run.id)}&status=eq.running&started_at=lt.${encodeURIComponent(staleBefore)}`, {
+      method: "PATCH",
+      body: { status: "queued", error_code: "crawl_recovered", error_message: "Der vorherige Lauf wurde nicht abgeschlossen und wird erneut gestartet." },
+    });
+    if (Array.isArray(recovered.payload) && recovered.payload[0]) {
+      await logEvent(config, run.id, "queued", null, { reason: "stale_running_recovered" });
+      await publishCrawlerJob(run.id, "text");
+    }
+  }));
+  return runs.length;
+}
+
 async function claimAndProcessNext(config, actor) {
+  await recoverStaleCrawlerRuns(config);
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const queued = await rest(config, "provider_crawl_runs?select=*&status=eq.queued&order=queued_at.asc&limit=1");
     const run = Array.isArray(queued.payload) ? queued.payload[0] : null;
@@ -1033,4 +1087,5 @@ export const __providerCrawlerTestables = Object.freeze({
   extractExperienceFacts,
   scoreCrawlerLink,
   cleanEditorialText,
+  recoverStaleCrawlerRuns,
 });

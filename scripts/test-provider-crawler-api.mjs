@@ -100,6 +100,19 @@ const changedWhileQueued = await invoke(
 assert.equal(changedWhileQueued.res.payload.status, "skipped_already_created", "Unmittelbar vor dem Crawl wird dashboard_created erneut geprüft.");
 assert.equal(changedWhileQueued.calls.some((call) => call.url === "https://example.test/"), false, "Bei späterer Dashboard-Anlage wird keine Anbieter-Website abgerufen.");
 
+const recoveredStaleRun = await invoke(
+  { action: "process_next" },
+  baseRoutes({ route: (url, options) => {
+    if (url.includes("/rest/v1/provider_crawl_runs?select=id&status=eq.running")) return response(200, [{ id: "run-stale" }]);
+    if (url.includes("/rest/v1/provider_crawl_runs?id=eq.run-stale&status=eq.running") && options.method === "PATCH") return response(200, [{ id: "run-stale", status: "queued" }]);
+    if (url.includes("/rest/v1/provider_crawl_events")) return response(201, []);
+    if (url.includes("/rest/v1/provider_crawl_runs?select=*&status=eq.queued")) return response(200, []);
+    if (url.includes("/rest/v1/provider_crawl_runs?select=*&status=in.(completed,partial)&error_code=eq.media_pending")) return response(200, []);
+  } })
+);
+assert.equal(recoveredStaleRun.res.statusCode, 200, "Ein hängender Lauf kann vom Fallback-Worker wieder aufgenommen werden.");
+assert.ok(recoveredStaleRun.calls.some((call) => call.url.includes("id=eq.run-stale&status=eq.running") && call.options.method === "PATCH"), "Stale running-Läufe werden nur mit einem Status-Guard wieder eingereiht.");
+
 const deferredMedia = await invoke(
   { action: "process_next" },
   baseRoutes({ route: (url, options) => {
